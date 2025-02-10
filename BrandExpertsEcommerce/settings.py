@@ -93,9 +93,9 @@ AUTH_USER_MODEL = 'products_app.CustomUser'
 CSRF_TRUSTED_ORIGINS = [
     "https://api.brandexperts.ae",
     "https://dash.brandexperts.ae",
-    "https://www.brandexperts.ae",  # Include 'www' if applicable
+    "https://www.brandexperts.ae",
+    "http://localhost:5173", 
 ]
-
 
 SECURE_SSL_REDIRECT = False
 
