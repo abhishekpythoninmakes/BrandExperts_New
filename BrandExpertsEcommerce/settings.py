@@ -97,10 +97,14 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 
+SECURE_SSL_REDIRECT = False
+
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "https://www.brandexperts.ae",
+    "https://dash.brandexperts.ae",
 ]
+
 
 CORS_ALLOW_CREDENTIALS = True
 
@@ -119,8 +123,8 @@ CORS_ALLOW_HEADERS = [
     "accept",
     "origin",
     "x-requested-with",
+    "x-csrftoken"
 ]
-
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
 
