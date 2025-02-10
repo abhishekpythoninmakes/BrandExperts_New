@@ -89,8 +89,8 @@ DATABASES = {
 AUTH_USER_MODEL = 'products_app.CustomUser'
 
 CSRF_TRUSTED_ORIGINS = [
-    "https://api.brandexperts.ae/",
-    "https://dash.brandexperts.ae/"  # Include the 'www' subdomain if needed
+    "https://api.brandexperts.ae",
+    "https://dash.brandexperts.ae"  # Include the 'www' subdomain if needed
 ]
 
 
