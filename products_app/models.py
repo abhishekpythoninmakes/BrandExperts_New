@@ -12,7 +12,25 @@ class CustomUser(AbstractUser):
 
 sizes_available =  (('inches','Inches'),('feet','Feet'))
 
+class Category(models.Model):
+    category_name = models.CharField(max_length=900,null=True,blank=True)
+    description = models.TextField(null=True,blank=True)
+    category_image = models.ImageField(upload_to='category_images',null=True,blank=True)
+
+    def __str__(self):
+        return self.category_name
+
+class Subcategory(models.Model):
+    category = models.ForeignKey(Category,null=True,blank=True,on_delete=models.CASCADE)
+    subcategory_name = models.CharField(max_length=900,null=True,blank=True)
+    description = models.TextField(null=True,blank=True)
+    subcategory_image = models.ImageField(upload_to='subcategory_images', null=True, blank=True)
+
+    def __str__(self):
+        return self.subcategory_name
+
 class Product(models.Model):
+    subcategory = models.ForeignKey(Subcategory,on_delete=models.CASCADE,null=True,blank=True)
     name = models.CharField(max_length=900,null=True,blank=True)
     description = models.TextField(null=True,blank=True)
     image1  = models.URLField(null=True,blank=True)

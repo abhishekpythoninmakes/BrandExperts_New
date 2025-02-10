@@ -33,6 +33,7 @@ ALLOWED_HOSTS = ['dash.brandexperts.ae']
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
+    'corsheaders',
     'django.contrib.contenttypes',
     'whitenoise.runserver_nostatic',
     'django.contrib.sessions',
@@ -44,6 +45,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -92,6 +94,31 @@ CSRF_TRUSTED_ORIGINS = [
     "https://api.brandexperts.ae",
     "https://dash.brandexperts.ae",
     "https://www.brandexperts.ae",  # Include 'www' if applicable
+]
+
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "https://www.brandexperts.ae",
+]
+
+CORS_ALLOW_CREDENTIALS = True
+
+CORS_ALLOW_METHODS = [
+    "GET",
+    "POST",
+    "PUT",
+    "PATCH",
+    "DELETE",
+    "OPTIONS",
+]
+
+CORS_ALLOW_HEADERS = [
+    "authorization",
+    "content-type",
+    "accept",
+    "origin",
+    "x-requested-with",
 ]
 
 # Password validation
