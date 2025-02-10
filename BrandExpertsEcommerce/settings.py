@@ -94,7 +94,7 @@ CSRF_TRUSTED_ORIGINS = [
     "https://api.brandexperts.ae",
     "https://dash.brandexperts.ae",
     "https://www.brandexperts.ae",
-    "http://localhost:5173", 
+    "http://localhost:5173",
 ]
 
 SECURE_SSL_REDIRECT = False
