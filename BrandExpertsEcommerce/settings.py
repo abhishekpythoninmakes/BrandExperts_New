@@ -88,6 +88,12 @@ DATABASES = {
 
 AUTH_USER_MODEL = 'products_app.CustomUser'
 
+CSRF_TRUSTED_ORIGINS = [
+    "https://api.brandexperts.ae/",
+    "https://dash.brandexperts.ae/"  # Include the 'www' subdomain if needed
+]
+
+
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
 
