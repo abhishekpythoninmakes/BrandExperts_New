@@ -100,13 +100,35 @@ CSRF_TRUSTED_ORIGINS = [
 SECURE_SSL_REDIRECT = False
 
 CORS_ALLOWED_ORIGINS = [
+    "https://brandexperts.ae",
     "http://localhost:5173",
     "https://www.brandexperts.ae",
     "https://dash.brandexperts.ae",
 ]
 
 
+CORS_ALLOW_ALL_ORIGINS = False
+
+CORS_ORIGIN_WHITELIST = [
+    "https://brandexperts.ae",
+    "http://localhost:5173",
+    "https://www.brandexperts.ae",
+    "https://dash.brandexperts.ae",
+]
+
+# Add these settings
 CORS_ALLOW_CREDENTIALS = True
+CORS_ORIGIN_ALLOW_ALL = False
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://brandexperts.ae",
+    "https://api.brandexperts.ae",
+    "https://dash.brandexperts.ae",
+    "https://www.brandexperts.ae",
+    "http://localhost:5173",
+]
+
+
 
 CORS_ALLOW_METHODS = [
     "GET",
