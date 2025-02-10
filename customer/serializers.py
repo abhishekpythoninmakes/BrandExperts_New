@@ -2,19 +2,15 @@ from rest_framework import serializers
 from django.contrib.auth.hashers import make_password
 from .models import CustomUser, Customer
 
+
 class CustomerRegistrationSerializer(serializers.Serializer):
     first_name = serializers.CharField(max_length=150)
     last_name = serializers.CharField(max_length=150)
     email = serializers.EmailField()
     mobile = serializers.CharField(max_length=20)
     password = serializers.CharField(write_only=True)
-    confirm_password = serializers.CharField(write_only=True)
 
     def validate(self, data):
-        # Check if passwords match
-        if data['password'] != data['confirm_password']:
-            raise serializers.ValidationError("Password and Confirm Password do not match.")
-
         # Check if email already exists
         if CustomUser.objects.filter(username=data['email']).exists():
             raise serializers.ValidationError("A user with this email already exists.")
