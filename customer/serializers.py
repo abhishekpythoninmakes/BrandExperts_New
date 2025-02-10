@@ -6,7 +6,6 @@ class CustomerRegistrationSerializer(serializers.Serializer):
     first_name = serializers.CharField(max_length=150)
     last_name = serializers.CharField(max_length=150)
     email = serializers.EmailField()
-    dob = serializers.DateField()
     mobile = serializers.CharField(max_length=20)
     password = serializers.CharField(write_only=True)
     confirm_password = serializers.CharField(write_only=True)
@@ -39,7 +38,6 @@ class CustomerRegistrationSerializer(serializers.Serializer):
         # Create the Customer instance
         customer = Customer.objects.create(
             user=user,
-            dob=validated_data['dob'],
             mobile=validated_data['mobile']
         )
         return customer
