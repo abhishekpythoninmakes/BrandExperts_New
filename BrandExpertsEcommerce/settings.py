@@ -25,9 +25,7 @@ SECRET_KEY = 'django-insecure-t7*2el()8a*qrz%!p#quy8m-%6rlgb(7m@#xk*!(tk+m95#dk9
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = [
-    'dash.brandexperts.ae'
-]
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
