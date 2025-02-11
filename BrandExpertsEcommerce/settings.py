@@ -26,10 +26,7 @@ SECRET_KEY = 'django-insecure-t7*2el()8a*qrz%!p#quy8m-%6rlgb(7m@#xk*!(tk+m95#dk9
 DEBUG = True
 
 ALLOWED_HOSTS = [
-    'dash.brandexperts.ae',
-    'www.brandexperts.ae',
-    'brandexperts.ae',
-    'localhost',
+    'dash.brandexperts.ae'
 ]
 
 
