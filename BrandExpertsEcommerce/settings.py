@@ -25,7 +25,9 @@ SECRET_KEY = 'django-insecure-t7*2el()8a*qrz%!p#quy8m-%6rlgb(7m@#xk*!(tk+m95#dk9
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = [
+    'dash.brandexperts.ae'
+]
 
 
 # Application definition
@@ -90,8 +92,6 @@ DATABASES = {
 
 AUTH_USER_MODEL = 'products_app.CustomUser'
 
-
-SECURE_SSL_REDIRECT = True
 
 CORS_ALLOWED_ORIGINS = [
     "https://brandexperts.ae",
