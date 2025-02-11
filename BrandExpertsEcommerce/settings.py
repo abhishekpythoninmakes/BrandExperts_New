@@ -105,16 +105,10 @@ CORS_ALLOWED_ORIGINS = [
     "https://dash.brandexperts.ae",
 ]
 
-CORS_ORIGIN_WHITELIST = [
-    "https://brandexperts.ae",
-    "http://localhost:5173",
-    "https://www.brandexperts.ae",
-    "https://dash.brandexperts.ae",
-]
 
 
 CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOW_ALL_ORIGINS = True
+
 
 CSRF_TRUSTED_ORIGINS = [
     "https://brandexperts.ae",
@@ -144,6 +138,12 @@ CORS_ALLOW_HEADERS = [
     "x-csrftoken"
 ]
 
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+
+SECURE_HSTS_SECONDS = 31536000
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = True
 
 
 # Password validation
