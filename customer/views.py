@@ -1,6 +1,5 @@
 from django.db import IntegrityError
 from django.shortcuts import render
-from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
@@ -11,7 +10,9 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from .models import *
 from rest_framework.permissions import IsAuthenticated
 from datetime import date
-from django.contrib.auth import authenticate
+from django.contrib.auth import authenticate, logout
+
+
 # Create your views here.
 
 # Customer Registration
@@ -152,3 +153,127 @@ def create_custom_product(request):
         return Response({"error": "Customer profile not found"}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# Adding Custom Product To Cart
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def add_custom_product_to_cart(request):
+    try:
+        user = request.user
+        customer = Customer.objects.get(user=user)
+
+        # Get custom product ID from request
+        custom_product_id = request.data.get("custom_product_id")
+
+        # Validate if the custom product exists
+        try:
+            custom_product = CustomProduct.objects.get(id=custom_product_id, customer=customer)
+        except CustomProduct.DoesNotExist:
+            return Response({"error": "Invalid Custom Product ID or not owned by user"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Get or create cart for the customer
+        cart, created = Cart.objects.get_or_create(customer=customer, status="active")
+
+        # Check if product already in cart
+        cart_item, item_created = CartItem.objects.get_or_create(
+            cart=cart,
+            custom_product=custom_product,
+            defaults={"quantity": custom_product.quantity, "price": custom_product.price}
+        )
+
+        # If item already exists, update quantity and price
+        if not item_created:
+            cart_item.quantity += custom_product.quantity
+            cart_item.price = custom_product.price  # Ensure price is updated
+            cart_item.save()
+
+        # Serialize response
+        serializer = CartItemSerializer(cart_item, context={"request": request})
+
+        return Response(
+            {
+                "message": f"Custom Product '{custom_product.product.name}' added to cart successfully",
+                "cart_item": serializer.data
+            },
+            status=status.HTTP_201_CREATED
+        )
+
+    except Customer.DoesNotExist:
+        return Response({"error": "Customer profile not found"}, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# CART VIEW API
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_cart_details(request):
+    try:
+        user = request.user
+        customer = Customer.objects.get(user=user)
+
+        # Fetch the active cart of the logged-in customer
+        cart = Cart.objects.filter(customer=customer, status="active").first()
+
+        if not cart:
+            return Response({"message": "Your cart is empty."}, status=status.HTTP_200_OK)
+
+        # Fetch cart items
+        cart_items = cart.items.all()
+        serializer = CartItemSerializer(cart_items, many=True, context={"request": request})
+
+        # Calculate total price and total products
+        total_price = sum(item.total_price for item in cart_items)
+        total_products = cart_items.count()
+
+        return Response(
+            {
+                "cart_id": cart.id,
+                "customer_name": customer.user.first_name,
+                "total_products": total_products,
+                "total_price": str(total_price),
+                "cart_items": serializer.data,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    except Customer.DoesNotExist:
+        return Response({"error": "Customer profile not found"}, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+
+
+class LogoutAPIView(APIView):
+    permission_classes = [IsAuthenticated]  # Ensure only authenticated users can access this view
+
+    def post(self, request):
+        try:
+            # Get the refresh token from the request data
+            refresh_token = request.data.get("refresh_token")
+            if not refresh_token:
+                return Response(
+                    {"error": "Refresh token is required"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Blacklist the refresh token
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+
+            # Return success response
+            return Response(
+                {"message": "Logged out successfully"},
+                status=status.HTTP_200_OK
+            )
+
+        except Exception as e:
+            return Response(
+                {"error": "Invalid token or token already blacklisted"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+

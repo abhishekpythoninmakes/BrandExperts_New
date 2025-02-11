@@ -8,4 +8,8 @@ urlpatterns = [
     path('login/', views.LoginAPIView.as_view(), name='login'),
     path('token/refresh/',TokenRefreshView.as_view(), name='token_refresh'),
     path("custom-product/create/", views.create_custom_product, name="create_custom_product"),
+    path("cart/add-custom-product/", views.add_custom_product_to_cart, name="add_custom_product_to_cart"),
+    path("cart/details/", views.get_cart_details, name="get_cart_details"),
+    path('logout/', views.LogoutAPIView.as_view(), name='logout'),
+
 ]
