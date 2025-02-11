@@ -1,5 +1,4 @@
 from django.db import IntegrityError
-from django.http import HttpResponse
 from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.permissions import AllowAny
@@ -18,14 +17,6 @@ def home(request):
 
 class CustomerRegistrationView(APIView):
     permission_classes = [AllowAny]
-    def options(self, request, *args, **kwargs):
-        # Handle preflight CORS request
-        response = HttpResponse()
-        response['Access-Control-Allow-Origin'] = request.headers.get('Origin')
-        response['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
-        response['Access-Control-Allow-Headers'] = 'Content-Type, X-CSRFToken'
-        response['Access-Control-Allow-Credentials'] = 'true'
-        return response
 
     def post(self, request, *args, **kwargs):
         serializer = CustomerRegistrationSerializer(data=request.data)

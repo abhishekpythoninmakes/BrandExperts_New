@@ -118,7 +118,7 @@ CORS_ORIGIN_WHITELIST = [
 
 # Add these settings
 CORS_ALLOW_CREDENTIALS = True
-CORS_ORIGIN_ALLOW_ALL = False
+CORS_ORIGIN_ALLOW_ALL=True
 
 CSRF_TRUSTED_ORIGINS = [
     "https://brandexperts.ae",
@@ -147,6 +147,9 @@ CORS_ALLOW_HEADERS = [
     "x-requested-with",
     "x-csrftoken"
 ]
+
+
+
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
 
