@@ -62,62 +62,44 @@ class CustomerRegistrationView(APIView):
 # CUSTOMER LOGIN
 
 class LoginAPIView(APIView):
+    permission_classes = [AllowAny]  # Make sure login doesn't require authentication
+
     def post(self, request):
-        # Extract username and password from request data
+        print("Login attempt with data:", request.data)  # Debugging
+
         username = request.data.get("username")
         password = request.data.get("password")
 
-        # Check if username and password are provided
         if not username or not password:
-            return Response(
-                {"error": "Username and password are required"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": "Username and password are required"},
+                            status=status.HTTP_400_BAD_REQUEST)
 
-        # Authenticate the user
         user = authenticate(username=username, password=password)
 
-        # If authentication fails, return an error
         if user is None:
-            return Response(
-                {"error": "Invalid credentials"},
-                status=status.HTTP_401_UNAUTHORIZED
-            )
+            return Response({"error": "Invalid credentials"},
+                            status=status.HTTP_401_UNAUTHORIZED)
 
-        # Generate JWT tokens
+        refresh = RefreshToken.for_user(user)
+        access_token = str(refresh.access_token)
+
         try:
-            refresh = RefreshToken.for_user(user)
-            access_token = str(refresh.access_token)
+            customer = Customer.objects.get(user=user)
+            customer_id = customer.id
+            mobile = customer.mobile
+        except Customer.DoesNotExist:
+            customer_id = None
+            mobile = None
 
-            # Fetch Customer details
-            try:
-                customer = Customer.objects.get(user=user)
-                customer_id = customer.id
-                mobile = customer.mobile
-            except Customer.DoesNotExist:
-                customer_id = None
-                mobile = None
-
-            # Return success response
-            return Response(
-                {
-                    "user_id": user.id,
-                    "customer_id": customer_id,
-                    "access_token": access_token,
-                    "refresh_token": str(refresh),
-                    "user_details": {
-                        "username": user.username,
-                        "first_name": user.first_name,
-                        "email": user.email,
-                        "mobile": mobile,
-                    }
-                },
-                status=status.HTTP_200_OK
-            )
-
-        except Exception as e:
-            # Handle unexpected errors
-            return Response(
-                {"error": "An unexpected error occurred. Please try again later."},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+        return Response({
+            "user_id": user.id,
+            "customer_id": customer_id,
+            "access_token": access_token,
+            "refresh_token": str(refresh),
+            "user_details": {
+                "username": user.username,
+                "first_name": user.first_name,
+                "email": user.email,
+                "mobile": mobile,
+            }
+        }, status=status.HTTP_200_OK)
