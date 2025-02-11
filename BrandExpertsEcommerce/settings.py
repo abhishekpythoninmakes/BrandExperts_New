@@ -30,6 +30,8 @@ ALLOWED_HOSTS = [
     'www.brandexperts.ae',
     'brandexperts.ae',
     'localhost',
+    '127.0.0.1',
+    'http://localhost:5173',
 ]
 
 

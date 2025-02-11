@@ -3,6 +3,8 @@ from .models import *
 # Register your models here.
 
 admin.site.register(CustomUser)
+admin.site.register(Category)
+admin.site.register(Subcategory)
 admin.site.register(Product)
 admin.site.register(Product_overview)
 admin.site.register(Product_specifications)
