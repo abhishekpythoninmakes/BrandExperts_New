@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.hashers import make_password
-from .models import CustomUser, Customer
+from .models import *
 
 
 class CustomerRegistrationSerializer(serializers.Serializer):
@@ -39,3 +39,10 @@ class CustomerRegistrationSerializer(serializers.Serializer):
             mobile=validated_data['mobile']
         )
         return customer
+
+
+class CustomProductSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomProduct
+        fields = "__all__"  # Includes all fields
+        read_only_fields = ["status", "created_at", "customer"]

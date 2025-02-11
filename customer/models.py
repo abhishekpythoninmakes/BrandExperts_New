@@ -52,7 +52,7 @@ class CustomProduct(models.Model):
     custom_width = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
     custom_height = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
     size_unit = models.CharField(max_length=10, choices=SIZE_CHOICES, default='inches')
-    design_image = models.ImageField(upload_to="customer_designs/", null=True, blank=True)
+    design_image = models.URLField(null=True, blank=True)
 
     # Order Status
     quantity = models.PositiveIntegerField(default=1)
