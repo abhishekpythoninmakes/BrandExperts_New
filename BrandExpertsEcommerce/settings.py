@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'customer',
     'products_app',
     'rest_framework',
+    'rest_framework_simplejwt',
 ]
 
 MIDDLEWARE = [
@@ -191,3 +192,21 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+from datetime import timedelta
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+}
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=30),  # 30 days for access token  # Optional: Set refresh token to 60 days
+    'ROTATE_REFRESH_TOKENS': True,  # Optional: Rotate refresh tokens upon use
+    'BLACKLIST_AFTER_ROTATION': True,  # Optional: Blacklist old refresh tokens
+    'ALGORITHM': 'HS256',  # Default algorithm for signing tokens
+}

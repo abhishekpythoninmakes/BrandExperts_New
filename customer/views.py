@@ -6,7 +6,10 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, serializers
 from .serializers import CustomerRegistrationSerializer
-
+from rest_framework_simplejwt.tokens import RefreshToken
+from .models import *
+from datetime import date
+from django.contrib.auth import authenticate
 # Create your views here.
 
 # Customer Registration
@@ -55,3 +58,66 @@ class CustomerRegistrationView(APIView):
                 "status_code": status.HTTP_500_INTERNAL_SERVER_ERROR
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
+# CUSTOMER LOGIN
+
+class LoginAPIView(APIView):
+    def post(self, request):
+        # Extract username and password from request data
+        username = request.data.get("username")
+        password = request.data.get("password")
+
+        # Check if username and password are provided
+        if not username or not password:
+            return Response(
+                {"error": "Username and password are required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Authenticate the user
+        user = authenticate(username=username, password=password)
+
+        # If authentication fails, return an error
+        if user is None:
+            return Response(
+                {"error": "Invalid credentials"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        # Generate JWT tokens
+        try:
+            refresh = RefreshToken.for_user(user)
+            access_token = str(refresh.access_token)
+
+            # Fetch Customer details
+            try:
+                customer = Customer.objects.get(user=user)
+                customer_id = customer.id
+                mobile = customer.mobile
+            except Customer.DoesNotExist:
+                customer_id = None
+                mobile = None
+
+            # Return success response
+            return Response(
+                {
+                    "user_id": user.id,
+                    "customer_id": customer_id,
+                    "access_token": access_token,
+                    "refresh_token": str(refresh),
+                    "user_details": {
+                        "username": user.username,
+                        "first_name": user.first_name,
+                        "email": user.email,
+                        "mobile": mobile,
+                    }
+                },
+                status=status.HTTP_200_OK
+            )
+
+        except Exception as e:
+            # Handle unexpected errors
+            return Response(
+                {"error": "An unexpected error occurred. Please try again later."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
