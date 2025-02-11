@@ -27,9 +27,11 @@ class CustomerRegistrationSerializer(serializers.Serializer):
             username=validated_data['email'],
             email=validated_data['email'],
             first_name=validated_data['first_name'],
-            last_name=validated_data['last_name'],
-            password=make_password(validated_data['password'])  # Hash the password
+            last_name=validated_data['last_name']
         )
+        # Set the password using set_password
+        user.set_password(validated_data['password'])
+        user.save()
 
         # Create the Customer instance
         customer = Customer.objects.create(
