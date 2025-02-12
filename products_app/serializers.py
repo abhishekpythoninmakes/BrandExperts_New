@@ -18,10 +18,11 @@ class CategorySerializer(serializers.ModelSerializer):
 
 class SubcategorySerializer(serializers.ModelSerializer):
     subcategory_image_url = serializers.SerializerMethodField()
+    status = serializers.CharField(source="status.status", allow_null=True)
 
     class Meta:
         model = Subcategory
-        fields = ["id", "subcategory_name", "description", "subcategory_image_url"]
+        fields = ["id", "subcategory_name", "description", "subcategory_image_url","status"]
 
     def get_subcategory_image_url(self, obj):
         request = self.context.get("request")
@@ -114,7 +115,8 @@ class DetailedProductSerializer(serializers.ModelSerializer):
                 "id": obj.subcategory.id,
                 "name": obj.subcategory.subcategory_name,
                 "description": obj.subcategory.description,
-                "image": obj.subcategory.subcategory_image.url if obj.subcategory.subcategory_image else None
+                "image": obj.subcategory.subcategory_image.url if obj.subcategory.subcategory_image else None,
+                "status":obj.subcategory.status
             }
         return None
 

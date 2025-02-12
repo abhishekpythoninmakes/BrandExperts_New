@@ -295,6 +295,7 @@ def get_categories_by_parent(request, parent_category_id):
                     "subcategory_id": sub.id,
                     "subcategory_name": sub.subcategory_name,
                     "description": sub.description,
+                    "status":sub.status.status if sub.status else None,
                     "subcategory_image": request.build_absolute_uri(sub.subcategory_image.url) if sub.subcategory_image else None
                 }
                 for sub in subcategories

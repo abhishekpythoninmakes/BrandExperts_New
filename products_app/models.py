@@ -32,6 +32,12 @@ class Category(models.Model):
     def __str__(self):
         return self.category_name
 
+class Subcategory_status(models.Model):
+    status = models.CharField(max_length=500,null=True,blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.status if self.status else "No Status"
 
 class Subcategory(models.Model):
     category = models.ForeignKey(Category, on_delete=models.CASCADE, null=True, blank=True,
@@ -39,6 +45,7 @@ class Subcategory(models.Model):
     subcategory_name = models.CharField(max_length=900, null=True, blank=True)
     description = models.TextField(null=True, blank=True)
     subcategory_image = models.ImageField(upload_to='subcategory_images', null=True, blank=True)
+    status = models.ForeignKey(Subcategory_status,on_delete=models.CASCADE,null=True,blank=True)
 
     def __str__(self):
         return self.subcategory_name
