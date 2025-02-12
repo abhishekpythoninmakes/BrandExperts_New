@@ -540,7 +540,7 @@ class WarrantyRegistrationAPIView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-
+# CREATE CLAIM WARRANTY
 
 @csrf_exempt
 def create_claim_warranty(request):
@@ -564,8 +564,29 @@ def create_claim_warranty(request):
                 return JsonResponse({"error": "Invalid warranty number. No registration found."}, status=404)
 
             # Check if a claim already exists for the same warranty number
-            if ClaimWarranty.objects.filter(warranty_number=warranty_number).exists():
-                return JsonResponse({"error": "A claim for this warranty number already exists."}, status=400)
+            existing_claim = ClaimWarranty.objects.filter(warranty_number=warranty_number).first()
+            if existing_claim:
+                return JsonResponse({
+                    "message": "A claim for this warranty number already exists.",
+                    "existing_claim_details": {
+                        "warranty_number": existing_claim.warranty_number,
+                        "description": existing_claim.description,
+                        "status": existing_claim.status,
+                        "claimed_at": existing_claim.claimed_at.strftime("%Y-%m-%d %H:%M:%S"),
+                    },
+                    "warranty_details": {
+                        "full_name": warranty.full_name,
+                        "email": warranty.email,
+                        "phone": warranty.phone,
+                        "product_name": warranty.product_name,
+                        "invoice_date": warranty.invoice_date.strftime("%Y-%m-%d"),
+                        "invoice_value": str(warranty.invoice_value),
+                        "invoice_file": warranty.invoice_file.url if warranty.invoice_file else None,
+                        "warranty_plan": warranty.get_warranty_plan_display(),
+                        "warranty_number": warranty.warranty_number,
+                        "created_at": warranty.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+                    }
+                }, status=200)
 
             # Create a new claim warranty entry
             claim = ClaimWarranty.objects.create(
@@ -589,7 +610,7 @@ def create_claim_warranty(request):
                     "product_name": warranty.product_name,
                     "invoice_date": warranty.invoice_date.strftime("%Y-%m-%d"),
                     "invoice_value": str(warranty.invoice_value),
-                    "invoice_file": warranty.invoice_file,
+                    "invoice_file": warranty.invoice_file.url if warranty.invoice_file else None,
                     "warranty_plan": warranty.get_warranty_plan_display(),
                     "warranty_number": warranty.warranty_number,
                     "created_at": warranty.created_at.strftime("%Y-%m-%d %H:%M:%S"),
@@ -602,6 +623,7 @@ def create_claim_warranty(request):
             return JsonResponse({"error": "Invalid JSON data format."}, status=400)
 
     return JsonResponse({"error": "Invalid request method. Use POST instead."}, status=405)
+
 
 
 # CUSTOM PRODUCT LIST
@@ -744,10 +766,6 @@ def create_customer_address(request):
 
 
 # LIST CUSTOMER ADDRESS
-
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from .models import Customer, Customer_Address
 
 @csrf_exempt
 def get_customer_addresses(request, customer_id):
