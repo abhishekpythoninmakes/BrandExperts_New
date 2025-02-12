@@ -5,3 +5,6 @@ db.sqlite3
 __pycache__/
 media/parent_category_images/51AZG0UnLgL_jb9VXMX._SL1280_.jpg
 media/parent_category_images/51v1N0IfQJL._SL1500_.jpg
+media/category_images/
+media/parent_category_images/
+media/subcategory_images/
