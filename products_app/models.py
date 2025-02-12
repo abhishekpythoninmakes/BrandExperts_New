@@ -44,6 +44,7 @@ class Subcategory(models.Model):
         return self.subcategory_name
 
 
+
 class Product(models.Model):
     subcategory = models.ForeignKey(Subcategory, on_delete=models.CASCADE, null=True, blank=True,
                                     related_name="products")
@@ -54,16 +55,25 @@ class Product(models.Model):
     image3 = models.URLField(null=True, blank=True)
     image4 = models.URLField(null=True, blank=True)
     size = models.CharField(max_length=100, null=True, blank=True, choices=sizes_available, default='inches')
-    standard_size = models.CharField(max_length=500, null=True, blank=True)
-
-    # Dimensions
-    width = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
-    height = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
-
     price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 
     def __str__(self):
         return self.name if self.name else "Unnamed Product"
+
+
+class Standard_sizes(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, null=True, blank=True,related_name="standard_sizes")
+    standard_sizes = models.CharField(max_length=200, null=True, blank=True)
+    width = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
+    height = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
+
+    def save(self, *args, **kwargs):
+        if self.width is not None and self.height is not None:
+            self.standard_sizes = f"{self.width} x {self.height}"
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.product.name} - {self.standard_sizes}"
 
 
 class Product_overview(models.Model):

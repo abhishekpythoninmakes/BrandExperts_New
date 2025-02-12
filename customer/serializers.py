@@ -41,34 +41,7 @@ class CustomerRegistrationSerializer(serializers.Serializer):
         return customer
 
 
-class CustomProductSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = CustomProduct
-        fields = "__all__"  # Includes all fields
-        read_only_fields = ["status", "created_at", "customer"]
 
-
-class CartItemSerializer(serializers.ModelSerializer):
-    custom_product_details = serializers.SerializerMethodField()
-
-    class Meta:
-        model = CartItem
-        fields = ["id", "cart", "custom_product", "quantity", "price", "total_price", "custom_product_details"]
-
-    def get_custom_product_details(self, obj):
-        if obj.custom_product:
-            return {
-                "id": obj.custom_product.id,
-                "product_name": obj.custom_product.product.name,
-                "quantity": obj.quantity,
-                "price": str(obj.price),
-                "total_price": str(obj.total_price),
-                "custom_width": str(obj.custom_product.custom_width),
-                "custom_height": str(obj.custom_product.custom_height),
-                "size_unit": obj.custom_product.size_unit,
-                "design_image": obj.custom_product.design_image
-            }
-        return None
 
 
 class WarrantyRegistrationSerializer(serializers.ModelSerializer):
@@ -76,3 +49,18 @@ class WarrantyRegistrationSerializer(serializers.ModelSerializer):
         model = WarrantyRegistration
         fields = '__all__'
         read_only_fields = ['warranty_number']  # Make warranty_number read-only
+
+
+
+class CartSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Cart
+        fields = ['id', 'status', 'created_at']
+
+class CartItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CartItem
+        fields = [
+            'id', 'product', 'custom_width', 'custom_height', 'size_unit',
+            'design_image', 'quantity', 'price', 'total_price', 'status', 'created_at'
+        ]

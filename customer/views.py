@@ -113,390 +113,6 @@ class LoginAPIView(APIView):
         }, status=status.HTTP_200_OK)
 
 
-@api_view(["POST"])
-@permission_classes([IsAuthenticated])  # Requires authentication
-def create_custom_product(request):
-    try:
-        user = request.user  # Get logged-in user
-        customer = Customer.objects.get(user=user)  # Get customer profile
-
-        # Extract data from request
-        product_id = request.data.get("product")  # Get product ID from request
-        quantity = request.data.get("quantity", 1)
-        custom_width = request.data.get("custom_width")
-        custom_height = request.data.get("custom_height")
-        size_unit = request.data.get("size_unit", "inches")
-        design_image = request.data.get("design_image")  # URL instead of file
-        price = request.data.get("price")
-
-        # Check if product exists
-        try:
-            product = Product.objects.get(id=product_id)
-        except Product.DoesNotExist:
-            return Response({"error": "Invalid product ID"}, status=status.HTTP_404_NOT_FOUND)
-
-        # Create CustomProduct instance
-        custom_product = CustomProduct.objects.create(
-            customer=customer,
-            product=product,
-            custom_width=custom_width,
-            custom_height=custom_height,
-            size_unit=size_unit,
-            design_image=design_image,  # Store the URL
-            quantity=quantity,
-            price=price
-        )
-
-        # Serialize and return response
-        serializer = CustomProductSerializer(custom_product, context={"request": request})
-        return Response(
-            {"message": "Custom product created successfully", "custom_product": serializer.data},
-            status=status.HTTP_201_CREATED
-        )
-
-    except Customer.DoesNotExist:
-        return Response({"error": "Customer profile not found"}, status=status.HTTP_400_BAD_REQUEST)
-    except Exception as e:
-        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-# Adding Custom Product To Cart
-
-@api_view(["POST"])
-@permission_classes([IsAuthenticated])
-def add_custom_product_to_cart(request):
-    try:
-        user = request.user
-        customer = Customer.objects.get(user=user)
-
-        # Get custom product ID from request
-        custom_product_id = request.data.get("custom_product_id")
-
-        # Validate if the custom product exists
-        try:
-            custom_product = CustomProduct.objects.get(id=custom_product_id, customer=customer)
-        except CustomProduct.DoesNotExist:
-            return Response({"error": "Invalid Custom Product ID or not owned by user"}, status=status.HTTP_404_NOT_FOUND)
-
-        # Get or create cart for the customer
-        cart, created = Cart.objects.get_or_create(customer=customer, status="active")
-
-        # Check if product already in cart
-        cart_item, item_created = CartItem.objects.get_or_create(
-            cart=cart,
-            custom_product=custom_product,
-            defaults={"quantity": custom_product.quantity, "price": custom_product.price}
-        )
-
-        # If item already exists, update quantity and price
-        if not item_created:
-            cart_item.quantity += custom_product.quantity
-            cart_item.price = custom_product.price  # Ensure price is updated
-            cart_item.save()
-
-        # Serialize response
-        serializer = CartItemSerializer(cart_item, context={"request": request})
-
-        return Response(
-            {
-                "message": f"Custom Product '{custom_product.product.name}' added to cart successfully",
-                "cart_item": serializer.data
-            },
-            status=status.HTTP_201_CREATED
-        )
-
-    except Customer.DoesNotExist:
-        return Response({"error": "Customer profile not found"}, status=status.HTTP_400_BAD_REQUEST)
-    except Exception as e:
-        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-# CART VIEW API
-
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def get_cart_details(request):
-    try:
-        user = request.user
-        customer = Customer.objects.get(user=user)
-
-        # Fetch the active cart of the logged-in customer
-        cart = Cart.objects.filter(customer=customer, status="active").first()
-
-        if not cart:
-            return Response({"message": "Your cart is empty."}, status=status.HTTP_200_OK)
-
-        # Fetch cart items
-        cart_items = cart.items.all()
-        serializer = CartItemSerializer(cart_items, many=True, context={"request": request})
-
-        # Calculate total price and total products
-        total_price = sum(item.total_price for item in cart_items)
-        total_products = cart_items.count()
-
-        return Response(
-            {
-                "cart_id": cart.id,
-                "customer_name": customer.user.first_name,
-                "total_products": total_products,
-                "total_price": str(total_price),
-                "cart_items": serializer.data,
-            },
-            status=status.HTTP_200_OK,
-        )
-
-    except Customer.DoesNotExist:
-        return Response({"error": "Customer profile not found"}, status=status.HTTP_400_BAD_REQUEST)
-    except Exception as e:
-        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-
-
-class LogoutAPIView(APIView):
-    permission_classes = [IsAuthenticated]  # Ensure only authenticated users can access this view
-
-    def post(self, request):
-        try:
-            # Get the refresh token from the request data
-            refresh_token = request.data.get("refresh_token")
-            if not refresh_token:
-                return Response(
-                    {"error": "Refresh token is required"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-            # Blacklist the refresh token
-            token = RefreshToken(refresh_token)
-            token.blacklist()
-
-            # Return success response
-            return Response(
-                {"message": "Logged out successfully"},
-                status=status.HTTP_200_OK
-            )
-
-        except Exception as e:
-            return Response(
-                {"error": "Invalid token or token already blacklisted"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-
-
-
-# Product Ordering API
-
-class CreateOrderView(APIView):
-    def post(self, request, *args, **kwargs):
-        customer_id = request.data.get('customer_id')
-        address_id = request.data.get('address_id')
-        cart_item_id = request.data.get('cart_item_id')
-        cart_id = request.data.get('cart_id')
-
-        # Validate required fields
-        if not customer_id or not address_id:
-            return Response({"error": "Customer ID and Address ID are required."}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Fetch customer and address
-        customer = get_object_or_404(Customer, id=customer_id)
-        address = get_object_or_404(Customer_Address, id=address_id)
-
-        cart_items = []
-        if cart_item_id:
-            # Handle single cart item
-            cart_item = get_object_or_404(CartItem, id=cart_item_id)
-            if cart_item.status != 'pending':
-                return Response({"error": "Cart item status is not pending."}, status=status.HTTP_400_BAD_REQUEST)
-            cart_items.append(cart_item)
-        elif cart_id:
-            # Handle all cart items in a cart
-            cart = get_object_or_404(Cart, id=cart_id)
-            for item in cart.items.all():
-                if item.status != 'pending':
-                    return Response({"error": f"Cart item {item.id} status is not pending."}, status=status.HTTP_400_BAD_REQUEST)
-                cart_items.append(item)
-        else:
-            return Response({"error": "Either cart_item_id or cart_id is required."}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Create the order
-        order = Order.objects.create(
-            customer=customer,
-            address=address,
-            amount=sum(item.total_price for item in cart_items)
-        )
-        order.cart_items.set(cart_items)
-
-        # Update the status of cart items to 'ordered'
-        for item in cart_items:
-            item.status = 'ordered'
-            item.save()
-
-        return Response({"message": "Order created successfully.", "order_id": order.id}, status=status.HTTP_201_CREATED)
-
-
-# Order Detail View
-class OrderDetailView(APIView):
-    def get(self, request, order_id, *args, **kwargs):
-        # Fetch the order
-        order = get_object_or_404(Order, id=order_id)
-
-        # Fetch all cart items associated with the order
-        cart_items = order.cart_items.all()
-        cart_items_data = []
-        for item in cart_items:
-            product = item.product if item.product else item.custom_product.product
-            cart_items_data.append({
-                "id": item.id,
-                "product_name": product.name,
-                "image_url": product.image1,  # Assuming image1 is the main image URL
-                "price": item.price,
-                "quantity": item.quantity,
-                "total_price": item.total_price,
-                "status": item.status,
-            })
-
-        # Prepare the response
-        response_data = {
-            "order_id": order.id,
-            "customer": order.customer.user.username,
-            "address": {
-                "building_name": order.address.building_name,
-                "street_address": order.address.street_address,
-                "city": order.address.city,
-                "district": order.address.district,
-            },
-            "status": order.status,
-            "status_options": [choice[0] for choice in ORDER_STATUS_CHOICES],  # List of status options
-            "payment_method": order.payment_method,
-            "payment_options": [choice[0] for choice in PAYMENT_METHOD_CHOICES],  # List of payment options
-            "amount": order.amount,
-            "ordered_date": order.ordered_date,
-            "delivered_date": order.delivered_date,
-            "cart_items": cart_items_data,
-        }
-
-        return Response(response_data, status=status.HTTP_200_OK)
-
-
-
-# Order Update view
-
-
-class OrderUpdateView(APIView):
-    def patch(self, request, order_id, *args, **kwargs):
-        # Fetch the order
-        order = get_object_or_404(Order, id=order_id)
-
-        # Allowed fields to update
-        allowed_fields = ['status', 'delivered_date', 'payment_method']
-        update_data = {key: request.data.get(key) for key in allowed_fields if key in request.data}
-
-        # Validate status and payment method
-        if 'status' in update_data and update_data['status'] not in [choice[0] for choice in ORDER_STATUS_CHOICES]:
-            return Response({"error": "Invalid status."}, status=status.HTTP_400_BAD_REQUEST)
-        if 'payment_method' in update_data and update_data['payment_method'] not in [choice[0] for choice in PAYMENT_METHOD_CHOICES]:
-            return Response({"error": "Invalid payment method."}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Update the order
-        for key, value in update_data.items():
-            setattr(order, key, value)
-        order.save()
-
-        # Update the status of associated cart items if the order status is updated
-        if 'status' in update_data:
-            cart_items = order.cart_items.all()
-            for cart_item in cart_items:
-                cart_item.status = update_data['status']
-                cart_item.save()
-
-        return Response({"message": "Order updated successfully.", "order_id": order.id}, status=status.HTTP_200_OK)
-
-
-# Custom Product Detail View
-
-class CartItemDetailView(APIView):
-    def get(self, request, cartitem_id, *args, **kwargs):
-        # Fetch the cart item
-        cart_item = get_object_or_404(CartItem, id=cartitem_id)
-
-        # Fetch custom product details if it exists
-        custom_product_data = None
-        if cart_item.custom_product:
-            custom_product = cart_item.custom_product
-            custom_product_data = {
-                "product": custom_product.product.name,
-                "custom_width": custom_product.custom_width,
-                "custom_height": custom_product.custom_height,
-                "size_unit": custom_product.size_unit,
-                "design_image": custom_product.design_image,
-                "quantity": custom_product.quantity,
-                "price": custom_product.price,
-            }
-
-        # Prepare the response
-        response_data = {
-            "id": cart_item.id,
-            "cart_id": cart_item.cart.id,
-            "product": cart_item.product.name if cart_item.product else None,
-            "custom_product": custom_product_data,
-            "quantity": cart_item.quantity,
-            "price": cart_item.price,
-            "total_price": cart_item.total_price,
-            "status": cart_item.status,
-            "created_at": cart_item.created_at,
-        }
-
-        return Response(response_data, status=status.HTTP_200_OK)
-
-
-# CART ITEM EDIT VIEW
-class CartItemEditView(APIView):
-    def patch(self, request, cartitem_id, *args, **kwargs):
-        # Fetch the cart item
-        cart_item = get_object_or_404(CartItem, id=cartitem_id)
-
-        # Update cart item fields
-        if 'quantity' in request.data:
-            cart_item.quantity = request.data['quantity']
-            cart_item.save()  # Save to update total_price
-
-        # Update custom product fields if it exists
-        if cart_item.custom_product and 'custom_product' in request.data:
-            custom_product_data = request.data['custom_product']
-            custom_product = cart_item.custom_product
-
-            if 'custom_width' in custom_product_data:
-                custom_product.custom_width = custom_product_data['custom_width']
-            if 'custom_height' in custom_product_data:
-                custom_product.custom_height = custom_product_data['custom_height']
-            if 'size_unit' in custom_product_data:
-                custom_product.size_unit = custom_product_data['size_unit']
-            if 'design_image' in custom_product_data:
-                custom_product.design_image = custom_product_data['design_image']
-            if 'quantity' in custom_product_data:
-                custom_product.quantity = custom_product_data['quantity']
-            if 'price' in custom_product_data:
-                custom_product.price = custom_product_data['price']
-
-            custom_product.save()
-
-        return Response({"message": "Cart item updated successfully.", "cartitem_id": cart_item.id}, status=status.HTTP_200_OK)
-
-
-
-# CARTITEM DELETE
-
-class CartItemDeleteView(APIView):
-    def delete(self, request, cartitem_id, *args, **kwargs):
-        # Fetch the cart item
-        cart_item = get_object_or_404(CartItem, id=cartitem_id)
-
-        # Delete the cart item
-        cart_item.delete()
-
-        return Response({"message": "Cart item deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
-
 
 # Warranty Registration
 
@@ -625,75 +241,6 @@ def create_claim_warranty(request):
     return JsonResponse({"error": "Invalid request method. Use POST instead."}, status=405)
 
 
-
-# CUSTOM PRODUCT LIST
-
-
-def list_custom_products(request):
-    if request.method == "GET":
-        custom_products = CustomProduct.objects.all()
-        data = []
-
-        for product in custom_products:
-            data.append({
-                "id": product.id,
-                "customer": product.customer.user.first_name if product.customer else "Unknown",
-                "product": product.product.name if product.product else "Unknown",
-                "custom_width": str(product.custom_width),
-                "custom_height": str(product.custom_height),
-                "size_unit": product.size_unit,
-                "design_image": product.design_image,
-                "quantity": product.quantity,
-                "price": str(product.price),
-                "created_at": product.created_at.strftime("%Y-%m-%d %H:%M:%S"),
-            })
-
-        return JsonResponse({"custom_products": data}, status=200)
-
-    return JsonResponse({"error": "Invalid request method. Use GET instead."}, status=405)
-
-
-
-# CUSTOM PRODUCT EDIT
-@csrf_exempt
-def edit_custom_product(request, product_id):
-    if request.method == "PATCH":
-        try:
-            data = json.loads(request.body)
-
-            # Fetch the product
-            custom_product = get_object_or_404(CustomProduct, id=product_id)
-
-            # Allowed fields for update
-            editable_fields = ["design_image", "custom_width", "custom_height", "size_unit", "quantity", "price"]
-
-            # Update the fields if provided in request
-            for field in editable_fields:
-                if field in data:
-                    setattr(custom_product, field, data[field])
-
-            # Save changes
-            custom_product.save()
-
-            return JsonResponse({
-                "message": "Custom product updated successfully.",
-                "updated_product": {
-                    "id": custom_product.id,
-                    "design_image": custom_product.design_image,
-                    "custom_width": custom_product.custom_width,
-                    "custom_height": custom_product.custom_height,
-                    "size_unit": custom_product.size_unit,
-                    "quantity": custom_product.quantity,
-                    "price": custom_product.price
-                }
-            }, status=200)
-
-        except json.JSONDecodeError:
-            return JsonResponse({"error": "Invalid JSON data format."}, status=400)
-
-    return JsonResponse({"error": "Invalid request method. Use PATCH instead."}, status=405)
-
-
 # ADDING CUSTOMER ADDRESS
 
 @csrf_exempt
@@ -803,11 +350,6 @@ def get_customer_addresses(request, customer_id):
 
 # CUSTOMER ADDRESS EDIT
 
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-import json
-from .models import Customer_Address
-
 @csrf_exempt
 def edit_customer_address(request, address_id):
     if request.method == "PUT":
@@ -851,3 +393,80 @@ def edit_customer_address(request, address_id):
             return JsonResponse({"error": "Invalid JSON format."}, status=400)
 
     return JsonResponse({"error": "Invalid request method. Use PUT instead."}, status=405)
+
+
+# Create Cart
+@api_view(['POST'])
+def create_or_update_cart(request):
+    customer_id = request.data.get('customer_id')
+    cart_items_data = request.data.get('cart_items', [])
+
+    if not customer_id:
+        return Response({"error": "Customer ID is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        customer = Customer.objects.get(id=customer_id)
+    except Customer.DoesNotExist:
+        return Response({"error": "Customer not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    # Get or create the cart
+    cart, created = Cart.objects.get_or_create(customer=customer, status='active')
+
+    # Process each cart item in the request
+    total_price = 0
+    total_items = 0
+    cart_items_list = []
+
+    for item_data in cart_items_data:
+        product_id = item_data.get('product_id')
+        custom_width = item_data.get('custom_width')
+        custom_height = item_data.get('custom_height')
+        size_unit = item_data.get('size_unit')
+        design_image = item_data.get('design_image')
+        quantity = item_data.get('quantity', 1)
+        price = item_data.get('price')
+        total_price_item = item_data.get('total_price')
+        status_item = item_data.get('status', 'pending')
+
+        if not product_id:
+            return Response({"error": "Product ID is required for each cart item"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            product = Product.objects.get(id=product_id)
+        except Product.DoesNotExist:
+            return Response({"error": f"Product with ID {product_id} not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Create or update the cart item
+        cart_item, item_created = CartItem.objects.update_or_create(
+            cart=cart,
+            product=product,
+            defaults={
+                'custom_width': custom_width,
+                'custom_height': custom_height,
+                'size_unit': size_unit,
+                'design_image': design_image,
+                'quantity': quantity,
+                'price': price,
+                'total_price': total_price_item,
+                'status': status_item
+            }
+        )
+
+        total_price += total_price_item
+        total_items += quantity
+        cart_items_list.append(CartItemSerializer(cart_item).data)
+
+    # Prepare response
+    response_data = {
+        "message": "Cart updated successfully" if not created else "Cart created successfully",
+        "cart": {
+            "id": cart.id,
+            "status": cart.status,
+            "created_at": cart.created_at,
+            "total_items": total_items,
+            "total_price": total_price,
+            "cart_items": cart_items_list
+        }
+    }
+
+    return Response(response_data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)

@@ -30,8 +30,14 @@ class SubcategorySerializer(serializers.ModelSerializer):
         return None
 
 
+class StandardSizesSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Standard_sizes
+        fields = ['standard_sizes', 'width', 'height']
+
 # Product Serializer
 class ProductSerializer(serializers.ModelSerializer):
+    standard_sizes = StandardSizesSerializer(many=True, read_only=True)
     class Meta:
         model = Product
         fields = [
@@ -42,10 +48,8 @@ class ProductSerializer(serializers.ModelSerializer):
             "image2",
             "image3",
             "image4",
+            "standard_sizes",
             "price",
-            "standard_size",
-            "width",
-            "height"
         ]
 
 
@@ -56,6 +60,7 @@ class DetailedProductSerializer(serializers.ModelSerializer):
     overview = serializers.SerializerMethodField()
     specifications = serializers.SerializerMethodField()
     installation_steps = serializers.SerializerMethodField()
+    standard_sizes = StandardSizesSerializer(many=True, read_only=True)
 
     class Meta:
         model = Product
@@ -67,16 +72,15 @@ class DetailedProductSerializer(serializers.ModelSerializer):
             "image2",
             "image3",
             "image4",
+            "standard_sizes",
             "price",
-            "standard_size",
-            "width",
-            "height",
             "parent_category",
             "category",
             "subcategory",
             "overview",
             "specifications",
             "installation_steps",
+
         ]
 
     def get_parent_category(self, obj):
