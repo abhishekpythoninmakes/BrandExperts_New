@@ -568,7 +568,7 @@ def create_claim_warranty(request):
             if existing_claim:
                 return JsonResponse({
                     "message": "A claim for this warranty number already exists.",
-                    "existing_claim_details": {
+                    "claim_details": {
                         "warranty_number": existing_claim.warranty_number,
                         "description": existing_claim.description,
                         "status": existing_claim.status,
