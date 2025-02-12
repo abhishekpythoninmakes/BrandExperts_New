@@ -14,6 +14,64 @@ class Customer(models.Model):
     def __str__(self):
         return self.user.username if self.user else "Unknown Customer"
 
+
+# Warranty Plan Choices
+WARRANTY_PLAN_CHOICES = [
+    ('799_1yr', '799 AED - 1 year'),
+    ('999_2yr', '999 AED - 2 years'),
+    ('1799_5yr', '1799 AED - 5 years'),
+]
+
+import random
+import string
+
+class WarrantyRegistration(models.Model):
+    full_name = models.CharField(max_length=255)
+    email = models.EmailField()
+    phone = models.CharField(max_length=20)
+    product_name = models.CharField(max_length=900, null=True, blank=True)
+    invoice_date = models.DateField()
+    invoice_value = models.DecimalField(max_digits=10, decimal_places=2)
+    invoice_file = models.URLField(blank=True, null=True)
+    warranty_plan = models.CharField(max_length=20, choices=WARRANTY_PLAN_CHOICES)
+    warranty_number = models.CharField(max_length=8, unique=True, editable=False,null=True,blank=True)  # Unique warranty number
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        if not self.warranty_number:
+            self.warranty_number = self.generate_warranty_number()
+        super().save(*args, **kwargs)
+
+    def generate_warranty_number(self):
+        """Generate a unique 8-character alphanumeric warranty number."""
+        while True:
+            warranty_number = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+            if not WarrantyRegistration.objects.filter(warranty_number=warranty_number).exists():
+                return warranty_number
+
+    def __str__(self):
+        return f"{self.full_name} - {self.product_name} ({self.get_warranty_plan_display()})"
+
+
+class ClaimWarranty(models.Model):
+    STATUS_CHOICES = [
+        ('Pending', 'Pending'),
+        ('In Progress', 'In Progress'),
+        ('Approved', 'Approved'),
+        ('Rejected', 'Rejected'),
+    ]
+
+    warranty_number = models.CharField(max_length=8, unique=True)  # Must match WarrantyRegistration number
+    description = models.TextField()  # User's claim message
+    claimed_at = models.DateTimeField(auto_now_add=True)  # Automatically stores the claim date
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending')  # Default to Pending
+    response = models.TextField(blank=True, null=True)  # Admin response (optional)
+
+    def __str__(self):
+        return f"Claim for Warranty {self.warranty_number} - {self.status}"
+
+
+
 class Customer_Address(models.Model):
     customer = models.ForeignKey(Customer,on_delete=models.CASCADE,null=True,blank=True)
     building_name = models.CharField(max_length=500, null=True, blank=True)
@@ -100,7 +158,7 @@ class CartItem(models.Model):
 
     def __str__(self):
         product_name = self.custom_product.product.name if self.custom_product else self.product.name
-        return f"{product_name} (x{self.quantity}) - {self.cart.customer.user.first_name}'s Cart"
+        return f"{self.id} {product_name} (x{self.quantity}) - {self.cart.customer.user.first_name}'s Cart"
 
 
 

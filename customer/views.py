@@ -1,5 +1,10 @@
+import json
+
+from django.core.mail import send_mail
 from django.db import IntegrityError
+from django.http import JsonResponse
 from django.shortcuts import render, get_object_or_404
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
@@ -406,3 +411,425 @@ class OrderUpdateView(APIView):
                 cart_item.save()
 
         return Response({"message": "Order updated successfully.", "order_id": order.id}, status=status.HTTP_200_OK)
+
+
+# Custom Product Detail View
+
+class CartItemDetailView(APIView):
+    def get(self, request, cartitem_id, *args, **kwargs):
+        # Fetch the cart item
+        cart_item = get_object_or_404(CartItem, id=cartitem_id)
+
+        # Fetch custom product details if it exists
+        custom_product_data = None
+        if cart_item.custom_product:
+            custom_product = cart_item.custom_product
+            custom_product_data = {
+                "product": custom_product.product.name,
+                "custom_width": custom_product.custom_width,
+                "custom_height": custom_product.custom_height,
+                "size_unit": custom_product.size_unit,
+                "design_image": custom_product.design_image,
+                "quantity": custom_product.quantity,
+                "price": custom_product.price,
+            }
+
+        # Prepare the response
+        response_data = {
+            "id": cart_item.id,
+            "cart_id": cart_item.cart.id,
+            "product": cart_item.product.name if cart_item.product else None,
+            "custom_product": custom_product_data,
+            "quantity": cart_item.quantity,
+            "price": cart_item.price,
+            "total_price": cart_item.total_price,
+            "status": cart_item.status,
+            "created_at": cart_item.created_at,
+        }
+
+        return Response(response_data, status=status.HTTP_200_OK)
+
+
+# CART ITEM EDIT VIEW
+class CartItemEditView(APIView):
+    def patch(self, request, cartitem_id, *args, **kwargs):
+        # Fetch the cart item
+        cart_item = get_object_or_404(CartItem, id=cartitem_id)
+
+        # Update cart item fields
+        if 'quantity' in request.data:
+            cart_item.quantity = request.data['quantity']
+            cart_item.save()  # Save to update total_price
+
+        # Update custom product fields if it exists
+        if cart_item.custom_product and 'custom_product' in request.data:
+            custom_product_data = request.data['custom_product']
+            custom_product = cart_item.custom_product
+
+            if 'custom_width' in custom_product_data:
+                custom_product.custom_width = custom_product_data['custom_width']
+            if 'custom_height' in custom_product_data:
+                custom_product.custom_height = custom_product_data['custom_height']
+            if 'size_unit' in custom_product_data:
+                custom_product.size_unit = custom_product_data['size_unit']
+            if 'design_image' in custom_product_data:
+                custom_product.design_image = custom_product_data['design_image']
+            if 'quantity' in custom_product_data:
+                custom_product.quantity = custom_product_data['quantity']
+            if 'price' in custom_product_data:
+                custom_product.price = custom_product_data['price']
+
+            custom_product.save()
+
+        return Response({"message": "Cart item updated successfully.", "cartitem_id": cart_item.id}, status=status.HTTP_200_OK)
+
+
+
+# CARTITEM DELETE
+
+class CartItemDeleteView(APIView):
+    def delete(self, request, cartitem_id, *args, **kwargs):
+        # Fetch the cart item
+        cart_item = get_object_or_404(CartItem, id=cartitem_id)
+
+        # Delete the cart item
+        cart_item.delete()
+
+        return Response({"message": "Cart item deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
+
+
+# Warranty Registration
+
+class WarrantyRegistrationAPIView(APIView):
+    permission_classes = [AllowAny]  # Allows anyone to access this API
+
+    def post(self, request):
+        serializer = WarrantyRegistrationSerializer(data=request.data)
+        if serializer.is_valid():
+            warranty = serializer.save()
+
+            # Send email with warranty number
+            subject = "Warranty Registration Successful"
+            message = (
+                f"Dear {warranty.full_name},\n\n"
+                f"Your warranty registration was successful.\n"
+                f"Warranty Number: {warranty.warranty_number}\n"
+                f"Product: {warranty.product_name}\n"
+                f"Warranty Plan: {warranty.get_warranty_plan_display()}\n\n"
+                "Please keep this number safe for future reference.\n\n"
+                "Best regards,\n"
+                "BrandExperts.ae"
+            )
+            send_mail(
+                subject,
+                message,
+                "hiddenhope00@gmail.com",  # Your email (from settings)
+                [warranty.email],
+                fail_silently=False,
+            )
+
+            return Response(
+                {
+                    "message": "Warranty registered successfully!",
+                    "warranty_number": warranty.warranty_number,
+                    "data": serializer.data
+                },
+                status=status.HTTP_201_CREATED
+            )
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+
+@csrf_exempt
+def create_claim_warranty(request):
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+            warranty_number = data.get("warranty_number")
+            description = data.get("description")
+
+            # Validate input
+            if not warranty_number:
+                return JsonResponse({"error": "Warranty registration number is required."}, status=400)
+
+            if not description:
+                return JsonResponse({"error": "Claim description is required."}, status=400)
+
+            # Check if warranty number exists
+            try:
+                warranty = WarrantyRegistration.objects.get(warranty_number=warranty_number)
+            except WarrantyRegistration.DoesNotExist:
+                return JsonResponse({"error": "Invalid warranty number. No registration found."}, status=404)
+
+            # Check if a claim already exists for the same warranty number
+            if ClaimWarranty.objects.filter(warranty_number=warranty_number).exists():
+                return JsonResponse({"error": "A claim for this warranty number already exists."}, status=400)
+
+            # Create a new claim warranty entry
+            claim = ClaimWarranty.objects.create(
+                warranty_number=warranty_number,
+                description=description
+            )
+
+            # Prepare response data
+            response_data = {
+                "message": "Claim warranty successfully created.",
+                "claim_details": {
+                    "warranty_number": claim.warranty_number,
+                    "description": claim.description,
+                    "status": claim.status,
+                    "claimed_at": claim.claimed_at.strftime("%Y-%m-%d %H:%M:%S"),
+                },
+                "warranty_details": {
+                    "full_name": warranty.full_name,
+                    "email": warranty.email,
+                    "phone": warranty.phone,
+                    "product_name": warranty.product_name,
+                    "invoice_date": warranty.invoice_date.strftime("%Y-%m-%d"),
+                    "invoice_value": str(warranty.invoice_value),
+                    "invoice_file": warranty.invoice_file,
+                    "warranty_plan": warranty.get_warranty_plan_display(),
+                    "warranty_number": warranty.warranty_number,
+                    "created_at": warranty.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+                }
+            }
+
+            return JsonResponse(response_data, status=201)
+
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON data format."}, status=400)
+
+    return JsonResponse({"error": "Invalid request method. Use POST instead."}, status=405)
+
+
+# CUSTOM PRODUCT LIST
+
+
+def list_custom_products(request):
+    if request.method == "GET":
+        custom_products = CustomProduct.objects.all()
+        data = []
+
+        for product in custom_products:
+            data.append({
+                "id": product.id,
+                "customer": product.customer.user.first_name if product.customer else "Unknown",
+                "product": product.product.name if product.product else "Unknown",
+                "custom_width": str(product.custom_width),
+                "custom_height": str(product.custom_height),
+                "size_unit": product.size_unit,
+                "design_image": product.design_image,
+                "quantity": product.quantity,
+                "price": str(product.price),
+                "created_at": product.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+            })
+
+        return JsonResponse({"custom_products": data}, status=200)
+
+    return JsonResponse({"error": "Invalid request method. Use GET instead."}, status=405)
+
+
+
+# CUSTOM PRODUCT EDIT
+@csrf_exempt
+def edit_custom_product(request, product_id):
+    if request.method == "PATCH":
+        try:
+            data = json.loads(request.body)
+
+            # Fetch the product
+            custom_product = get_object_or_404(CustomProduct, id=product_id)
+
+            # Allowed fields for update
+            editable_fields = ["design_image", "custom_width", "custom_height", "size_unit", "quantity", "price"]
+
+            # Update the fields if provided in request
+            for field in editable_fields:
+                if field in data:
+                    setattr(custom_product, field, data[field])
+
+            # Save changes
+            custom_product.save()
+
+            return JsonResponse({
+                "message": "Custom product updated successfully.",
+                "updated_product": {
+                    "id": custom_product.id,
+                    "design_image": custom_product.design_image,
+                    "custom_width": custom_product.custom_width,
+                    "custom_height": custom_product.custom_height,
+                    "size_unit": custom_product.size_unit,
+                    "quantity": custom_product.quantity,
+                    "price": custom_product.price
+                }
+            }, status=200)
+
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON data format."}, status=400)
+
+    return JsonResponse({"error": "Invalid request method. Use PATCH instead."}, status=405)
+
+
+# ADDING CUSTOMER ADDRESS
+
+@csrf_exempt
+def create_customer_address(request):
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+
+            # Extract customer ID and other fields
+            customer_id = data.get("customer_id")
+            building_name = data.get("building_name", "").strip()
+            street_address = data.get("street_address", "").strip()
+            landmark = data.get("landmark", "").strip()
+            city = data.get("city", "").strip()
+            district = data.get("district", "").strip()
+            delivery_instructions = data.get("delivery_instructions", "").strip()
+
+            # Validate customer ID
+            try:
+                customer = Customer.objects.get(id=customer_id)
+            except Customer.DoesNotExist:
+                return JsonResponse({"error": "Invalid customer ID. Customer not found."}, status=404)
+
+            # Check if the exact same address already exists for the customer
+            existing_address = Customer_Address.objects.filter(
+                customer=customer,
+                building_name=building_name,
+                street_address=street_address,
+                landmark=landmark,
+                city=city,
+                district=district,
+                delivery_instructions=delivery_instructions
+            ).first()
+
+            if existing_address:
+                return JsonResponse({"error": "This address already exists."}, status=400)
+
+            # Create and save the new address
+            customer_address = Customer_Address.objects.create(
+                customer=customer,
+                building_name=building_name,
+                street_address=street_address,
+                landmark=landmark,
+                city=city,
+                district=district,
+                delivery_instructions=delivery_instructions
+            )
+
+            # Prepare response data
+            response_data = {
+                "message": "Customer address successfully created.",
+                "address_details": {
+                    "id": customer_address.id,
+                    "customer": customer.user.first_name if customer.user else "Unknown",
+                    "building_name": customer_address.building_name,
+                    "street_address": customer_address.street_address,
+                    "landmark": customer_address.landmark,
+                    "city": customer_address.city,
+                    "district": customer_address.district,
+                    "delivery_instructions": customer_address.delivery_instructions,
+                }
+            }
+
+            return JsonResponse(response_data, status=201)
+
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON data format."}, status=400)
+
+    return JsonResponse({"error": "Invalid request method. Use POST instead."}, status=405)
+
+
+# LIST CUSTOMER ADDRESS
+
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from .models import Customer, Customer_Address
+
+@csrf_exempt
+def get_customer_addresses(request, customer_id):
+    if request.method == "GET":
+        try:
+            # Validate customer ID
+            customer = Customer.objects.get(id=customer_id)
+        except Customer.DoesNotExist:
+            return JsonResponse({"error": "Invalid customer ID. Customer not found."}, status=404)
+
+        # Fetch all addresses for the given customer
+        addresses = Customer_Address.objects.filter(customer=customer)
+
+        if not addresses.exists():
+            return JsonResponse({"message": "No addresses found for this customer."}, status=200)
+
+        # Prepare response data
+        address_list = [
+            {
+                "id": address.id,
+                "building_name": address.building_name,
+                "street_address": address.street_address,
+                "landmark": address.landmark,
+                "city": address.city,
+                "district": address.district,
+                "delivery_instructions": address.delivery_instructions,
+            }
+            for address in addresses
+        ]
+
+        return JsonResponse({"customer": customer.user.first_name, "addresses": address_list}, status=200)
+
+    return JsonResponse({"error": "Invalid request method. Use GET instead."}, status=405)
+
+
+# CUSTOMER ADDRESS EDIT
+
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+import json
+from .models import Customer_Address
+
+@csrf_exempt
+def edit_customer_address(request, address_id):
+    if request.method == "PUT":
+        try:
+            data = json.loads(request.body)
+
+            # Check if the address exists
+            try:
+                address = Customer_Address.objects.get(id=address_id)
+            except Customer_Address.DoesNotExist:
+                return JsonResponse({"error": "Customer address not found."}, status=404)
+
+            # Update the address fields if provided in the request
+            address.building_name = data.get("building_name", address.building_name)
+            address.street_address = data.get("street_address", address.street_address)
+            address.landmark = data.get("landmark", address.landmark)
+            address.city = data.get("city", address.city)
+            address.district = data.get("district", address.district)
+            address.delivery_instructions = data.get("delivery_instructions", address.delivery_instructions)
+
+            # Save the updated address
+            address.save()
+
+            # Prepare response data
+            response_data = {
+                "message": "Customer address updated successfully.",
+                "updated_address": {
+                    "id": address.id,
+                    "building_name": address.building_name,
+                    "street_address": address.street_address,
+                    "landmark": address.landmark,
+                    "city": address.city,
+                    "district": address.district,
+                    "delivery_instructions": address.delivery_instructions,
+                }
+            }
+
+            return JsonResponse(response_data, status=200)
+
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON format."}, status=400)
+
+    return JsonResponse({"error": "Invalid request method. Use PUT instead."}, status=405)

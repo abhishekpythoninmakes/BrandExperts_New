@@ -69,3 +69,10 @@ class CartItemSerializer(serializers.ModelSerializer):
                 "design_image": obj.custom_product.design_image
             }
         return None
+
+
+class WarrantyRegistrationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WarrantyRegistration
+        fields = '__all__'
+        read_only_fields = ['warranty_number']  # Make warranty_number read-only

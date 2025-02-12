@@ -210,3 +210,12 @@ SIMPLE_JWT = {
     'BLACKLIST_AFTER_ROTATION': True,
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
+
+
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'  # Your email service provider's SMTP server
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'hiddenhope00@gmail.com'  # Your email address
+EMAIL_HOST_PASSWORD = 'dmkgmnwhnnbbglfu'  # Your email password
+DEFAULT_FROM_EMAIL = 'hiddenhope00@gmail.com'

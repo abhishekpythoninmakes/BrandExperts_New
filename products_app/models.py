@@ -72,7 +72,7 @@ class Product_overview(models.Model):
     description = models.TextField(null=True,blank=True)
 
     def __str__(self):
-        return self.product.name if self.product else "No Overview"
+        return f"{self.product.name} - {self.heading}" if self.product else "No Overview"
 
 class Product_specifications(models.Model):
     product = models.ForeignKey(Product,on_delete=models.CASCADE,null=True,blank=True,related_name="specifications")
@@ -92,21 +92,21 @@ class Product_specifications(models.Model):
     life_span = models.CharField(max_length=900,null=True,blank=True)
 
     def __str__(self):
-        return self.product.name if self.product else "No Specifications"
+        return f"{self.product.name} - {self.title}" if self.product else "No Specifications"
 
 class Product_installation(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, null=True, blank=True)
     title = models.CharField(max_length=900,null=True,blank=True)
 
     def __str__(self):
-        return self.product.name
+        return f"{self.product.name} - {self.title}" if self.product else "No installation"
 
 class Installation_steps(models.Model):
     installation = models.ForeignKey(Product_installation,on_delete=models.CASCADE,null=True,blank=True)
     steps = models.TextField(null=True,blank=True)
 
     def __str__(self):
-        return self.installation.product.name
+        return f"{self.installation.title} - {self.steps[:50]}" if self.installation else "No installation steps"
 
 
 
