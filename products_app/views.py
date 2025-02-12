@@ -276,3 +276,45 @@ class ProductListBySubcategory(APIView):
             "total_products": products.count(),
             "products": serializer.data
         })
+
+
+
+# Category and Sub Category list using parent category id
+
+@api_view(['GET'])
+def get_categories_by_parent(request, parent_category_id):
+    try:
+        parent_category = ParentCategory.objects.get(id=parent_category_id)
+        categories = Category.objects.filter(parent_category=parent_category)
+
+        category_list = []
+        for category in categories:
+            subcategories = category.subcategories.all()
+            subcategory_list = [
+                {
+                    "subcategory_id": sub.id,
+                    "subcategory_name": sub.subcategory_name,
+                    "description": sub.description,
+                    "subcategory_image": request.build_absolute_uri(sub.subcategory_image.url) if sub.subcategory_image else None
+                }
+                for sub in subcategories
+            ]
+
+            category_list.append({
+                "category_id": category.id,
+                "category_name": category.category_name,
+                "description": category.description,
+                "category_image": request.build_absolute_uri(category.category_image.url) if category.category_image else None,
+                "subcategories": subcategory_list
+            })
+
+        return Response({
+            "parent_category_id": parent_category.id,
+            "parent_category_name": parent_category.name,
+            "description": parent_category.description,
+            "parent_category_image": request.build_absolute_uri(parent_category.image.url) if parent_category.image else None,
+            "categories": category_list
+        })
+
+    except ParentCategory.DoesNotExist:
+        return Response({"error": "Parent category not found"}, status=404)

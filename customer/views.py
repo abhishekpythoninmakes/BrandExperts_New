@@ -1,5 +1,5 @@
 from django.db import IntegrityError
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
@@ -277,3 +277,132 @@ class LogoutAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+
+
+
+# Product Ordering API
+
+class CreateOrderView(APIView):
+    def post(self, request, *args, **kwargs):
+        customer_id = request.data.get('customer_id')
+        address_id = request.data.get('address_id')
+        cart_item_id = request.data.get('cart_item_id')
+        cart_id = request.data.get('cart_id')
+
+        # Validate required fields
+        if not customer_id or not address_id:
+            return Response({"error": "Customer ID and Address ID are required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Fetch customer and address
+        customer = get_object_or_404(Customer, id=customer_id)
+        address = get_object_or_404(Customer_Address, id=address_id)
+
+        cart_items = []
+        if cart_item_id:
+            # Handle single cart item
+            cart_item = get_object_or_404(CartItem, id=cart_item_id)
+            if cart_item.status != 'pending':
+                return Response({"error": "Cart item status is not pending."}, status=status.HTTP_400_BAD_REQUEST)
+            cart_items.append(cart_item)
+        elif cart_id:
+            # Handle all cart items in a cart
+            cart = get_object_or_404(Cart, id=cart_id)
+            for item in cart.items.all():
+                if item.status != 'pending':
+                    return Response({"error": f"Cart item {item.id} status is not pending."}, status=status.HTTP_400_BAD_REQUEST)
+                cart_items.append(item)
+        else:
+            return Response({"error": "Either cart_item_id or cart_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Create the order
+        order = Order.objects.create(
+            customer=customer,
+            address=address,
+            amount=sum(item.total_price for item in cart_items)
+        )
+        order.cart_items.set(cart_items)
+
+        # Update the status of cart items to 'ordered'
+        for item in cart_items:
+            item.status = 'ordered'
+            item.save()
+
+        return Response({"message": "Order created successfully.", "order_id": order.id}, status=status.HTTP_201_CREATED)
+
+
+# Order Detail View
+class OrderDetailView(APIView):
+    def get(self, request, order_id, *args, **kwargs):
+        # Fetch the order
+        order = get_object_or_404(Order, id=order_id)
+
+        # Fetch all cart items associated with the order
+        cart_items = order.cart_items.all()
+        cart_items_data = []
+        for item in cart_items:
+            product = item.product if item.product else item.custom_product.product
+            cart_items_data.append({
+                "id": item.id,
+                "product_name": product.name,
+                "image_url": product.image1,  # Assuming image1 is the main image URL
+                "price": item.price,
+                "quantity": item.quantity,
+                "total_price": item.total_price,
+                "status": item.status,
+            })
+
+        # Prepare the response
+        response_data = {
+            "order_id": order.id,
+            "customer": order.customer.user.username,
+            "address": {
+                "building_name": order.address.building_name,
+                "street_address": order.address.street_address,
+                "city": order.address.city,
+                "district": order.address.district,
+            },
+            "status": order.status,
+            "status_options": [choice[0] for choice in ORDER_STATUS_CHOICES],  # List of status options
+            "payment_method": order.payment_method,
+            "payment_options": [choice[0] for choice in PAYMENT_METHOD_CHOICES],  # List of payment options
+            "amount": order.amount,
+            "ordered_date": order.ordered_date,
+            "delivered_date": order.delivered_date,
+            "cart_items": cart_items_data,
+        }
+
+        return Response(response_data, status=status.HTTP_200_OK)
+
+
+
+# Order Update view
+
+
+class OrderUpdateView(APIView):
+    def patch(self, request, order_id, *args, **kwargs):
+        # Fetch the order
+        order = get_object_or_404(Order, id=order_id)
+
+        # Allowed fields to update
+        allowed_fields = ['status', 'delivered_date', 'payment_method']
+        update_data = {key: request.data.get(key) for key in allowed_fields if key in request.data}
+
+        # Validate status and payment method
+        if 'status' in update_data and update_data['status'] not in [choice[0] for choice in ORDER_STATUS_CHOICES]:
+            return Response({"error": "Invalid status."}, status=status.HTTP_400_BAD_REQUEST)
+        if 'payment_method' in update_data and update_data['payment_method'] not in [choice[0] for choice in PAYMENT_METHOD_CHOICES]:
+            return Response({"error": "Invalid payment method."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Update the order
+        for key, value in update_data.items():
+            setattr(order, key, value)
+        order.save()
+
+        # Update the status of associated cart items if the order status is updated
+        if 'status' in update_data:
+            cart_items = order.cart_items.all()
+            for cart_item in cart_items:
+                cart_item.status = update_data['status']
+                cart_item.save()
+
+        return Response({"message": "Order updated successfully.", "order_id": order.id}, status=status.HTTP_200_OK)

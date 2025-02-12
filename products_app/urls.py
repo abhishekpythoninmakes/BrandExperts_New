@@ -38,6 +38,10 @@ urlpatterns = [
 
     path('products-by-subcategory/', views.ProductListBySubcategory.as_view(), name='product-list-by-subcategory'),
 
+    # Category and Sub category list based on parent category id
+
+    path('categories/<int:parent_category_id>/', views.get_categories_by_parent, name='get_categories_by_parent'),
+
 
 
 

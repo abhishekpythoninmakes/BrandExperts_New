@@ -33,14 +33,6 @@ SIZE_CHOICES = [
     ('feet', 'Feet'),
 ]
 
-# Order Status Choices
-ORDER_STATUS_CHOICES = [
-    ('pending', 'Pending'),
-    ('confirmed', 'Confirmed'),
-    ('shipped', 'Shipped'),
-    ('delivered', 'Delivered'),
-    ('cancelled', 'Cancelled'),
-]
 
 
 
@@ -57,7 +49,6 @@ class CustomProduct(models.Model):
     # Order Status
     quantity = models.PositiveIntegerField(default=1)
     price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    status = models.CharField(max_length=15, choices=ORDER_STATUS_CHOICES, default='pending')
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -85,14 +76,22 @@ class Cart(models.Model):
         return f"Cart for {self.customer.user.first_name} ({self.status})"
 
 class CartItem(models.Model):
+    CART_ITEM_STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('ordered', 'Ordered'),
+        ('shipped', 'Shipped'),
+        ('delivered', 'Delivered'),
+        ('cancelled', 'Cancelled'),
+    ]
+
+
     cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name="items")
     product = models.ForeignKey(Product, on_delete=models.CASCADE, null=True, blank=True)
     custom_product = models.ForeignKey(CustomProduct, on_delete=models.CASCADE, null=True, blank=True)
-
     quantity = models.PositiveIntegerField(default=1)
     price = models.DecimalField(max_digits=10, decimal_places=2)
-    total_price = models.DecimalField(max_digits=10, decimal_places=2, editable=False)
-
+    total_price = models.DecimalField(max_digits=10, decimal_places=2,blank=True)
+    status = models.CharField(max_length=15, choices=CART_ITEM_STATUS_CHOICES, default='pending')
     created_at = models.DateTimeField(auto_now_add=True)
 
     def save(self, *args, **kwargs):
@@ -104,6 +103,35 @@ class CartItem(models.Model):
         return f"{product_name} (x{self.quantity}) - {self.cart.customer.user.first_name}'s Cart"
 
 
+
+ORDER_STATUS_CHOICES = [
+    ('ordered', 'Ordered'),
+    ('shipped', 'Shipped'),
+    ('arrived', 'Arrived'),
+    ('delivered', 'Delivered'),
+    ('cancelled', 'Cancelled'),
+]
+
+PAYMENT_METHOD_CHOICES = [
+    ('cod', 'Cash on Delivery'),
+    ('card', 'Credit/Debit Card'),
+    ('upi', 'UPI Payment'),
+]
+
+
+class Order(models.Model):
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name="orders")
+    address = models.ForeignKey(Customer_Address, on_delete=models.CASCADE, related_name="orders")
+    cart = models.ForeignKey(Cart, on_delete=models.SET_NULL, null=True, blank=True, related_name="orders")
+    cart_items = models.ManyToManyField(CartItem, related_name="order_items")
+    status = models.CharField(max_length=15, choices=ORDER_STATUS_CHOICES, default='ordered')
+    ordered_date = models.DateTimeField(auto_now_add=True)
+    payment_method = models.CharField(max_length=10, choices=PAYMENT_METHOD_CHOICES, default='cod')
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    delivered_date = models.DateTimeField(null=True,blank=True)
+
+    def __str__(self):
+        return f"Order {self.id} - {self.customer.user.first_name} ({self.status})"
 
 
 
