@@ -65,10 +65,11 @@ class ClaimWarranty(models.Model):
 
 countrys = (
     ('UAE', 'UAE'),
-    ('OMAN', 'OMAN'),
-    ('SAUDI ARABIA', 'SAUDI ARABIA'),
-    ('Bahrain', 'Bahrain'),
-    ('Kuwait', 'Kuwait')
+    ('Oman', 'OMAN'),
+    ('Bahrain', 'BAHRAIN'),
+    ('Qatar','QATAR'),
+    ('Saudi Arabia','SAUDI ARABIA'),
+    ('Kuwait', 'KUWAIT')
 )
 
 
