@@ -149,15 +149,16 @@ class DetailedProductSerializer(serializers.ModelSerializer):
         ]
 
     def get_installation_steps(self, obj):
-        """Retrieve product installation steps with the installation title"""
-        installation = Product_installation.objects.filter(product=obj).first()
-        if installation:
+        """Retrieve all installation titles and their steps"""
+        installations = Product_installation.objects.filter(product=obj)
+        installation_data = []
+        for installation in installations:
             steps = Installation_steps.objects.filter(installation=installation)
-            return {
+            installation_data.append({
                 "installation_title": installation.title,
                 "steps": [{"step": s.steps} for s in steps]
-            }
-        return None
+            })
+        return installation_data
     
 class ParentCategorySerializer(serializers.ModelSerializer):
     image_url = serializers.SerializerMethodField()
