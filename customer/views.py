@@ -156,7 +156,7 @@ class WarrantyRegistrationAPIView(APIView):
             send_mail(
                 subject,
                 message,
-                settings.DEFAULT_FROM_EMAIL,  # Use the new sender email
+                f"BrandExperts <{settings.DEFAULT_FROM_EMAIL}>",  # Use the new sender email
                 [warranty.email],
                 fail_silently=False,
             )
