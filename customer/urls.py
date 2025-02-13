@@ -11,7 +11,7 @@ urlpatterns = [
 
     path('register-warranty/', views.WarrantyRegistrationAPIView.as_view(), name='register-warranty'),
     path("create_claim_warranty/", views.create_claim_warranty, name="create_claim_warranty"),
-    path('customer-address/create/', views.create_customer_address, name='create_customer_address'),
+    path('create-customer-address/', views.create_customer_address, name='create_customer_address'),
     path('customer-addresses/<int:customer_id>/', views.get_customer_addresses, name='get_customer_addresses'),
     path('edit-customer-address/<int:address_id>/', views.edit_customer_address, name='edit_customer_address'),
 

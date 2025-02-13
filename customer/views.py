@@ -242,7 +242,6 @@ def create_claim_warranty(request):
 
 
 # ADDING CUSTOMER ADDRESS
-
 @csrf_exempt
 def create_customer_address(request):
     if request.method == "POST":
@@ -251,12 +250,14 @@ def create_customer_address(request):
 
             # Extract customer ID and other fields
             customer_id = data.get("customer_id")
-            building_name = data.get("building_name", "").strip()
-            street_address = data.get("street_address", "").strip()
-            landmark = data.get("landmark", "").strip()
+            company_name = data.get("company_name", "").strip()
+            ext = data.get("ext", "").strip()
+            address_line1 = data.get("address_line1", "").strip()
+            address_line2 = data.get("address_line2", "").strip()
+            country = data.get("country", "").strip()
             city = data.get("city", "").strip()
-            district = data.get("district", "").strip()
-            delivery_instructions = data.get("delivery_instructions", "").strip()
+            state = data.get("state", "").strip()
+            zip_code = data.get("zip_code", "").strip()
 
             # Validate customer ID
             try:
@@ -264,15 +265,22 @@ def create_customer_address(request):
             except Customer.DoesNotExist:
                 return JsonResponse({"error": "Invalid customer ID. Customer not found."}, status=404)
 
+            # Validate country choice
+            # valid_countries = dict(countrys)  # Use the globally defined tuple
+            # if country and country not in valid_countries:
+            #     return JsonResponse({"error": "Invalid country selected."}, status=400)
+
             # Check if the exact same address already exists for the customer
             existing_address = Customer_Address.objects.filter(
                 customer=customer,
-                building_name=building_name,
-                street_address=street_address,
-                landmark=landmark,
+                company_name=company_name,
+                ext=ext,
+                address_line1=address_line1,
+                address_line2=address_line2,
+                country=country,
                 city=city,
-                district=district,
-                delivery_instructions=delivery_instructions
+                state=state,
+                zip_code=zip_code
             ).first()
 
             if existing_address:
@@ -281,12 +289,14 @@ def create_customer_address(request):
             # Create and save the new address
             customer_address = Customer_Address.objects.create(
                 customer=customer,
-                building_name=building_name,
-                street_address=street_address,
-                landmark=landmark,
+                company_name=company_name,
+                ext=ext,
+                address_line1=address_line1,
+                address_line2=address_line2,
+                country=country,
                 city=city,
-                district=district,
-                delivery_instructions=delivery_instructions
+                state=state,
+                zip_code=zip_code
             )
 
             # Prepare response data
@@ -295,12 +305,14 @@ def create_customer_address(request):
                 "address_details": {
                     "id": customer_address.id,
                     "customer": customer.user.first_name if customer.user else "Unknown",
-                    "building_name": customer_address.building_name,
-                    "street_address": customer_address.street_address,
-                    "landmark": customer_address.landmark,
+                    "company_name": customer_address.company_name,
+                    "ext": customer_address.ext,
+                    "address_line1": customer_address.address_line1,
+                    "address_line2": customer_address.address_line2,
+                    "country": customer_address.country,
                     "city": customer_address.city,
-                    "district": customer_address.district,
-                    "delivery_instructions": customer_address.delivery_instructions,
+                    "state": customer_address.state,
+                    "zip_code": customer_address.zip_code,
                 }
             }
 
@@ -362,13 +374,37 @@ def edit_customer_address(request, address_id):
             except Customer_Address.DoesNotExist:
                 return JsonResponse({"error": "Customer address not found."}, status=404)
 
+            # Validate country choice
+            valid_countries = dict(countrys)
+            country = data.get("country", address.country)
+            if country and country not in valid_countries:
+                return JsonResponse({"error": "Invalid country selected."}, status=400)
+
+            # Check for duplicate addresses
+            existing_address = Customer_Address.objects.filter(
+                customer=address.customer,
+                company_name=data.get("company_name", address.company_name),
+                ext=data.get("ext", address.ext),
+                address_line1=data.get("address_line1", address.address_line1),
+                address_line2=data.get("address_line2", address.address_line2),
+                country=country,
+                city=data.get("city", address.city),
+                state=data.get("state", address.state),
+                zip_code=data.get("zip_code", address.zip_code)
+            ).exclude(id=address_id).first()
+
+            if existing_address:
+                return JsonResponse({"error": "A similar address already exists."}, status=400)
+
             # Update the address fields if provided in the request
-            address.building_name = data.get("building_name", address.building_name)
-            address.street_address = data.get("street_address", address.street_address)
-            address.landmark = data.get("landmark", address.landmark)
+            address.company_name = data.get("company_name", address.company_name)
+            address.ext = data.get("ext", address.ext)
+            address.address_line1 = data.get("address_line1", address.address_line1)
+            address.address_line2 = data.get("address_line2", address.address_line2)
+            address.country = country
             address.city = data.get("city", address.city)
-            address.district = data.get("district", address.district)
-            address.delivery_instructions = data.get("delivery_instructions", address.delivery_instructions)
+            address.state = data.get("state", address.state)
+            address.zip_code = data.get("zip_code", address.zip_code)
 
             # Save the updated address
             address.save()
@@ -378,12 +414,14 @@ def edit_customer_address(request, address_id):
                 "message": "Customer address updated successfully.",
                 "updated_address": {
                     "id": address.id,
-                    "building_name": address.building_name,
-                    "street_address": address.street_address,
-                    "landmark": address.landmark,
+                    "company_name": address.company_name,
+                    "ext": address.ext,
+                    "address_line1": address.address_line1,
+                    "address_line2": address.address_line2,
+                    "country": address.country,
                     "city": address.city,
-                    "district": address.district,
-                    "delivery_instructions": address.delivery_instructions,
+                    "state": address.state,
+                    "zip_code": address.zip_code,
                 }
             }
 
@@ -398,8 +436,8 @@ def edit_customer_address(request, address_id):
 # Create Cart
 @api_view(['POST'])
 def create_or_update_cart(request):
-    customer_id = request.data.get('customer_id')
-    cart_items_data = request.data.get('cart_items', [])
+    customer_id = request.data.get('customerid')
+    cart_items_data = request.data.get('cartitems', [])
 
     if not customer_id:
         return Response({"error": "Customer ID is required"}, status=status.HTTP_400_BAD_REQUEST)
@@ -418,14 +456,14 @@ def create_or_update_cart(request):
     cart_items_list = []
 
     for item_data in cart_items_data:
-        product_id = item_data.get('product_id')
-        custom_width = item_data.get('custom_width')
-        custom_height = item_data.get('custom_height')
-        size_unit = item_data.get('size_unit')
-        design_image = item_data.get('design_image')
+        product_id = item_data.get('productid')
+        custom_width = item_data.get('customwidth')
+        custom_height = item_data.get('customheight')
+        size_unit = item_data.get('sizeunit')
+        design_image = item_data.get('designimage')
         quantity = item_data.get('quantity', 1)
         price = item_data.get('price')
-        total_price_item = item_data.get('total_price')
+        total_price_item = item_data.get('totalprice')
         status_item = item_data.get('status', 'pending')
 
         if not product_id:

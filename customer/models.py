@@ -71,15 +71,25 @@ class ClaimWarranty(models.Model):
         return f"Claim for Warranty {self.warranty_number} - {self.status}"
 
 
+countrys = (
+    ('UAE', 'UAE'),
+    ('OMAN', 'OMAN'),
+    ('SAUDI ARABIA', 'SAUDI ARABIA'),
+    ('Bahrain', 'Bahrain'),
+    ('Kuwait', 'Kuwait')
+)
+
 
 class Customer_Address(models.Model):
     customer = models.ForeignKey(Customer,on_delete=models.CASCADE,null=True,blank=True)
-    building_name = models.CharField(max_length=500, null=True, blank=True)
-    street_address = models.CharField(max_length=900,null=True,blank=True)
-    landmark = models.CharField(max_length=900,null=True,blank=True)
-    city = models.CharField(max_length=500,null=True,blank=True)
-    district = models.CharField(max_length=500,null=True,blank=True)
-    delivery_instructions = models.TextField(null=True,blank=True)
+    company_name = models.CharField(max_length=500, null=True, blank=True)
+    ext = models.CharField(max_length=500, null=True, blank=True)
+    address_line1 = models.CharField(max_length=900, null=True, blank=True)
+    address_line2 = models.CharField(max_length=900, null=True, blank=True)
+    country = models.CharField(max_length=500,null=True,blank=True,choices=countrys)
+    city = models.CharField(max_length=900, null=True, blank=True)
+    state = models.CharField(max_length=900, null=True, blank=True)
+    zip_code = models.CharField(max_length=50,null=True,blank=True)
 
     def __str__(self):
         return self.customer.user.first_name if self.customer.user else "Unknown Customer"
