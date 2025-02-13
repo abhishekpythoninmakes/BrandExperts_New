@@ -1,3 +1,4 @@
+from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import render, get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
@@ -319,3 +320,32 @@ def get_categories_by_parent(request, parent_category_id):
 
     except ParentCategory.DoesNotExist:
         return Response({"error": "Parent category not found"}, status=404)
+
+
+@api_view(["GET"])
+def search_products(request):
+    search_keyword = request.query_params.get("q", "").strip()
+
+    # Build a query to search across all relevant fields
+    query = Q()
+    if search_keyword:
+        query |= Q(name__icontains=search_keyword)
+        query |= Q(description__icontains=search_keyword)
+        query |= Q(size__icontains=search_keyword)
+        query |= Q(subcategory__subcategory_name__icontains=search_keyword)
+        query |= Q(subcategory__category__category_name__icontains=search_keyword)
+        query |= Q(subcategory__category__parent_category__name__icontains=search_keyword)
+
+        # Handle price as a special case (exact match)
+        try:
+            price = float(search_keyword)
+            query |= Q(price=price)
+        except ValueError:
+            pass  # Ignore if the keyword is not a valid price
+
+    # Filter products using the query
+    products = Product.objects.filter(query).distinct()
+
+    # Serialize the results
+    serializer = ProductSearchSerializer(products, many=True)
+    return Response(serializer.data)

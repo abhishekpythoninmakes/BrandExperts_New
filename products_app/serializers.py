@@ -215,3 +215,14 @@ class ProductSerializer_parent_id(serializers.ModelSerializer):
             'id', 'name', 'description', 'image1', 'image2', 'image3', 'image4',
             'size', 'standard_size', 'width', 'height', 'price'
         ]
+
+class ProductSearchSerializer(serializers.ModelSerializer):
+    image_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Product
+        fields = ["id", "name", "image_url", "price", "size", "description"]
+
+    def get_image_url(self, obj):
+        """Return the URL of the first image (image1)."""
+        return obj.image1 if obj.image1 else None

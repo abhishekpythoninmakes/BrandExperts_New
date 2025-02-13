@@ -42,7 +42,9 @@ urlpatterns = [
 
     path('categories/<int:parent_category_id>/', views.get_categories_by_parent, name='get_categories_by_parent'),
 
+    # Search
 
+    path("search/", views.search_products, name="search_products"),
 
 
 
