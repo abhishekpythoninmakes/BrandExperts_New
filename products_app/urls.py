@@ -44,4 +44,8 @@ urlpatterns = [
     path('get-warranty-by-price-range/<str:price_range>/', views.get_warranty_by_price_range,name='get_warranty_by_price_range'),
 
 
+    # Wrranty plan price range
+    path("price-ranges/", views.PriceRangeListAPIView.as_view(), name="price-ranges"),
+
+
 ]
