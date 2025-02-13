@@ -213,10 +213,11 @@ def create_claim_warranty(request):
                         "phone": warranty.phone,
                         "product_name": warranty.product_name,
                         "invoice_date": warranty.invoice_date.strftime("%Y-%m-%d"),
-                        "invoice_value": str(warranty.invoice_value),
+                        "invoice_value": warranty.invoice_value.price_range,
                         "invoice_file": warranty.invoice_file.url if warranty.invoice_file else None,
-                        "warranty_plan": warranty.get_warranty_plan_display(),
+                        "warranty_plan": warranty.invoice_value.price_range if warranty.invoice_value else "No Warranty Plan",
                         "warranty_number": warranty.warranty_number,
+                        "warranty_amount":warranty.warranty_plan_amount,
                         "created_at": warranty.created_at.strftime("%Y-%m-%d %H:%M:%S"),
                     }
                 }, status=200)
