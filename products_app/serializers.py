@@ -16,29 +16,21 @@ class CategorySerializer(serializers.ModelSerializer):
 
 
 
-class SubcategorySerializer(serializers.ModelSerializer):
-    subcategory_image_url = serializers.SerializerMethodField()
-    status = serializers.CharField(source="status.status", allow_null=True)
-
-    class Meta:
-        model = Subcategory
-        fields = ["id", "subcategory_name", "description", "subcategory_image_url","status"]
-
-    def get_subcategory_image_url(self, obj):
-        request = self.context.get("request")
-        if obj.subcategory_image:
-            return request.build_absolute_uri(obj.subcategory_image.url)
-        return None
-
-
 class StandardSizesSerializer(serializers.ModelSerializer):
     class Meta:
         model = Standard_sizes
         fields = ['standard_sizes', 'width', 'height']
 
 # Product Serializer
+from django.conf import settings
+from rest_framework import serializers
+from .models import Product, Category, ParentCategory
+from .serializers import StandardSizesSerializer
+
+
 class ProductSerializer(serializers.ModelSerializer):
     standard_sizes = StandardSizesSerializer(many=True, read_only=True)
+
     class Meta:
         model = Product
         fields = [
@@ -57,11 +49,11 @@ class ProductSerializer(serializers.ModelSerializer):
 class DetailedProductSerializer(serializers.ModelSerializer):
     parent_category = serializers.SerializerMethodField()
     category = serializers.SerializerMethodField()
-    subcategory = serializers.SerializerMethodField()
-    overview = serializers.SerializerMethodField()
-    specifications = serializers.SerializerMethodField()
-    installation_steps = serializers.SerializerMethodField()
+    product_overview = serializers.SerializerMethodField()  # Convert relative image URLs
+    product_specifications = serializers.SerializerMethodField()  # Convert relative image URLs
+    installation = serializers.SerializerMethodField()  # Convert relative image URLs
     standard_sizes = StandardSizesSerializer(many=True, read_only=True)
+    status = serializers.CharField(source="status.status", allow_null=True)  # Get status name
 
     class Meta:
         model = Product
@@ -69,6 +61,9 @@ class DetailedProductSerializer(serializers.ModelSerializer):
             "id",
             "name",
             "description",
+            "product_overview",
+            "product_specifications",
+            "installation",
             "image1",
             "image2",
             "image3",
@@ -77,20 +72,33 @@ class DetailedProductSerializer(serializers.ModelSerializer):
             "price",
             "parent_category",
             "category",
-            "subcategory",
-            "overview",
-            "specifications",
-            "installation_steps",
-
+            "status",
         ]
+
+    def get_absolute_html(self, content):
+        """Convert relative media URLs to absolute URLs in HTML fields."""
+        if content:
+            request = self.context.get("request")
+            domain = request.build_absolute_uri("/")[:-1] if request else settings.SITE_URL
+            return content.replace('src="/media/', f'src="{domain}/media/')
+        return None
+
+    def get_product_overview(self, obj):
+        return self.get_absolute_html(obj.product_overview)
+
+    def get_product_specifications(self, obj):
+        return self.get_absolute_html(obj.product_specifications)
+
+    def get_installation(self, obj):
+        return self.get_absolute_html(obj.installation)
 
     def get_parent_category(self, obj):
         """Retrieve parent category details"""
-        if obj.subcategory and obj.subcategory.category and obj.subcategory.category.parent_category:
-            parent_category = obj.subcategory.category.parent_category
+        if obj.category and obj.category.parent_category:
+            parent_category = obj.category.parent_category
             return {
                 "id": parent_category.id,
-                "name": parent_category.name,
+                "name": parent_category.name,  # Fixed: Use 'name' instead of 'category_name'
                 "description": parent_category.description,
                 "image": parent_category.image.url if parent_category.image else None
             }
@@ -98,67 +106,17 @@ class DetailedProductSerializer(serializers.ModelSerializer):
 
     def get_category(self, obj):
         """Retrieve category details"""
-        if obj.subcategory and obj.subcategory.category:
-            category = obj.subcategory.category
+        if obj.category:
             return {
-                "id": category.id,
-                "name": category.category_name,
-                "description": category.description,
-                "image": category.category_image.url if category.category_image else None
+                "id": obj.category.id,
+                "name": obj.category.category_name,
+                "description": obj.category.description,
+                "image": obj.category.category_image.url if obj.category.category_image else None
             }
         return None
 
-    def get_subcategory(self, obj):
-        """Retrieve subcategory details"""
-        if obj.subcategory:
-            return {
-                "id": obj.subcategory.id,
-                "name": obj.subcategory.subcategory_name,
-                "description": obj.subcategory.description,
-                "image": obj.subcategory.subcategory_image.url if obj.subcategory.subcategory_image else None,
-                "status":obj.subcategory.status.status if obj.subcategory.status else None
-            }
-        return None
 
-    def get_overview(self, obj):
-        """Retrieve product overviews"""
-        overviews = obj.overview.all()
-        return [{"heading": o.heading, "description": o.description} for o in overviews]
 
-    def get_specifications(self, obj):
-        """Retrieve product specifications"""
-        specs = obj.specifications.all()
-        return [
-            {
-                "title": s.title,
-                "description": s.description,
-                "thickness": s.thickness,
-                "material": s.material,
-                "weight": s.weight,
-                "drilled_holes": s.drilled_holes,
-                "min_size": s.min_size,
-                "max_size": s.max_size,
-                "printing_options": s.printing_options,
-                "cutting_options": s.cutting_options,
-                "common_sizes": s.common_sizes,
-                "installation": s.installation,
-                "shape": s.shape,
-                "life_span": s.life_span,
-            }
-            for s in specs
-        ]
-
-    def get_installation_steps(self, obj):
-        """Retrieve all installation titles and their steps"""
-        installations = Product_installation.objects.filter(product=obj)
-        installation_data = []
-        for installation in installations:
-            steps = Installation_steps.objects.filter(installation=installation)
-            installation_data.append({
-                "installation_title": installation.title,
-                "steps": [{"step": s.steps} for s in steps]
-            })
-        return installation_data
     
 class ParentCategorySerializer(serializers.ModelSerializer):
     image_url = serializers.SerializerMethodField()
@@ -189,18 +147,7 @@ class CategorySerializer(serializers.ModelSerializer):
         return None
 
 
-class SubcategorySerializer(serializers.ModelSerializer):
-    subcategory_image_url = serializers.SerializerMethodField()
 
-    class Meta:
-        model = Subcategory
-        fields = ['id', 'subcategory_name', 'description', 'subcategory_image_url']
-
-    def get_subcategory_image_url(self, obj):
-        request = self.context.get('request')
-        if obj.subcategory_image:
-            return request.build_absolute_uri(obj.subcategory_image.url) if request else obj.subcategory_image.url
-        return None
 
 
 class ProductSerializer_parent_id(serializers.ModelSerializer):

@@ -20,9 +20,6 @@ urlpatterns = [
     path('parent-category/<int:parent_category_id>/categories/', views.CategoryByParentView.as_view(),
          name='category-by-parent'),
 
-    # SubCategory list using parent id an category id
-
-    path('subcategories/', views.SubcategoryListView.as_view(), name='subcategory-list'),
 
     # Product LIST
     path("products/", views.list_products, name="list_products"),
@@ -34,24 +31,13 @@ urlpatterns = [
 
     path('products-by-category/', views.ProductListByCategory.as_view(), name='product-list-by-category'),
 
-    # Product list based on sub category id
+    # Category and products list based on parent category id
 
-    path('products-by-subcategory/', views.ProductListBySubcategory.as_view(), name='product-list-by-subcategory'),
-
-    # Category and Sub category list based on parent category id
-
-    path('categories/<int:parent_category_id>/', views.get_categories_by_parent, name='get_categories_by_parent'),
+    path('categories/<int:parent_category_id>/', views.get_categories_and_products_by_parent, name='get_categories_by_parent'),
 
     # Search
 
     path("search/", views.search_products, name="search_products"),
-
-    # Sub category based on status
-
-    path("subcategories_status/", views.filter_subcategories_by_status, name="filter_subcategories_by_status"),
-
-
-
 
 
 ]

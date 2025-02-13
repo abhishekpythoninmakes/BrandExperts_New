@@ -18,4 +18,15 @@ urlpatterns = [
     # Create Cart
     path('cart/',views.create_or_update_cart, name='create_or_update_cart'),
 
+    # Update CartItem
+    path("cartitem/update/<int:cart_item_id>/", views.UpdateCartItemView.as_view(), name="update_cart_item"),
+
+    # CartITEM Delete
+
+    path("cartitem/delete/<int:cart_item_id>/", views.DeleteCartItemView.as_view(), name="delete_cart_item"),
+
+    # Order
+
+    path('create-order/', views.create_order, name='create-order'),
+
 ]

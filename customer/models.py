@@ -10,7 +10,6 @@ import string
 
 class Customer(models.Model):
     user = models.ForeignKey(CustomUser,on_delete=models.CASCADE,null=True,blank=True)
-    dob = models.DateField(null=True,blank=True)
     mobile = models.CharField(max_length=20,null=True,blank=True)
 
     def __str__(self):
@@ -158,6 +157,7 @@ class Order(models.Model):
     status = models.CharField(max_length=15, choices=ORDER_STATUS_CHOICES, default='ordered')
     ordered_date = models.DateTimeField(auto_now_add=True)
     payment_method = models.CharField(max_length=10, choices=PAYMENT_METHOD_CHOICES, default='cod')
+    payment_status = models.CharField(max_length=100,null=True,blank=True)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     delivered_date = models.DateTimeField(null=True,blank=True)
 

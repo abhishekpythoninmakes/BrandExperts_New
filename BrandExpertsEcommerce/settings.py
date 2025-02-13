@@ -46,6 +46,8 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'ckeditor',
+    'ckeditor_uploader',
     'customer',
     'products_app',
     'rest_framework',
@@ -219,3 +221,20 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'hiddenhope00@gmail.com'  # Your email address
 EMAIL_HOST_PASSWORD = 'dmkgmnwhnnbbglfu'  # Your email password
 DEFAULT_FROM_EMAIL = 'hiddenhope00@gmail.com'
+
+CKEDITOR_CONFIGS = {
+    'default': {
+        'toolbar': 'full',
+        'height': 300,
+        'width': '100%',
+        'extraPlugins': ','.join([
+            'justify', 'autogrow', 'clipboard', 'dialog', 'div', 'find', 'font', 'image', 'link',
+            'liststyle', 'pagebreak', 'pastetext', 'preview', 'table', 'templates','uploadimage','image2',
+        ]),
+        'filebrowserUploadUrl': '/ckeditor/upload/',
+        'filebrowserBrowseUrl': '/ckeditor/browse/',
+    },
+}
+
+CKEDITOR_UPLOAD_PATH = "uploads/"
+

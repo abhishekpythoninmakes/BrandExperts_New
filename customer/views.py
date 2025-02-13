@@ -470,3 +470,76 @@ def create_or_update_cart(request):
     }
 
     return Response(response_data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+
+# CartItem Update
+
+class UpdateCartItemView(APIView):
+    def patch(self, request, cart_item_id):
+        cart_item = get_object_or_404(CartItem, id=cart_item_id)  # Get the CartItem or return 404
+        serializer = CartItemUpdateSerializer(cart_item, data=request.data, partial=True)
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"message": "CartItem updated successfully", "data": serializer.data}, status=status.HTTP_200_OK)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+#  CART ITEM DELETE
+
+class DeleteCartItemView(APIView):
+    def delete(self, request, cart_item_id):
+        cart_item = get_object_or_404(CartItem, id=cart_item_id)  # Fetch CartItem or return 404
+        cart_item.delete()
+        return Response({"message": "CartItem deleted successfully"}, status=status.HTTP_204_NO_CONTENT)
+
+
+
+# Order Creation
+@api_view(["POST"])
+def create_order(request):
+    cart_id = request.data.get("cart_id")
+    customer_address_id = request.data.get("customer_address_id")
+    payment_status = request.data.get("payment_status")
+    payment_method = request.data.get("payment_method")
+
+    # Validate cart
+    try:
+        cart = Cart.objects.get(id=cart_id, status="active")
+    except Cart.DoesNotExist:
+        return Response({"error": "Invalid or inactive cart."}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Validate customer address
+    try:
+        customer_address = Customer_Address.objects.get(id=customer_address_id)
+    except Customer_Address.DoesNotExist:
+        return Response({"error": "Invalid customer address."}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Calculate total order amount
+    cart_items = cart.items.filter(status="pending")
+    if not cart_items.exists():
+        return Response({"error": "Cart is empty or already processed."}, status=status.HTTP_400_BAD_REQUEST)
+
+    total_amount = sum(item.total_price for item in cart_items)
+
+    # Create Order
+    order = Order.objects.create(
+        customer=cart.customer,
+        address=customer_address,
+        cart=cart,
+        payment_method=payment_method,
+        payment_status=payment_status,
+        amount=total_amount,
+    )
+
+    # Update CartItem statuses to "ordered"
+    cart_items.update(status="ordered")
+
+    # Update Cart status to "checked_out"
+    cart.status = "checked_out"
+    cart.save()
+
+    return Response({"message": "Order created successfully.", "order_id": order.id}, status=status.HTTP_201_CREATED)
+
+
+

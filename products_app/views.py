@@ -214,11 +214,8 @@ class ProductListByParentCategory(APIView):
         # Get all categories under this parent category
         categories = parent_category.categories.all()
 
-        # Get all subcategories under these categories
-        subcategories = [subcategory for category in categories for subcategory in category.subcategories.all()]
-
-        # Get all products under these subcategories
-        products = Product.objects.filter(subcategory__in=subcategories)
+        # Get all products under these categories
+        products = Product.objects.filter(category__in=categories)
 
         serializer = ProductSerializer(products, many=True)
 
@@ -241,35 +238,8 @@ class ProductListByCategory(APIView):
 
         category = get_object_or_404(Category, id=category_id)
 
-        # Get all subcategories under this category
-        subcategories = category.subcategories.all()
-
-        # Get all products under these subcategories
-        products = Product.objects.filter(subcategory__in=subcategories)
-
-        serializer = ProductSerializer(products, many=True)
-
-        return Response({
-            "total_products": products.count(),
-            "products": serializer.data
-        })
-
-
-#  Product list by Sub category id
-
-class ProductListBySubcategory(APIView):
-    permission_classes = [AllowAny]  # Public access
-
-    def get(self, request):
-        subcategory_id = request.query_params.get('subcategory_id')
-
-        if not subcategory_id:
-            return Response({"error": "subcategory_id is required"}, status=400)
-
-        subcategory = get_object_or_404(Subcategory, id=subcategory_id)
-
-        # Get all products under this subcategory
-        products = Product.objects.filter(subcategory=subcategory)
+        # Get all products under this category
+        products = Product.objects.filter(category=category)
 
         serializer = ProductSerializer(products, many=True)
 
@@ -283,23 +253,28 @@ class ProductListBySubcategory(APIView):
 # Category and Sub Category list using parent category id
 
 @api_view(['GET'])
-def get_categories_by_parent(request, parent_category_id):
+def get_categories_and_products_by_parent(request, parent_category_id):
     try:
         parent_category = ParentCategory.objects.get(id=parent_category_id)
         categories = Category.objects.filter(parent_category=parent_category)
 
         category_list = []
         for category in categories:
-            subcategories = category.subcategories.all()
-            subcategory_list = [
+            products = category.products.all()
+            product_list = [
                 {
-                    "subcategory_id": sub.id,
-                    "subcategory_name": sub.subcategory_name,
-                    "description": sub.description,
-                    "status":sub.status.status if sub.status else None,
-                    "subcategory_image": request.build_absolute_uri(sub.subcategory_image.url) if sub.subcategory_image else None
+                    "product_id": product.id,
+                    "name": product.name,
+                    "description": product.description,
+                    "status": product.status.status if product.status else None,
+                    "size": product.size,
+                    "price": product.price,
+                    "image1": product.image1,
+                    "image2": product.image2,
+                    "image3": product.image3,
+                    "image4": product.image4,
                 }
-                for sub in subcategories
+                for product in products
             ]
 
             category_list.append({
@@ -307,7 +282,7 @@ def get_categories_by_parent(request, parent_category_id):
                 "category_name": category.category_name,
                 "description": category.description,
                 "category_image": request.build_absolute_uri(category.category_image.url) if category.category_image else None,
-                "subcategories": subcategory_list
+                "products": product_list
             })
 
         return Response({
@@ -332,9 +307,8 @@ def search_products(request):
         query |= Q(name__icontains=search_keyword)
         query |= Q(description__icontains=search_keyword)
         query |= Q(size__icontains=search_keyword)
-        query |= Q(subcategory__subcategory_name__icontains=search_keyword)
-        query |= Q(subcategory__category__category_name__icontains=search_keyword)
-        query |= Q(subcategory__category__parent_category__name__icontains=search_keyword)
+        query |= Q(category__category_name__icontains=search_keyword)
+        query |= Q(category__parent_category__name__icontains=search_keyword)
 
         # Handle price as a special case (exact match)
         try:
@@ -351,20 +325,3 @@ def search_products(request):
     return Response(serializer.data)
 
 
-# Sub Category Based on status
-
-@api_view(["GET"])
-def filter_subcategories_by_status(request):
-    status = request.query_params.get("status", "").strip()
-
-    # Filter subcategories by status
-    if status:
-        subcategories = Subcategory.objects.filter(status__status__iexact=status)
-    else:
-        subcategories = Subcategory.objects.all()
-
-    # Serialize the filtered subcategories
-    serializer = SubcategorySerializer(
-        subcategories, many=True, context={"request": request}
-    )
-    return Response(serializer.data)

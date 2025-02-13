@@ -64,3 +64,15 @@ class CartItemSerializer(serializers.ModelSerializer):
             'id', 'product', 'custom_width', 'custom_height', 'size_unit',
             'design_image', 'quantity', 'price', 'total_price', 'status', 'created_at'
         ]
+
+
+class CartItemUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CartItem
+        fields = ["quantity", "total_price"]  # Only updatable fields
+
+    def validate_quantity(self, value):
+        """Ensure quantity is at least 1."""
+        if value < 1:
+            raise serializers.ValidationError("Quantity must be at least 1.")
+        return value
