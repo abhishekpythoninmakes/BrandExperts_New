@@ -3,6 +3,7 @@ from django.http import JsonResponse
 from django.shortcuts import render, get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
+from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
@@ -320,5 +321,17 @@ def get_warranty_by_price_range(request, price_range):
             return JsonResponse({"error": "No warranty plan found for the given price range."}, status=404)
 
     return JsonResponse({"error": "Invalid request method. Use GET instead."}, status=405)
+
+
+
+class PriceRangeListAPIView(APIView):
+    """
+    API to return all price ranges from Warranty_plan model.
+    """
+    def get(self, request):
+        # Fetch all warranty plans and return only price_range field
+        warranty_plans = Warranty_plan.objects.all().values("price_range")
+
+        return Response({"price_ranges": list(warranty_plans)}, status=status.HTTP_200_OK)
 
 

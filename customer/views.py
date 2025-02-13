@@ -609,15 +609,6 @@ def create_order(request):
 
 #  Warranty Plan Api Priice range
 
-class PriceRangeListAPIView(APIView):
-    """
-    API to return all price ranges from Warranty_plan model.
-    """
-    def get(self, request):
-        # Fetch all warranty plans and return only price_range field
-        warranty_plans = Warranty_plan.objects.all().values("price_range")
-
-        return Response({"price_ranges": list(warranty_plans)}, status=status.HTTP_200_OK)
 
 
 
