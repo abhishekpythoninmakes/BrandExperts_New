@@ -24,3 +24,4 @@ class ProductAdmin(admin.ModelAdmin):
 admin.site.register(Product, ProductAdmin)
 admin.site.register(Standard_sizes)
 admin.site.register(Product_status)
+admin.site.register(Warranty_plan)
