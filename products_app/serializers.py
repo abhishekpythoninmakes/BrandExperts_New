@@ -116,7 +116,7 @@ class DetailedProductSerializer(serializers.ModelSerializer):
                 "name": obj.subcategory.subcategory_name,
                 "description": obj.subcategory.description,
                 "image": obj.subcategory.subcategory_image.url if obj.subcategory.subcategory_image else None,
-                "status":obj.subcategory.status
+                "status":obj.subcategory.status.status if obj.subcategory.status else None
             }
         return None
 
