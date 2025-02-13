@@ -1,5 +1,6 @@
 import json
 
+from django.conf import settings
 from django.core.mail import send_mail
 from django.db import IntegrityError
 from django.http import JsonResponse
@@ -115,12 +116,25 @@ class LoginAPIView(APIView):
 
 
 # Warranty Registration
-
 class WarrantyRegistrationAPIView(APIView):
     permission_classes = [AllowAny]  # Allows anyone to access this API
 
     def post(self, request):
-        serializer = WarrantyRegistrationSerializer(data=request.data)
+        data = request.data.copy()
+        price_range = data.get("price_range")  # Get price range string from request
+
+        # Fetch the matching Warranty_plan object
+        warranty_plan = Warranty_plan.objects.filter(price_range=price_range).first()
+
+        if not warranty_plan:
+            return Response(
+                {"error": "Invalid price range. No matching warranty plan found."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        data["invoice_value"] = warranty_plan.id  # Assign the Warranty_plan ID
+
+        serializer = WarrantyRegistrationSerializer(data=data)
         if serializer.is_valid():
             warranty = serializer.save()
 
@@ -128,18 +142,21 @@ class WarrantyRegistrationAPIView(APIView):
             subject = "Warranty Registration Successful"
             message = (
                 f"Dear {warranty.full_name},\n\n"
-                f"Your warranty registration was successful.\n"
-                f"Warranty Number: {warranty.warranty_number}\n"
-                f"Product: {warranty.product_name}\n"
-                f"Warranty Plan: {warranty.get_warranty_plan_display()}\n\n"
-                "Please keep this number safe for future reference.\n\n"
+                f"Your warranty registration was successful!\n\n"
+                f"📌 **Warranty Details:**\n"
+                f"- **Warranty Number:** {warranty.warranty_number}\n"
+                f"- **Product Name:** {warranty.product_name}\n"
+                f"- **Warranty Plan:** {warranty_plan.price_range}\n"
+                f"- **Amount Paid:** ${warranty.warranty_plan_amount}\n\n"
+                "🛠️ Please keep this number safe for future reference.\n\n"
                 "Best regards,\n"
                 "BrandExperts.ae"
             )
+
             send_mail(
                 subject,
                 message,
-                "hiddenhope00@gmail.com",  # Your email (from settings)
+                settings.DEFAULT_FROM_EMAIL,  # Use the new sender email
                 [warranty.email],
                 fail_silently=False,
             )

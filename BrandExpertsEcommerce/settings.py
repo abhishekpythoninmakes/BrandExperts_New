@@ -219,12 +219,12 @@ SIMPLE_JWT = {
 
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'  # Your email service provider's SMTP server
+EMAIL_HOST = 'smtp.socketlabs.com'  # Use SocketLabs SMTP server
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'hiddenhope00@gmail.com'  # Your email address
-EMAIL_HOST_PASSWORD = 'dmkgmnwhnnbbglfu'  # Your email password
-DEFAULT_FROM_EMAIL = 'hiddenhope00@gmail.com'
+EMAIL_HOST_USER = 'server34932'  # Your SocketLabs username
+EMAIL_HOST_PASSWORD = 'Tq62RrDt5f4MNe'  # Your SMTP password
+DEFAULT_FROM_EMAIL = 'hello@brandexperts.ae'  # Your official email
 
 CKEDITOR_CONFIGS = {
     'default': {
