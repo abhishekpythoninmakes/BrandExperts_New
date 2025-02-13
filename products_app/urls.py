@@ -39,5 +39,9 @@ urlpatterns = [
 
     path("search/", views.search_products, name="search_products"),
 
+    #  Warranty plan based on price range
+
+    path('get-warranty-by-price-range/<str:price_range>/', views.get_warranty_by_price_range,name='get_warranty_by_price_range'),
+
 
 ]

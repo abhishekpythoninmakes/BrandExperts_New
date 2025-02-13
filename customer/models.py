@@ -1,5 +1,5 @@
 from django.db import models
-from products_app .models import CustomUser , Product
+from products_app .models import CustomUser , Product ,Warranty_plan
 import random
 import string
 
@@ -31,7 +31,7 @@ class WarrantyRegistration(models.Model):
     phone = models.CharField(max_length=20)
     product_name = models.CharField(max_length=900, null=True, blank=True)
     invoice_date = models.DateField()
-    invoice_value = models.DecimalField(max_digits=10, decimal_places=2)
+    invoice_value = models.ForeignKey(Warranty_plan,on_delete=models.CASCADE,null=True,blank=True)
     invoice_file = models.URLField(blank=True, null=True)
     warranty_plan = models.CharField(max_length=20, choices=WARRANTY_PLAN_CHOICES)
     warranty_number = models.CharField(max_length=8, unique=True, editable=False,null=True,blank=True)  # Unique warranty number

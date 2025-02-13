@@ -169,33 +169,6 @@ class CategoryByParentView(APIView):
         })
 
 
-# Subcategory List using category id and parent category id
-
-class SubcategoryListView(APIView):
-    permission_classes = [AllowAny]  # Public access
-
-    def get(self, request):
-        parent_category_id = request.query_params.get('parent_category_id')
-        category_id = request.query_params.get('category_id')
-
-        if parent_category_id:
-            parent_category = get_object_or_404(ParentCategory, id=parent_category_id)
-            categories = parent_category.categories.all()
-            subcategories = Subcategory.objects.filter(category__in=categories)
-        elif category_id:
-            category = get_object_or_404(Category, id=category_id)
-            subcategories = category.subcategories.all()
-        else:
-            return Response({"error": "Please provide either parent_category_id or category_id."}, status=400)
-
-        serializer = SubcategorySerializer(subcategories, many=True, context={'request': request})
-
-        return Response({
-            "total_subcategories": subcategories.count(),
-            "subcategories": serializer.data
-        })
-
-
 
 
 # Product filtered based on parent category id
@@ -323,5 +296,29 @@ def search_products(request):
     # Serialize the results
     serializer = ProductSearchSerializer(products, many=True)
     return Response(serializer.data)
+
+
+# Warranty Plans fileterd based on price range
+
+@csrf_exempt
+def get_warranty_by_price_range(request, price_range):
+    if request.method == "GET":
+        try:
+            # Try to find the Warranty_plan with the given price_range
+            warranty_plan = get_object_or_404(Warranty_plan, price_range=price_range)
+
+            # Prepare response data
+            response_data = {
+                "year1": float(warranty_plan.year1) if warranty_plan.year1 is not None else None,
+                "year2": float(warranty_plan.year2) if warranty_plan.year2 is not None else None,
+                "year5": float(warranty_plan.year5) if warranty_plan.year5 is not None else None,
+            }
+
+            return JsonResponse(response_data, status=200)
+
+        except Warranty_plan.DoesNotExist:
+            return JsonResponse({"error": "No warranty plan found for the given price range."}, status=404)
+
+    return JsonResponse({"error": "Invalid request method. Use GET instead."}, status=405)
 
 

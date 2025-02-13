@@ -345,19 +345,28 @@ def get_customer_addresses(request, customer_id):
         address_list = [
             {
                 "id": address.id,
-                "building_name": address.building_name,
-                "street_address": address.street_address,
-                "landmark": address.landmark,
+                "company_name": address.company_name,
+                "ext": address.ext,
+                "address_line1": address.address_line1,
+                "address_line2": address.address_line2,
+                "country": address.country,
                 "city": address.city,
-                "district": address.district,
-                "delivery_instructions": address.delivery_instructions,
+                "state": address.state,
+                "zip_code": address.zip_code,
             }
             for address in addresses
         ]
 
-        return JsonResponse({"customer": customer.user.first_name, "addresses": address_list}, status=200)
+        return JsonResponse(
+            {
+                "customer": customer.user.first_name if customer.user else "Unknown",
+                "addresses": address_list,
+            },
+            status=200,
+        )
 
     return JsonResponse({"error": "Invalid request method. Use GET instead."}, status=405)
+
 
 
 # CUSTOMER ADDRESS EDIT
@@ -377,8 +386,8 @@ def edit_customer_address(request, address_id):
             # Validate country choice
             valid_countries = dict(countrys)
             country = data.get("country", address.country)
-            if country and country not in valid_countries:
-                return JsonResponse({"error": "Invalid country selected."}, status=400)
+            # if country and country not in valid_countries:
+            #     return JsonResponse({"error": "Invalid country selected."}, status=400)
 
             # Check for duplicate addresses
             existing_address = Customer_Address.objects.filter(
