@@ -226,3 +226,5 @@ class ProductSearchSerializer(serializers.ModelSerializer):
     def get_image_url(self, obj):
         """Return the URL of the first image (image1)."""
         return obj.image1 if obj.image1 else None
+
+

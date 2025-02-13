@@ -349,3 +349,22 @@ def search_products(request):
     # Serialize the results
     serializer = ProductSearchSerializer(products, many=True)
     return Response(serializer.data)
+
+
+# Sub Category Based on status
+
+@api_view(["GET"])
+def filter_subcategories_by_status(request):
+    status = request.query_params.get("status", "").strip()
+
+    # Filter subcategories by status
+    if status:
+        subcategories = Subcategory.objects.filter(status__status__iexact=status)
+    else:
+        subcategories = Subcategory.objects.all()
+
+    # Serialize the filtered subcategories
+    serializer = SubcategorySerializer(
+        subcategories, many=True, context={"request": request}
+    )
+    return Response(serializer.data)

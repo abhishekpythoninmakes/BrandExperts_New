@@ -46,6 +46,10 @@ urlpatterns = [
 
     path("search/", views.search_products, name="search_products"),
 
+    # Sub category based on status
+
+    path("subcategories_status/", views.filter_subcategories_by_status, name="filter_subcategories_by_status"),
+
 
 
 
