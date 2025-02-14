@@ -117,8 +117,22 @@ class LoginAPIView(APIView):
 
 # Warranty Registration
 
+import stripe
+from django.conf import settings
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import AllowAny
+from rest_framework import status
+from .models import WarrantyRegistration, Warranty_plan, CustomUser, Customer
+from .serializers import WarrantyRegistrationSerializer
+from django.core.mail import send_mail
+import random
+import string
+
+stripe.api_key = settings.STRIPE_SECRET_KEY
+
 class WarrantyRegistrationAPIView(APIView):
-    permission_classes = [AllowAny]  # Allows anyone to access this API
+    permission_classes = [AllowAny]
 
     def post(self, request):
         data = request.data.copy()
@@ -126,7 +140,6 @@ class WarrantyRegistrationAPIView(APIView):
 
         # Fetch the matching Warranty_plan object
         warranty_plan = Warranty_plan.objects.filter(price_range=price_range).first()
-
         if not warranty_plan:
             return Response(
                 {"error": "Invalid price range. No matching warranty plan found."},
@@ -134,6 +147,7 @@ class WarrantyRegistrationAPIView(APIView):
             )
 
         data["invoice_value"] = warranty_plan.id  # Assign the Warranty_plan ID
+        data["warranty_plan_amount"] = warranty_plan.amount  # Set the amount for the warranty plan
 
         # Split full_name into first_name and last_name
         full_name = data.get("full_name", "").strip()
@@ -144,11 +158,9 @@ class WarrantyRegistrationAPIView(APIView):
         # Check if a user with the same email or username already exists
         email = data.get("email")
         user = CustomUser.objects.filter(username=email).first()
-
         if not user:
             # Generate a dummy password
             dummy_password = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
-
             # Create the CustomUser instance
             user = CustomUser.objects.create(
                 username=email,
@@ -174,6 +186,19 @@ class WarrantyRegistrationAPIView(APIView):
         if serializer.is_valid():
             warranty = serializer.save()
 
+            # Create a PaymentIntent for the warranty amount
+            try:
+                intent = stripe.PaymentIntent.create(
+                    amount=int(warranty.warranty_plan_amount * 100),  # Convert to cents
+                    currency='aed',  # Use AED as the currency
+                    metadata={'warranty_number': warranty.warranty_number},
+                )
+            except Exception as e:
+                return Response(
+                    {"error": f"Failed to create PaymentIntent: {str(e)}"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
             # Send email with warranty number and dummy password
             subject = "Warranty Registration Successful"
             message = (
@@ -181,7 +206,7 @@ class WarrantyRegistrationAPIView(APIView):
                 f"Your warranty registration was successful!\n\n"
                 f"📌 **Warranty Details:**\n"
                 f"- **Warranty Number:** {warranty.warranty_number}\n"
-                f"- **Product Name:** {warranty.product_name}\n"
+                f"- **Invoice Number:** {warranty.product_name}\n"
                 f"- **Warranty Plan:** {warranty_plan.price_range}\n"
                 f"- **Amount Paid:** ${warranty.warranty_plan_amount}\n\n"
                 f"🔑 **Your Account Details:**\n"
@@ -191,11 +216,10 @@ class WarrantyRegistrationAPIView(APIView):
                 "Best regards,\n"
                 "BrandExperts.ae"
             )
-
             send_mail(
                 subject,
                 message,
-                f"BrandExperts <{settings.DEFAULT_FROM_EMAIL}>",  # Use the new sender email
+                f"BrandExperts <{settings.DEFAULT_FROM_EMAIL}>",
                 [warranty.email],
                 fail_silently=False,
             )
@@ -204,6 +228,7 @@ class WarrantyRegistrationAPIView(APIView):
                 {
                     "message": "Warranty registered successfully!",
                     "warranty_number": warranty.warranty_number,
+                    "clientSecret": intent.client_secret,  # Return the clientSecret
                     "data": serializer.data
                 },
                 status=status.HTTP_201_CREATED
@@ -214,8 +239,40 @@ class WarrantyRegistrationAPIView(APIView):
 
 
 
+class ConfirmPaymentAPIView(APIView):
+    permission_classes = [AllowAny]
 
+    def post(self, request):
+        data = request.data
+        payment_intent_id = data.get("payment_intent_id")
 
+        if not payment_intent_id:
+            return Response(
+                {"error": "payment_intent_id is required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            # Retrieve the PaymentIntent from Stripe
+            intent = stripe.PaymentIntent.retrieve(payment_intent_id)
+
+            if intent.status == 'succeeded':
+                # Payment succeeded
+                return Response(
+                    {"success": True, "message": "Payment successful!"},
+                    status=status.HTTP_200_OK
+                )
+            else:
+                # Payment failed
+                return Response(
+                    {"success": False, "message": "Payment failed."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        except Exception as e:
+            return Response(
+                {"error": f"Failed to confirm payment: {str(e)}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
 
 

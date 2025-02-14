@@ -10,6 +10,8 @@ urlpatterns = [
 
 
     path('register-warranty/', views.WarrantyRegistrationAPIView.as_view(), name='register-warranty'),
+    path('confirm-payment_api/', views.ConfirmPaymentAPIView.as_view(), name='confirm_payment_api'),
+
     path("create_claim_warranty/", views.create_claim_warranty, name="create_claim_warranty"),
     path('create-customer-address/', views.create_customer_address, name='create_customer_address'),
     path('customer-addresses/<int:customer_id>/', views.get_customer_addresses, name='get_customer_addresses'),
