@@ -564,6 +564,12 @@ def edit_customer_address(request, address_id):
 
 
 # Create Cart
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from rest_framework import status
+from .models import Cart, CartItem, Customer, Product
+from .serializers import CartItemSerializer
+
 @api_view(['POST'])
 def create_or_update_cart(request):
     customer_id = request.data.get('customer_id')
@@ -586,14 +592,15 @@ def create_or_update_cart(request):
     cart_items_list = []
 
     for item_data in cart_items_data:
-        product_id = item_data.get('id')
+        product_id = item_data.get('productid')
         product_name = item_data.get('name')
-        custom_width = item_data.get('customSize', {}).get('width')
-        custom_height = item_data.get('customSize', {}).get('height')
+        custom_width = item_data.get('size', {}).get('width')
+        custom_height = item_data.get('size', {}).get('height')
         design_image = item_data.get('design_image')
         quantity = item_data.get('quantity', 1)
-        total_price_item = float(item_data.get('total', 0))  # Convert string to float
-        timestamp = item_data.get('timestamp')  # Optional: Use timestamp if needed
+        price = float(item_data.get('price', 0))
+        total_price_item = float(item_data.get('total', 0))
+        size_unit = item_data.get('unit', 'inches')  # Default to 'inches' if not provided
 
         if not product_id:
             return Response({"error": "Product ID is required for each cart item"}, status=status.HTTP_400_BAD_REQUEST)
@@ -612,31 +619,41 @@ def create_or_update_cart(request):
                 'custom_height': custom_height,
                 'design_image': design_image,
                 'quantity': quantity,
-                'price': total_price_item / quantity if quantity > 0 else 0,  # Calculate price per unit
+                'price': price,
                 'total_price': total_price_item,
+                'size_unit': size_unit,
                 'status': 'pending'  # Default status
             }
         )
 
         total_price += total_price_item
         total_items += quantity
-        cart_items_list.append(CartItemSerializer(cart_item).data)
+        cart_items_list.append({
+            "productid": product.id,
+            "name": product.name,
+            "quantity": quantity,
+            "price": price,
+            "total": total_price_item,
+            "size": {
+                "width": custom_width,
+                "height": custom_height
+            },
+            "design_image": design_image,
+            "unit": size_unit
+        })
 
     # Prepare response
     response_data = {
         "message": "Cart updated successfully" if not created else "Cart created successfully",
         "cart": {
-            "id": cart.id,
-            "status": cart.status,
-            "created_at": cart.created_at,
+            "customer_id": customer.id,
+            "cart_items": cart_items_list,
             "total_items": total_items,
-            "total_price": total_price,
-            "cart_items": cart_items_list
+            "total_price": total_price
         }
     }
 
     return Response(response_data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
-
 
 # CartItem Update
 
