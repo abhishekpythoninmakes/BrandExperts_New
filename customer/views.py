@@ -117,7 +117,6 @@ class LoginAPIView(APIView):
 
 # Warranty Registration
 
-
 class WarrantyRegistrationAPIView(APIView):
     permission_classes = [AllowAny]  # Allows anyone to access this API
 

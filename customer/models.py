@@ -4,13 +4,14 @@ import random
 import string
 
 # Create your models here.
-
+customer_status = (('lead','LEAD'),('client','CLIENT'))
 
 # Customer Registration
 
 class Customer(models.Model):
     user = models.ForeignKey(CustomUser,on_delete=models.CASCADE,null=True,blank=True)
     mobile = models.CharField(max_length=20,null=True,blank=True)
+    status = models.CharField(max_length=300,null=True,blank=True,choices=customer_status,default='lead')
 
     def __str__(self):
         return self.user.username if self.user else "Unknown Customer"
