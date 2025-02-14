@@ -646,6 +646,7 @@ def create_or_update_cart(request):
     response_data = {
         "message": "Cart updated successfully" if not created else "Cart created successfully",
         "cart": {
+            "cart_id":cart.id,
             "customer_id": customer.id,
             "cart_items": cart_items_list,
             "total_items": total_items,
