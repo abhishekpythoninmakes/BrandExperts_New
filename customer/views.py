@@ -187,17 +187,18 @@ class WarrantyRegistrationAPIView(APIView):
             warranty = serializer.save()
 
             # Create a PaymentIntent for the warranty amount
-            try:
-                intent = stripe.PaymentIntent.create(
-                    amount=int(warranty.warranty_plan_amount * 100),  # Convert to cents
-                    currency='aed',  # Use AED as the currency
-                    metadata={'warranty_number': warranty.warranty_number},
-                )
-            except Exception as e:
-                return Response(
-                    {"error": f"Failed to create PaymentIntent: {str(e)}"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+            #
+            # try:
+            #     intent = stripe.PaymentIntent.create(
+            #         amount=int(warranty.warranty_plan_amount * 100),  # Convert to cents
+            #         currency='aed',  # Use AED as the currency
+            #         metadata={'warranty_number': warranty.warranty_number},
+            #     )
+            # except Exception as e:
+            #     return Response(
+            #         {"error": f"Failed to create PaymentIntent: {str(e)}"},
+            #         status=status.HTTP_400_BAD_REQUEST
+            #     )
 
             # Send email with warranty number and dummy password
             subject = "Warranty Registration Successful"
@@ -228,7 +229,7 @@ class WarrantyRegistrationAPIView(APIView):
                 {
                     "message": "Warranty registered successfully!",
                     "warranty_number": warranty.warranty_number,
-                    "clientSecret": intent.client_secret,  # Return the clientSecret
+                    # "clientSecret": intent.client_secret,  # Return the clientSecret
                     "data": serializer.data
                 },
                 status=status.HTTP_201_CREATED
