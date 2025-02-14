@@ -147,7 +147,7 @@ class WarrantyRegistrationAPIView(APIView):
             )
 
         data["invoice_value"] = warranty_plan.id  # Assign the Warranty_plan ID
-        data["warranty_plan_amount"] = warranty_plan.warranty_plan_amount  # Set the amount for the warranty plan
+      # Set the amount for the warranty plan
 
         # Split full_name into first_name and last_name
         full_name = data.get("full_name", "").strip()
