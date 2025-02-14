@@ -29,4 +29,12 @@ urlpatterns = [
 
     path('create-order/', views.create_order, name='create-order'),
 
+    # Payment
+
+    # Create PaymentIntent
+    path('create-payment-intent/', views.create_payment_intent, name='create_payment_intent'),
+
+    # Confirm Payment
+    path('confirm-payment/', views.confirm_payment, name='confirm_payment'),
+
 ]

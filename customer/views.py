@@ -726,8 +726,113 @@ def create_order(request):
 
 
 
-#  Warranty Plan Api Priice range
+# Payment
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from django.core.mail import send_mail
+from django.conf import settings
+import stripe
+from django.shortcuts import get_object_or_404
 
 
+stripe.api_key = settings.STRIPE_SECRET_KEY
+
+@csrf_exempt
+def create_payment_intent(request):
+    if request.method == 'POST':
+        try:
+            # Get cart ID from the request
+            data = json.loads(request.body)
+            cart_id = data.get('cart_id')
+
+            # Fetch the cart and its items
+            cart = Cart.objects.get(id=cart_id)
+            cart_items = cart.items.all()
+
+            # Calculate the total price
+            total_price = sum(item.total_price for item in cart_items)
+
+            # Create a PaymentIntent with Stripe
+            intent = stripe.PaymentIntent.create(
+                amount=int(total_price * 100),  # Convert to cents
+                currency='aed',  # Change to your preferred currency
+                metadata={'cart_id': cart_id},
+            )
+
+            # Return client secret to the frontend
+            return JsonResponse({'clientSecret': intent.client_secret})
+
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=400)
 
 
+from django.core.mail import send_mail
+from django.template.loader import render_to_string
+from django.utils.html import strip_tags
+
+@csrf_exempt
+def confirm_payment(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            payment_intent_id = data.get('payment_intent_id')
+            cart_id = data.get('cart_id')
+
+            # Retrieve the PaymentIntent from Stripe
+            intent = stripe.PaymentIntent.retrieve(payment_intent_id)
+
+            if intent.status == 'succeeded':
+                # Fetch the cart and its items
+                cart = Cart.objects.get(id=cart_id)
+                customer = cart.customer
+                cart_items = cart.items.all()
+
+                # Calculate total price
+                total_price = sum(item.total_price for item in cart_items)
+
+                # Get the latest customer address
+                customer_address = Customer_Address.objects.filter(customer=customer).latest('id')
+
+                # Create an order
+                order = Order.objects.create(
+                    customer=customer,
+                    address=customer_address,
+                    cart=cart,
+                    payment_method='card',  # or 'upi' based on the payment method
+                    payment_status='paid',
+                    amount=total_price
+                )
+
+                # Update cart and cart item statuses
+                cart.status = 'checked_out'
+                cart.save()
+
+                for item in cart_items:
+                    item.status = 'ordered'
+                    item.save()
+
+                # Send email to the customer
+                subject = 'Order Confirmation'
+                html_message = render_to_string('order_confirmation.html', {
+                    'order': order,
+                    'cart_items': cart_items,
+                    'total_price': total_price,
+                })
+                plain_message = strip_tags(html_message)
+                send_mail(
+                    subject,
+                    plain_message,
+                    settings.DEFAULT_FROM_EMAIL,
+                    [customer.user.email],
+                    html_message=html_message,
+                )
+
+                return JsonResponse({'success': True, 'message': 'Payment successful!'})
+
+            else:
+                return JsonResponse({'success': False, 'message': 'Payment failed.'}, status=400)
+
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=400)
