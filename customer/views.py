@@ -566,8 +566,8 @@ def edit_customer_address(request, address_id):
 # Create Cart
 @api_view(['POST'])
 def create_or_update_cart(request):
-    customer_id = request.data.get('customerid')
-    cart_items_data = request.data.get('cartitems', [])
+    customer_id = request.data.get('customer_id')
+    cart_items_data = request.data.get('cart_items', [])
 
     if not customer_id:
         return Response({"error": "Customer ID is required"}, status=status.HTTP_400_BAD_REQUEST)
@@ -586,15 +586,14 @@ def create_or_update_cart(request):
     cart_items_list = []
 
     for item_data in cart_items_data:
-        product_id = item_data.get('productid')
-        custom_width = item_data.get('customwidth')
-        custom_height = item_data.get('customheight')
-        size_unit = item_data.get('sizeunit')
-        design_image = item_data.get('designimage')
+        product_id = item_data.get('id')
+        product_name = item_data.get('name')
+        custom_width = item_data.get('customSize', {}).get('width')
+        custom_height = item_data.get('customSize', {}).get('height')
+        design_image = item_data.get('design_image')
         quantity = item_data.get('quantity', 1)
-        price = item_data.get('price')
-        total_price_item = item_data.get('totalprice')
-        status_item = item_data.get('status', 'pending')
+        total_price_item = float(item_data.get('total', 0))  # Convert string to float
+        timestamp = item_data.get('timestamp')  # Optional: Use timestamp if needed
 
         if not product_id:
             return Response({"error": "Product ID is required for each cart item"}, status=status.HTTP_400_BAD_REQUEST)
@@ -611,12 +610,11 @@ def create_or_update_cart(request):
             defaults={
                 'custom_width': custom_width,
                 'custom_height': custom_height,
-                'size_unit': size_unit,
                 'design_image': design_image,
                 'quantity': quantity,
-                'price': price,
+                'price': total_price_item / quantity if quantity > 0 else 0,  # Calculate price per unit
                 'total_price': total_price_item,
-                'status': status_item
+                'status': 'pending'  # Default status
             }
         )
 
