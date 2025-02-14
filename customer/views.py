@@ -338,8 +338,8 @@ class WarrantyRegistrationAPIView(APIView):
             send_mail(
                 subject,
                 message,
-                f"BrandExperts <{settings.DEFAULT_FROM_EMAIL}>",  # Use the new sender email
-                [warranty.email],
+                f"BrandExperts <{settings.DEFAULT_FROM_EMAIL}>",
+                ['abhishekar3690@gmail.com'],
                 fail_silently=False,
             )
 
