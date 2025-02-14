@@ -129,10 +129,11 @@ from django.core.mail import send_mail
 import random
 import string
 
-stripe.api_key = settings.STRIPE_SECRET_KEY_TEST
+
 
 class WarrantyRegistrationAPIView(APIView):
     permission_classes = [AllowAny]
+    stripe.api_key = settings.STRIPE_SECRET_KEY_TEST
 
     def post(self, request):
         try:
@@ -150,8 +151,7 @@ class WarrantyRegistrationAPIView(APIView):
 
             # Assign the Warranty_plan ID and amount to the data
             data["invoice_value"] = warranty_plan.id
-            # data["warranty_plan_amount"] = warranty_plan.amount
-
+            data["warranty_plan_amount"] = data.get("warranty_plan_amount")
             # Split full_name into first_name and last_name
             full_name = data.get("full_name", "").strip()
             names = full_name.split(" ", 1)
@@ -210,7 +210,7 @@ class WarrantyRegistrationAPIView(APIView):
                     f"📌 **Warranty Details:**\n"
                     f"- **Warranty Number:** {warranty.warranty_number}\n"
                     f"- **Invoice Number:** {warranty.product_name}\n"
-                    f"- **Warranty Plan:** {warranty_plan.price_range}\n"
+                    f"- **Warranty Plan:** {warranty.price_range}\n"
                     f"- **Amount Paid:** ${warranty.warranty_plan_amount}\n\n"
                     f"🔑 **Your Account Details:**\n"
                     f"- **Email:** {email}\n"
