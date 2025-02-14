@@ -130,229 +130,229 @@ import random
 import string
 
 
-
-class WarrantyRegistrationAPIView(APIView):
-    permission_classes = [AllowAny]
-    stripe.api_key = settings.STRIPE_SECRET_KEY_TEST
-
-    def post(self, request):
-        try:
-            # Extract data from the request
-            data = request.data.copy()
-            price_range = data.get("price_range")  # Get price range string from request
-
-            # Fetch the matching Warranty_plan object
-            warranty_plan = Warranty_plan.objects.filter(price_range=price_range).first()
-            if not warranty_plan:
-                return Response(
-                    {"error": "Invalid price range. No matching warranty plan found."},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-            # Assign the Warranty_plan ID and amount to the data
-            data["invoice_value"] = warranty_plan.id
-            data["warranty_plan_amount"] = data.get("warranty_plan_amount")
-            # Split full_name into first_name and last_name
-            full_name = data.get("full_name", "").strip()
-            names = full_name.split(" ", 1)
-            first_name = names[0] if len(names) > 0 else ""
-            last_name = names[1] if len(names) > 1 else ""
-
-            # Check if a user with the same email already exists
-            email = data.get("email")
-            user = CustomUser.objects.filter(username=email).first()
-            if not user:
-                # Generate a dummy password
-                dummy_password = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
-
-                # Create the CustomUser instance
-                user = CustomUser.objects.create(
-                    username=email,
-                    email=email,
-                    first_name=first_name,
-                    last_name=last_name
-                )
-                user.set_password(dummy_password)
-                user.save()
-
-                # Create the Customer instance
-                Customer.objects.create(
-                    user=user,
-                    mobile=data.get("phone")
-                )
-            else:
-                # If user exists, use the existing user
-                dummy_password = "Your existing account password"
-
-            # Proceed with warranty registration
-            serializer = WarrantyRegistrationSerializer(data=data)
-            if serializer.is_valid():
-                warranty = serializer.save()
-
-                # Create a PaymentIntent for the warranty amount
-                try:
-                    intent = stripe.PaymentIntent.create(
-                        amount=int(warranty.warranty_plan_amount * 100),  # Convert to cents
-                        currency='aed',  # Use AED as the currency
-                        metadata={'warranty_number': warranty.warranty_number},
-                    )
-                except Exception as e:
-                    return Response(
-                        {"error": f"Failed to create PaymentIntent: {str(e)}"},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-
-                # Send email with warranty number and dummy password
-                subject = "Warranty Registration Successful"
-                message = (
-                    f"Dear {warranty.full_name},\n\n"
-                    f"Your warranty registration was successful!\n\n"
-                    f"📌 **Warranty Details:**\n"
-                    f"- **Warranty Number:** {warranty.warranty_number}\n"
-                    f"- **Invoice Number:** {warranty.product_name}\n"
-                    f"- **Warranty Plan:** {price_range}\n"
-                    f"- **Amount Paid:** ${warranty.warranty_plan_amount}\n\n"
-                    f"🔑 **Your Account Details:**\n"
-                    f"- **Email:** {email}\n"
-                    f"- **Password:** {dummy_password}\n\n"
-                    "🛠️ Please keep this number safe for future reference.\n\n"
-                    "Best regards,\n"
-                    "BrandExperts.ae"
-                )
-                try:
-                    send_mail(
-                        subject,
-                        message,
-                        f"BrandExperts <{settings.DEFAULT_FROM_EMAIL}>",
-                        [warranty.email],
-                        fail_silently=False,
-                    )
-                except Exception as e:
-                    return Response(
-                        {"error": f"Failed to send confirmation email: {str(e)}"},
-                        status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                    )
-
-                # Return success response with clientSecret
-                return Response(
-                    {
-                        "message": "Warranty registered successfully!",
-                        "warranty_number": warranty.warranty_number,
-                        "clientSecret": intent.client_secret,  # Return the clientSecret
-                        "data": serializer.data
-                    },
-                    status=status.HTTP_201_CREATED
-                )
-
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-        except Exception as e:
-            return Response(
-                {"error": f"An unexpected error occurred: {str(e)}"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
-
-
-class ConfirmPaymentAPIView(APIView):
-    permission_classes = [AllowAny]
-
-    def post(self, request):
-        try:
-            # Extract payment_intent_id from the request
-            data = request.data
-            payment_intent_id = data.get("payment_intent_id")
-
-            if not payment_intent_id:
-                return Response(
-                    {"error": "payment_intent_id is required."},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-            # Retrieve the PaymentIntent from Stripe
-            try:
-                intent = stripe.PaymentIntent.retrieve(payment_intent_id)
-            except Exception as e:
-                return Response(
-                    {"error": f"Failed to retrieve PaymentIntent: {str(e)}"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-            # Check the status of the PaymentIntent
-            if intent.status == 'succeeded':
-                return Response(
-                    {"success": True, "message": "Payment successful!"},
-                    status=status.HTTP_200_OK
-                )
-            else:
-                return Response(
-                    {"success": False, "message": "Payment failed."},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-        except Exception as e:
-            return Response(
-                {"error": f"An unexpected error occurred: {str(e)}"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
-
-
+#
 # class WarrantyRegistrationAPIView(APIView):
-#     permission_classes = [AllowAny]  # Allows anyone to access this API
+#     permission_classes = [AllowAny]
+#     stripe.api_key = settings.STRIPE_SECRET_KEY_TEST
 #
 #     def post(self, request):
-#         data = request.data.copy()
-#         price_range = data.get("price_range")  # Get price range string from request
+#         try:
+#             # Extract data from the request
+#             data = request.data.copy()
+#             price_range = data.get("price_range")  # Get price range string from request
 #
-#         # Fetch the matching Warranty_plan object
-#         warranty_plan = Warranty_plan.objects.filter(price_range=price_range).first()
+#             # Fetch the matching Warranty_plan object
+#             warranty_plan = Warranty_plan.objects.filter(price_range=price_range).first()
+#             if not warranty_plan:
+#                 return Response(
+#                     {"error": "Invalid price range. No matching warranty plan found."},
+#                     status=status.HTTP_400_BAD_REQUEST
+#                 )
 #
-#         if not warranty_plan:
+#             # Assign the Warranty_plan ID and amount to the data
+#             data["invoice_value"] = warranty_plan.id
+#             data["warranty_plan_amount"] = data.get("warranty_plan_amount")
+#             # Split full_name into first_name and last_name
+#             full_name = data.get("full_name", "").strip()
+#             names = full_name.split(" ", 1)
+#             first_name = names[0] if len(names) > 0 else ""
+#             last_name = names[1] if len(names) > 1 else ""
+#
+#             # Check if a user with the same email already exists
+#             email = data.get("email")
+#             user = CustomUser.objects.filter(username=email).first()
+#             if not user:
+#                 # Generate a dummy password
+#                 dummy_password = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
+#
+#                 # Create the CustomUser instance
+#                 user = CustomUser.objects.create(
+#                     username=email,
+#                     email=email,
+#                     first_name=first_name,
+#                     last_name=last_name
+#                 )
+#                 user.set_password(dummy_password)
+#                 user.save()
+#
+#                 # Create the Customer instance
+#                 Customer.objects.create(
+#                     user=user,
+#                     mobile=data.get("phone")
+#                 )
+#             else:
+#                 # If user exists, use the existing user
+#                 dummy_password = "Your existing account password"
+#
+#             # Proceed with warranty registration
+#             serializer = WarrantyRegistrationSerializer(data=data)
+#             if serializer.is_valid():
+#                 warranty = serializer.save()
+#
+#                 # Create a PaymentIntent for the warranty amount
+#                 try:
+#                     intent = stripe.PaymentIntent.create(
+#                         amount=int(warranty.warranty_plan_amount * 100),  # Convert to cents
+#                         currency='aed',  # Use AED as the currency
+#                         metadata={'warranty_number': warranty.warranty_number},
+#                     )
+#                 except Exception as e:
+#                     return Response(
+#                         {"error": f"Failed to create PaymentIntent: {str(e)}"},
+#                         status=status.HTTP_400_BAD_REQUEST
+#                     )
+#
+#                 # Send email with warranty number and dummy password
+#                 subject = "Warranty Registration Successful"
+#                 message = (
+#                     f"Dear {warranty.full_name},\n\n"
+#                     f"Your warranty registration was successful!\n\n"
+#                     f"📌 **Warranty Details:**\n"
+#                     f"- **Warranty Number:** {warranty.warranty_number}\n"
+#                     f"- **Invoice Number:** {warranty.product_name}\n"
+#                     f"- **Warranty Plan:** {price_range}\n"
+#                     f"- **Amount Paid:** ${warranty.warranty_plan_amount}\n\n"
+#                     f"🔑 **Your Account Details:**\n"
+#                     f"- **Email:** {email}\n"
+#                     f"- **Password:** {dummy_password}\n\n"
+#                     "🛠️ Please keep this number safe for future reference.\n\n"
+#                     "Best regards,\n"
+#                     "BrandExperts.ae"
+#                 )
+#                 try:
+#                     send_mail(
+#                         subject,
+#                         message,
+#                         f"BrandExperts <{settings.DEFAULT_FROM_EMAIL}>",
+#                         [warranty.email],
+#                         fail_silently=False,
+#                     )
+#                 except Exception as e:
+#                     return Response(
+#                         {"error": f"Failed to send confirmation email: {str(e)}"},
+#                         status=status.HTTP_500_INTERNAL_SERVER_ERROR
+#                     )
+#
+#                 # Return success response with clientSecret
+#                 return Response(
+#                     {
+#                         "message": "Warranty registered successfully!",
+#                         "warranty_number": warranty.warranty_number,
+#                         "clientSecret": intent.client_secret,  # Return the clientSecret
+#                         "data": serializer.data
+#                     },
+#                     status=status.HTTP_201_CREATED
+#                 )
+#
+#             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+#
+#         except Exception as e:
 #             return Response(
-#                 {"error": "Invalid price range. No matching warranty plan found."},
-#                 status=status.HTTP_400_BAD_REQUEST
+#                 {"error": f"An unexpected error occurred: {str(e)}"},
+#                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
 #             )
 #
-#         data["invoice_value"] = warranty_plan.id  # Assign the Warranty_plan ID
 #
-#         serializer = WarrantyRegistrationSerializer(data=data)
-#         if serializer.is_valid():
-#             warranty = serializer.save()
 #
-#             # Send email with warranty number
-#             subject = "Warranty Registration Successful"
-#             message = (
-#                 f"Dear {warranty.full_name},\n\n"
-#                 f"Your warranty registration was successful!\n\n"
-#                 f"📌 **Warranty Details:**\n"
-#                 f"- **Warranty Number:** {warranty.warranty_number}\n"
-#                 f"- **Product Name:** {warranty.product_name}\n"
-#                 f"- **Warranty Plan:** {warranty_plan.price_range}\n"
-#                 f"- **Amount Paid:** ${warranty.warranty_plan_amount}\n\n"
-#                 "🛠️ Please keep this number safe for future reference.\n\n"
-#                 "Best regards,\n"
-#                 "BrandExperts.ae"
-#             )
+# class ConfirmPaymentAPIView(APIView):
+#     permission_classes = [AllowAny]
 #
-#             send_mail(
-#                 subject,
-#                 message,
-#                 f"BrandExperts <{settings.DEFAULT_FROM_EMAIL}>",  # Use the new sender email
-#                 [warranty.email],
-#                 fail_silently=False,
-#             )
+#     def post(self, request):
+#         try:
+#             # Extract payment_intent_id from the request
+#             data = request.data
+#             payment_intent_id = data.get("payment_intent_id")
 #
+#             if not payment_intent_id:
+#                 return Response(
+#                     {"error": "payment_intent_id is required."},
+#                     status=status.HTTP_400_BAD_REQUEST
+#                 )
+#
+#             # Retrieve the PaymentIntent from Stripe
+#             try:
+#                 intent = stripe.PaymentIntent.retrieve(payment_intent_id)
+#             except Exception as e:
+#                 return Response(
+#                     {"error": f"Failed to retrieve PaymentIntent: {str(e)}"},
+#                     status=status.HTTP_400_BAD_REQUEST
+#                 )
+#
+#             # Check the status of the PaymentIntent
+#             if intent.status == 'succeeded':
+#                 return Response(
+#                     {"success": True, "message": "Payment successful!"},
+#                     status=status.HTTP_200_OK
+#                 )
+#             else:
+#                 return Response(
+#                     {"success": False, "message": "Payment failed."},
+#                     status=status.HTTP_400_BAD_REQUEST
+#                 )
+#
+#         except Exception as e:
 #             return Response(
-#                 {
-#                     "message": "Warranty registered successfully!",
-#                     "warranty_number": warranty.warranty_number,
-#                     "data": serializer.data
-#                 },
-#                 status=status.HTTP_201_CREATED
+#                 {"error": f"An unexpected error occurred: {str(e)}"},
+#                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
 #             )
-#
-#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+class WarrantyRegistrationAPIView(APIView):
+    permission_classes = [AllowAny]  # Allows anyone to access this API
+
+    def post(self, request):
+        data = request.data.copy()
+        price_range = data.get("price_range")  # Get price range string from request
+
+        # Fetch the matching Warranty_plan object
+        warranty_plan = Warranty_plan.objects.filter(price_range=price_range).first()
+
+        if not warranty_plan:
+            return Response(
+                {"error": "Invalid price range. No matching warranty plan found."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        data["invoice_value"] = warranty_plan.id  # Assign the Warranty_plan ID
+
+        serializer = WarrantyRegistrationSerializer(data=data)
+        if serializer.is_valid():
+            warranty = serializer.save()
+
+            # Send email with warranty number
+            subject = "Warranty Registration Successful"
+            message = (
+                f"Dear {warranty.full_name},\n\n"
+                f"Your warranty registration was successful!\n\n"
+                f"📌 **Warranty Details:**\n"
+                f"- **Warranty Number:** {warranty.warranty_number}\n"
+                f"- **Product Name:** {warranty.product_name}\n"
+                f"- **Warranty Plan:** {warranty_plan.price_range}\n"
+                f"- **Amount Paid:** ${warranty.warranty_plan_amount}\n\n"
+                "🛠️ Please keep this number safe for future reference.\n\n"
+                "Best regards,\n"
+                "BrandExperts.ae"
+            )
+
+            send_mail(
+                subject,
+                message,
+                f"BrandExperts <{settings.DEFAULT_FROM_EMAIL}>",  # Use the new sender email
+                [warranty.email],
+                fail_silently=False,
+            )
+
+            return Response(
+                {
+                    "message": "Warranty registered successfully!",
+                    "warranty_number": warranty.warranty_number,
+                    "data": serializer.data
+                },
+                status=status.HTTP_201_CREATED
+            )
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 # CREATE CLAIM WARRANTY
