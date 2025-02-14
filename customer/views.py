@@ -210,7 +210,7 @@ class WarrantyRegistrationAPIView(APIView):
                     f"📌 **Warranty Details:**\n"
                     f"- **Warranty Number:** {warranty.warranty_number}\n"
                     f"- **Invoice Number:** {warranty.product_name}\n"
-                    f"- **Warranty Plan:** {warranty.price_range}\n"
+                    f"- **Warranty Plan:** {price_range}\n"
                     f"- **Amount Paid:** ${warranty.warranty_plan_amount}\n\n"
                     f"🔑 **Your Account Details:**\n"
                     f"- **Email:** {email}\n"
