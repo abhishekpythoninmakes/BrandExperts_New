@@ -116,6 +116,8 @@ class LoginAPIView(APIView):
 
 
 # Warranty Registration
+
+
 class WarrantyRegistrationAPIView(APIView):
     permission_classes = [AllowAny]  # Allows anyone to access this API
 
@@ -134,11 +136,46 @@ class WarrantyRegistrationAPIView(APIView):
 
         data["invoice_value"] = warranty_plan.id  # Assign the Warranty_plan ID
 
+        # Split full_name into first_name and last_name
+        full_name = data.get("full_name", "").strip()
+        names = full_name.split(" ", 1)
+        first_name = names[0] if len(names) > 0 else ""
+        last_name = names[1] if len(names) > 1 else ""
+
+        # Check if a user with the same email or username already exists
+        email = data.get("email")
+        user = CustomUser.objects.filter(username=email).first()
+
+        if not user:
+            # Generate a dummy password
+            dummy_password = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
+
+            # Create the CustomUser instance
+            user = CustomUser.objects.create(
+                username=email,
+                email=email,
+                first_name=first_name,
+                last_name=last_name
+            )
+            # Set the dummy password
+            user.set_password(dummy_password)
+            user.save()
+
+            # Create the Customer instance
+            Customer.objects.create(
+                user=user,
+                mobile=data.get("phone")
+            )
+        else:
+            # If user exists, use the existing user
+            dummy_password = "Your existing account password"
+
+        # Proceed with warranty registration
         serializer = WarrantyRegistrationSerializer(data=data)
         if serializer.is_valid():
             warranty = serializer.save()
 
-            # Send email with warranty number
+            # Send email with warranty number and dummy password
             subject = "Warranty Registration Successful"
             message = (
                 f"Dear {warranty.full_name},\n\n"
@@ -148,6 +185,9 @@ class WarrantyRegistrationAPIView(APIView):
                 f"- **Product Name:** {warranty.product_name}\n"
                 f"- **Warranty Plan:** {warranty_plan.price_range}\n"
                 f"- **Amount Paid:** ${warranty.warranty_plan_amount}\n\n"
+                f"🔑 **Your Account Details:**\n"
+                f"- **Email:** {email}\n"
+                f"- **Password:** {dummy_password}\n\n"
                 "🛠️ Please keep this number safe for future reference.\n\n"
                 "Best regards,\n"
                 "BrandExperts.ae"
@@ -171,6 +211,70 @@ class WarrantyRegistrationAPIView(APIView):
             )
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+
+
+
+
+
+
+# class WarrantyRegistrationAPIView(APIView):
+#     permission_classes = [AllowAny]  # Allows anyone to access this API
+#
+#     def post(self, request):
+#         data = request.data.copy()
+#         price_range = data.get("price_range")  # Get price range string from request
+#
+#         # Fetch the matching Warranty_plan object
+#         warranty_plan = Warranty_plan.objects.filter(price_range=price_range).first()
+#
+#         if not warranty_plan:
+#             return Response(
+#                 {"error": "Invalid price range. No matching warranty plan found."},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
+#
+#         data["invoice_value"] = warranty_plan.id  # Assign the Warranty_plan ID
+#
+#         serializer = WarrantyRegistrationSerializer(data=data)
+#         if serializer.is_valid():
+#             warranty = serializer.save()
+#
+#             # Send email with warranty number
+#             subject = "Warranty Registration Successful"
+#             message = (
+#                 f"Dear {warranty.full_name},\n\n"
+#                 f"Your warranty registration was successful!\n\n"
+#                 f"📌 **Warranty Details:**\n"
+#                 f"- **Warranty Number:** {warranty.warranty_number}\n"
+#                 f"- **Product Name:** {warranty.product_name}\n"
+#                 f"- **Warranty Plan:** {warranty_plan.price_range}\n"
+#                 f"- **Amount Paid:** ${warranty.warranty_plan_amount}\n\n"
+#                 "🛠️ Please keep this number safe for future reference.\n\n"
+#                 "Best regards,\n"
+#                 "BrandExperts.ae"
+#             )
+#
+#             send_mail(
+#                 subject,
+#                 message,
+#                 f"BrandExperts <{settings.DEFAULT_FROM_EMAIL}>",  # Use the new sender email
+#                 [warranty.email],
+#                 fail_silently=False,
+#             )
+#
+#             return Response(
+#                 {
+#                     "message": "Warranty registered successfully!",
+#                     "warranty_number": warranty.warranty_number,
+#                     "data": serializer.data
+#                 },
+#                 status=status.HTTP_201_CREATED
+#             )
+#
+#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 # CREATE CLAIM WARRANTY
