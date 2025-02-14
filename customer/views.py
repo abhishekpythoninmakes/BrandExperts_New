@@ -750,7 +750,7 @@ def create_payment_intent(request):
 
             # Fetch the cart and its items
             cart = Cart.objects.get(id=cart_id)
-            cart_items = cart.items.all()
+            cart_items = cart.items.filter(status='pending')
 
             # Calculate the total price
             total_price = sum(item.total_price for item in cart_items)
@@ -788,7 +788,7 @@ def confirm_payment(request):
                 # Fetch the cart and its items
                 cart = Cart.objects.get(id=cart_id)
                 customer = cart.customer
-                cart_items = cart.items.all()
+                cart_items = cart.items.filter(status='pending')
 
                 # Calculate total price
                 total_price = sum(item.total_price for item in cart_items)
