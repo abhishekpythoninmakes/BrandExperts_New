@@ -876,7 +876,13 @@ def create_payment_intent(request):
                 'transaction_id': intent.id,  # Stripe PaymentIntent ID
                 'username': customer_name,
                 'email': customer_email,
-                'billing_address': f"{customer_address.state}, {customer_address.country}, {customer_address.zip_code}",
+                'billing_address': {
+                    'state': customer_address.state,
+                    'country': customer_address.country,
+                    'zip_code': customer_address.zip_code,
+                    'line1': customer_address.address_line1,  # Use address_line1
+                    'city': customer_address.city
+                },
                 'base_product_amount': float(base_price),
                 'vat_percentage': float(vat_percentage),
                 'vat_amount': float(vat_amount),
@@ -890,10 +896,11 @@ def create_payment_intent(request):
     return JsonResponse({'message': 'GET method not allowed'}, status=405)
 
 
+from django.conf import settings
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
-from django.conf import settings
+from .models import Order, Cart, Customer_Address
 
 @csrf_exempt
 def confirm_payment(request):
@@ -945,7 +952,7 @@ def confirm_payment(request):
                     'total_price': total_price,
                     'customer_name': customer.user.first_name,
                     'customer_email': customer.user.email,
-                    'billing_address': f"{customer_address.street}, {customer_address.city}, {customer_address.zip_code}",
+                    'billing_address': f"{customer_address.address_line1}, {customer_address.city}, {customer_address.zip_code}",
                     'transaction_id': payment_intent_id
                 })
                 plain_message = strip_tags(html_message)
