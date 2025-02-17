@@ -165,6 +165,7 @@ class Order(models.Model):
     payment_status = models.CharField(max_length=100,null=True,blank=True)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     delivered_date = models.DateTimeField(null=True,blank=True,auto_now_add=True)
+    transaction_id = models.CharField(max_length=100,null=True,blank=True)
 
     def __str__(self):
         return f"Order {self.id} - {self.customer.user.first_name} ({self.status})"

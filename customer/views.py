@@ -843,33 +843,45 @@ def create_payment_intent(request):
             is_vat_inclusive = vat.is_inclusive if vat else False  # Check if VAT is inclusive
 
             if is_vat_inclusive:
-                # VAT is already included in the total_price, extract base price
                 base_price = total_price / (Decimal('1') + vat_percentage / Decimal('100'))
                 vat_amount = total_price - base_price
                 total_with_vat = total_price  # No additional tax applied
             else:
-                # VAT is added separately
                 base_price = total_price
                 vat_amount = (total_price * vat_percentage) / Decimal('100')
                 total_with_vat = total_price + vat_amount
+
+            # Get customer details
+            customer = cart.customer
+            customer_name = customer.user.first_name + " " + customer.user.last_name
+            customer_email = customer.user.email
+
+            # Fetch customer's latest billing address
+            customer_address = Customer_Address.objects.filter(customer=customer).latest('id')
 
             # Create a PaymentIntent with Stripe
             intent = stripe.PaymentIntent.create(
                 amount=int(total_with_vat * 100),  # Convert to cents
                 currency='aed',
-                metadata={'cart_id': cart_id},
+                metadata={
+                    'cart_id': cart_id,
+                    'customer_name': customer_name,
+                    'customer_email': customer_email,
+                },
             )
 
-            # Return response with all calculated values
+            # Return response with billing details
             return JsonResponse({
                 'clientSecret': intent.client_secret,
-                'username':cart.customer.user.first_name,
-                'email':cart.customer.user.email,
-                'base_product_amount': float(base_price),  # Base price before VAT (extracted if inclusive)
-                'vat_percentage': float(vat_percentage),  # VAT %
-                'vat_amount': float(vat_amount),  # VAT Amount
-                'total_with_vat': float(total_with_vat),  # Final amount after VAT
-                'is_vat_inclusive': is_vat_inclusive  # True if VAT is already included
+                'transaction_id': intent.id,  # Stripe PaymentIntent ID
+                'username': customer_name,
+                'email': customer_email,
+                'billing_address': f"{customer_address.state}, {customer_address.country}, {customer_address.zip_code}",
+                'base_product_amount': float(base_price),
+                'vat_percentage': float(vat_percentage),
+                'vat_amount': float(vat_amount),
+                'total_with_vat': float(total_with_vat),
+                'is_vat_inclusive': is_vat_inclusive
             })
 
         except Exception as e:
@@ -878,10 +890,10 @@ def create_payment_intent(request):
     return JsonResponse({'message': 'GET method not allowed'}, status=405)
 
 
-
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
+from django.conf import settings
 
 @csrf_exempt
 def confirm_payment(request):
@@ -906,14 +918,15 @@ def confirm_payment(request):
                 # Get the latest customer address
                 customer_address = Customer_Address.objects.filter(customer=customer).latest('id')
 
-                # Create an order
+                # Create an order with the transaction ID
                 order = Order.objects.create(
                     customer=customer,
                     address=customer_address,
                     cart=cart,
-                    payment_method='card',  # or 'upi' based on the payment method
+                    payment_method='card',
                     payment_status='paid',
-                    amount=total_price
+                    amount=total_price,
+                    transaction_id=payment_intent_id  # Save the Stripe PaymentIntent ID
                 )
 
                 # Update cart and cart item statuses
@@ -924,12 +937,16 @@ def confirm_payment(request):
                     item.status = 'ordered'
                     item.save()
 
-                # Send email to the customer
+                # Send email to the customer with billing details
                 subject = 'Order Confirmation'
                 html_message = render_to_string('order_confirmation.html', {
                     'order': order,
                     'cart_items': cart_items,
                     'total_price': total_price,
+                    'customer_name': customer.user.first_name,
+                    'customer_email': customer.user.email,
+                    'billing_address': f"{customer_address.street}, {customer_address.city}, {customer_address.zip_code}",
+                    'transaction_id': payment_intent_id
                 })
                 plain_message = strip_tags(html_message)
                 send_mail(
@@ -940,7 +957,12 @@ def confirm_payment(request):
                     html_message=html_message,
                 )
 
-                return JsonResponse({'success': True, 'message': 'Payment successful!'})
+                return JsonResponse({
+                    'success': True,
+                    'message': 'Payment successful!',
+                    'order_id': order.id,
+                    'transaction_id': payment_intent_id
+                })
 
             else:
                 return JsonResponse({'success': False, 'message': 'Payment failed.'}, status=400)
