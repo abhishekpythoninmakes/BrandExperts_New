@@ -246,5 +246,7 @@ CKEDITOR_CONFIGS = {
 CKEDITOR_UPLOAD_PATH = "uploads/"
 
 
-STRIPE_SECRET_KEY = 'sk_test_51QVV1sHGxf2bD0m2iZUPCccgMwV2tUeOwaMLiiHkg4DyLHkLl9ei929uGuiydOAWs8HxrF7i4rYYuPaaf3IiQd0G00iSAPUOMm'
+from decouple import config
 
+# Retrieve the Stripe secret key from the .env file
+STRIPE_SECRET_KEY = config('STRIPE_SECRET_KEY')

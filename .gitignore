@@ -1,10 +1,12 @@
+# Ignore pycache
 BrandExpertsEcommerce/__pycache__/
-db.sqlite3
-BrandExpertsEcommerce/__pycache__/
-db.sqlite3
 __pycache__/
-media/parent_category_images/51AZG0UnLgL_jb9VXMX._SL1280_.jpg
-media/parent_category_images/51v1N0IfQJL._SL1500_.jpg
-media/category_images/
-media/parent_category_images/
-media/subcategory_images/
+
+# Ignore SQLite database
+db.sqlite3
+
+# Ignore media folders and their contents
+media/
+
+# Ignore .env files (for sensitive keys)
+.env
