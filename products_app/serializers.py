@@ -3,10 +3,11 @@ from .models import *
 
 class CategorySerializer(serializers.ModelSerializer):
     category_image_url = serializers.SerializerMethodField()
+    parent_category_names = serializers.SerializerMethodField()
 
     class Meta:
         model = Category
-        fields = ["id","category_name", "description", "category_image_url"]
+        fields = ["id","category_name", "description", "category_image_url","parent_category_names"]
 
     def get_category_image_url(self, obj):
         request = self.context.get("request")
@@ -94,14 +95,17 @@ class DetailedProductSerializer(serializers.ModelSerializer):
 
     def get_parent_category(self, obj):
         """Retrieve parent category details"""
-        if obj.category and obj.category.parent_category:
-            parent_category = obj.category.parent_category
-            return {
+        if obj.category and obj.category.parent_category.exists():
+            parent_categories = obj.category.parent_category.all()
+            return [
+                {
                 "id": parent_category.id,
                 "name": parent_category.name,  # Fixed: Use 'name' instead of 'category_name'
                 "description": parent_category.description,
                 "image": parent_category.image.url if parent_category.image else None
             }
+                for parent_category in parent_categories
+            ]
         return None
 
     def get_category(self, obj):
