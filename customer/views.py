@@ -1,4 +1,5 @@
 import json
+from decimal import Decimal
 
 from django.conf import settings
 from django.core.mail import send_mail
@@ -11,6 +12,8 @@ from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, serializers
+
+from products_app.models import VAT
 from .serializers import *
 from rest_framework_simplejwt.tokens import RefreshToken
 from .models import *
@@ -818,6 +821,7 @@ from django.shortcuts import get_object_or_404
 
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
+
 @csrf_exempt
 def create_payment_intent(request):
     if request.method == 'POST':
@@ -830,23 +834,47 @@ def create_payment_intent(request):
             cart = Cart.objects.get(id=cart_id)
             cart_items = cart.items.filter(status='pending')
 
-            # Calculate the total price
+            # Calculate the base total price (without tax adjustments)
             total_price = sum(item.total_price for item in cart_items)
+
+            # Fetch VAT settings from the database (default to 5% exclusive tax)
+            vat = VAT.objects.first()
+            vat_percentage = Decimal(vat.percentage) if vat else Decimal('5.00')
+            is_vat_inclusive = vat.is_inclusive if vat else False  # Check if VAT is inclusive
+
+            if is_vat_inclusive:
+                # VAT is already included in the total_price, extract base price
+                base_price = total_price / (Decimal('1') + vat_percentage / Decimal('100'))
+                vat_amount = total_price - base_price
+                total_with_vat = total_price  # No additional tax applied
+            else:
+                # VAT is added separately
+                base_price = total_price
+                vat_amount = (total_price * vat_percentage) / Decimal('100')
+                total_with_vat = total_price + vat_amount
 
             # Create a PaymentIntent with Stripe
             intent = stripe.PaymentIntent.create(
-                amount=int(total_price * 100),  # Convert to cents
-                currency='aed',  # Change to your preferred currency
+                amount=int(total_with_vat * 100),  # Convert to cents
+                currency='aed',
                 metadata={'cart_id': cart_id},
             )
 
-            # Return client secret to the frontend
-            return JsonResponse({'clientSecret': intent.client_secret})
+            # Return response with all calculated values
+            return JsonResponse({
+                'clientSecret': intent.client_secret,
+                'username':cart.customer.user.first_name,
+                'email':cart.customer.user.email,
+                'base_product_amount': float(base_price),  # Base price before VAT (extracted if inclusive)
+                'vat_percentage': float(vat_percentage),  # VAT %
+                'vat_amount': float(vat_amount),  # VAT Amount
+                'total_with_vat': float(total_with_vat),  # Final amount after VAT
+                'is_vat_inclusive': is_vat_inclusive  # True if VAT is already included
+            })
 
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=400)
 
-    # Handle GET requests
     return JsonResponse({'message': 'GET method not allowed'}, status=405)
 
 

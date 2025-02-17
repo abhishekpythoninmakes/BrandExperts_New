@@ -107,3 +107,14 @@ class Warranty_plan(models.Model):
 
 
 
+class VAT(models.Model):
+    percentage = models.DecimalField(max_digits=5, decimal_places=2, default=5.00)  # Standard VAT %
+    is_inclusive = models.BooleanField(default=False)  # True = VAT included in product price, False = VAT added separately
+
+    def __str__(self):
+        return f"VAT {self.percentage}% ({'Inclusive' if self.is_inclusive else 'Exclusive'})"
+
+
+
+
+
