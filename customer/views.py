@@ -818,7 +818,6 @@ from django.shortcuts import get_object_or_404
 
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
-
 @csrf_exempt
 def create_payment_intent(request):
     if request.method == 'POST':
@@ -846,6 +845,10 @@ def create_payment_intent(request):
 
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=400)
+
+    # Handle GET requests
+    return JsonResponse({'message': 'GET method not allowed'}, status=405)
+
 
 
 from django.core.mail import send_mail
