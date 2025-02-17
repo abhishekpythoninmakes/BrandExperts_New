@@ -4,6 +4,7 @@ from django.shortcuts import render, get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from rest_framework import status
+from rest_framework.exceptions import NotFound
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
@@ -98,14 +99,10 @@ def list_subcategories(request, category_id):
     except Category.DoesNotExist:
         return Response({"error": "Category not found"}, status=404)
 
-    subcategories = Subcategory.objects.filter(category=category)
-    serializer = SubcategorySerializer(subcategories, many=True, context={"request": request})
 
     response_data = {
         "category_id": category_id,
         "category_name": category.category_name,
-        "total_subcategories": subcategories.count(),
-        "subcategories": serializer.data
     }
 
     return Response(response_data)
@@ -158,10 +155,20 @@ class CategoryByParentView(APIView):
     permission_classes = [AllowAny]  # Allow public access
 
     def get(self, request, parent_category_id):
+        # Get the ParentCategory instance, return 404 if not found
         parent_category = get_object_or_404(ParentCategory, id=parent_category_id)
-        categories = parent_category.categories.all()
+
+        # Fetch categories that have this parent_category as part of the parent_categories ManyToManyField
+        categories = parent_category.child_categories.all()
+
+        # If no categories are found, you might want to handle that gracefully
+        if not categories:
+            raise NotFound(detail="No categories found for this parent category.")
+
+        # Serialize the categories
         serializer = CategorySerializer(categories, many=True, context={'request': request})
 
+        # Return the response with the parent category details and the associated categories
         return Response({
             "parent_category_id": parent_category.id,
             "parent_category_name": parent_category.name,
@@ -183,16 +190,23 @@ class ProductListByParentCategory(APIView):
         if not parent_category_id:
             return Response({"error": "parent_category_id is required"}, status=400)
 
+        # Fetch the ParentCategory instance, return 404 if not found
         parent_category = get_object_or_404(ParentCategory, id=parent_category_id)
 
-        # Get all categories under this parent category
-        categories = parent_category.categories.all()
+        # Get all categories under this parent category (with the Many-to-Many relationship)
+        categories = parent_category.child_categories.all()
 
-        # Get all products under these categories
-        products = Product.objects.filter(category__in=categories)
+        # If no categories exist for the given parent category, return a 404 response
+        if not categories:
+            raise NotFound(detail="No categories found for this parent category.")
 
+        # Get all products under these categories (products can belong to multiple categories)
+        products = Product.objects.filter(categories__in=categories).distinct()
+
+        # Serialize the products
         serializer = ProductSerializer(products, many=True)
 
+        # Return the response with product details
         return Response({
             "total_products": products.count(),
             "products": serializer.data
@@ -210,13 +224,20 @@ class ProductListByCategory(APIView):
         if not category_id:
             return Response({"error": "category_id is required"}, status=400)
 
+        # Fetch the Category instance, return 404 if not found
         category = get_object_or_404(Category, id=category_id)
 
-        # Get all products under this category
-        products = Product.objects.filter(category=category)
+        # Get all products under this category (products can belong to multiple categories)
+        products = Product.objects.filter(categories=category)
 
+        # If no products are found, return a 404 response
+        if not products:
+            raise NotFound(detail="No products found for this category.")
+
+        # Serialize the products
         serializer = ProductSerializer(products, many=True)
 
+        # Return the response with product details
         return Response({
             "total_products": products.count(),
             "products": serializer.data
@@ -229,12 +250,18 @@ class ProductListByCategory(APIView):
 @api_view(['GET'])
 def get_categories_and_products_by_parent(request, parent_category_id):
     try:
+        # Fetch the ParentCategory by ID, including handling the case when it doesn't exist
         parent_category = ParentCategory.objects.get(id=parent_category_id)
-        categories = Category.objects.filter(parent_category=parent_category)
+
+        # Get categories that are associated with the parent category (ManyToMany relationship)
+        categories = Category.objects.filter(parent_categories=parent_category)
 
         category_list = []
         for category in categories:
+            # Get all products related to this category
             products = category.products.all()
+
+            # Create a list of product dictionaries
             product_list = [
                 {
                     "product_id": product.id,
@@ -251,19 +278,23 @@ def get_categories_and_products_by_parent(request, parent_category_id):
                 for product in products
             ]
 
+            # Append category and its products to the category list
             category_list.append({
                 "category_id": category.id,
                 "category_name": category.category_name,
                 "description": category.description,
-                "category_image": request.build_absolute_uri(category.category_image.url) if category.category_image else None,
+                "category_image": request.build_absolute_uri(
+                    category.category_image.url) if category.category_image else None,
                 "products": product_list
             })
 
+        # Return the response with parent category and related categories/products
         return Response({
             "parent_category_id": parent_category.id,
             "parent_category_name": parent_category.name,
             "description": parent_category.description,
-            "parent_category_image": request.build_absolute_uri(parent_category.image.url) if parent_category.image else None,
+            "parent_category_image": request.build_absolute_uri(
+                parent_category.image.url) if parent_category.image else None,
             "categories": category_list
         })
 
@@ -278,11 +309,16 @@ def search_products(request):
     # Build a query to search across all relevant fields
     query = Q()
     if search_keyword:
+        # Search within product name, description, and size
         query |= Q(name__icontains=search_keyword)
         query |= Q(description__icontains=search_keyword)
         query |= Q(size__icontains=search_keyword)
+
+        # Search within category names
         query |= Q(category__category_name__icontains=search_keyword)
-        query |= Q(category__parent_category__name__icontains=search_keyword)
+
+        # Search within parent category names
+        query |= Q(category__parent_categories__name__icontains=search_keyword)
 
         # Handle price as a special case (exact match)
         try:

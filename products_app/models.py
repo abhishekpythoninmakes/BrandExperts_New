@@ -24,8 +24,7 @@ class ParentCategory(models.Model):
 
 
 class Category(models.Model):
-    parent_category = models.ForeignKey(ParentCategory, on_delete=models.CASCADE, null=True, blank=True,
-                                        related_name="categories")
+    parent_categories = models.ManyToManyField(ParentCategory, blank=True, related_name="child_categories")
     category_name = models.CharField(max_length=900, null=True, blank=True)
     description = models.TextField(null=True, blank=True)
     category_image = models.ImageField(upload_to='category_images', null=True, blank=True)
@@ -42,8 +41,7 @@ class Product_status(models.Model):
 
 
 class Product(models.Model):
-    category = models.ForeignKey(Category, on_delete=models.CASCADE, null=True, blank=True,
-                                    related_name="products")
+    categories = models.ManyToManyField(Category, blank=True, related_name="products")
     name = models.CharField(max_length=900, null=True, blank=True)
     description = models.TextField(null=True, blank=True)
     product_overview = RichTextUploadingField(null=True, blank=True)
