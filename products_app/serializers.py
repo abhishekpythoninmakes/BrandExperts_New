@@ -95,30 +95,31 @@ class DetailedProductSerializer(serializers.ModelSerializer):
 
     def get_parent_category(self, obj):
         """Retrieve parent category details"""
-        if obj.category and obj.category.parent_category.exists():
-            parent_categories = obj.category.parent_category.all()
-            return [
-                {
-                "id": parent_category.id,
-                "name": parent_category.name,  # Fixed: Use 'name' instead of 'category_name'
-                "description": parent_category.description,
-                "image": parent_category.image.url if parent_category.image else None
-            }
-                for parent_category in parent_categories
-            ]
-        return None
+        parent_categories = []
+        if obj.categories.exists():
+            for category in obj.categories.all():
+                if category.parent_categories.exists():
+                    for parent_category in category.parent_categories.all():
+                        parent_categories.append({
+                            "id": parent_category.id,
+                            "name": parent_category.name,
+                            "description": parent_category.description,
+                            "image": parent_category.image.url if parent_category.image else None
+                        })
+        return parent_categories if parent_categories else None
 
     def get_category(self, obj):
         """Retrieve category details"""
-        if obj.category:
-            return {
-                "id": obj.category.id,
-                "name": obj.category.category_name,
-                "description": obj.category.description,
-                "image": obj.category.category_image.url if obj.category.category_image else None
-            }
-        return None
-
+        categories = []
+        if obj.categories.exists():
+            for category in obj.categories.all():
+                categories.append({
+                    "id": category.id,
+                    "name": category.category_name,
+                    "description": category.description,
+                    "image": category.category_image.url if category.category_image else None
+                })
+        return categories if categories else None
 
 
     
