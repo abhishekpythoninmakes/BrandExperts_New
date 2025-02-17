@@ -32,6 +32,7 @@ ALLOWED_HOSTS = [
     'localhost',
     '127.0.0.1',
     'http://localhost:5173',
+    'http://localhost:5174',
 ]
 
 
@@ -110,6 +111,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "https://www.brandexperts.ae",
     "https://dash.brandexperts.ae",
+    "http://localhost:5174",
 ]
 
 
@@ -123,6 +125,7 @@ CSRF_TRUSTED_ORIGINS = [
     "https://dash.brandexperts.ae",
     "https://www.brandexperts.ae",
     "http://localhost:5173",
+    "http://localhost:5174",
 ]
 
 
