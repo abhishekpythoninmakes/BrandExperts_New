@@ -119,16 +119,9 @@ class LoginAPIView(APIView):
 
 
 
-# Warranty Registration
 
-# views.py
-from django.core.cache import cache
-from django.contrib.auth.hashers import make_password
-from rest_framework.views import APIView
-from rest_framework.permissions import AllowAny
 import stripe
-import random
-import string
+
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
@@ -148,6 +141,8 @@ from .serializers import WarrantyRegistrationSerializer
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
 
+from decimal import Decimal  # Import Decimal for precise decimal handling
+
 class WarrantyRegistrationAPIView(APIView):
     permission_classes = [AllowAny]
 
@@ -158,7 +153,9 @@ class WarrantyRegistrationAPIView(APIView):
 
         # Validate warranty plan amount
         try:
-            warranty_plan_amount = float(warranty_plan_amount)
+            # Convert warranty_plan_amount to float first, then to Decimal
+            warranty_plan_amount_float = float(warranty_plan_amount)
+            warranty_plan_amount_decimal = Decimal(warranty_plan_amount_float).quantize(Decimal('0.01'))  # Ensure two decimal places
         except (ValueError, TypeError):
             return Response(
                 {"error": "Invalid warranty plan amount."},
@@ -218,7 +215,7 @@ class WarrantyRegistrationAPIView(APIView):
             "invoice_date": data.get("invoice_date"),
             "invoice_value": warranty_plan.id,
             "invoice_file": data.get("invoice_file"),
-            "warranty_plan_amount": warranty_plan_amount,  # Use amount from request
+            "warranty_plan_amount": warranty_plan_amount_decimal,  # Use Decimal value
             "customer": customer.id
         }
         serializer = WarrantyRegistrationSerializer(data=warranty_data)
@@ -229,7 +226,7 @@ class WarrantyRegistrationAPIView(APIView):
         # Create Stripe PaymentIntent
         try:
             intent = stripe.PaymentIntent.create(
-                amount=int(warranty_plan_amount * 100),  # AED in cents
+                amount=int(warranty_plan_amount_float * 100),  # AED in cents
                 currency='aed',
                 metadata={
                     "customer_email": email,
@@ -253,11 +250,10 @@ class WarrantyRegistrationAPIView(APIView):
                 "invoice_number": data.get("invoice_number"),
                 "invoice_date": data.get("invoice_date"),
                 "invoice_file": data.get("invoice_file"),
-                "warranty_plan_amount": warranty_plan_amount,
+                "warranty_plan_amount": warranty_plan_amount_decimal,  # Use Decimal value
                 "warranty_plan": warranty_plan.price_range
             }
         }, status=status.HTTP_200_OK)
-
 
 
 @csrf_exempt
