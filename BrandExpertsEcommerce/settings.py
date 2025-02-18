@@ -187,6 +187,15 @@ USE_I18N = True
 USE_TZ = True
 
 
+# settings.py
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',  # Use local memory cache
+        'LOCATION': 'unique-snowflake',  # Unique identifier for the cache
+    }
+}
+
+
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 import os

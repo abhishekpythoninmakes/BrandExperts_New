@@ -22,7 +22,7 @@ class WarrantyRegistration(models.Model):
     full_name = models.CharField(max_length=255)
     email = models.EmailField()
     phone = models.CharField(max_length=20)
-    product_name = models.CharField(max_length=900, null=True, blank=True)
+    invoice_number = models.CharField(max_length=900, null=True, blank=True)
     invoice_date = models.DateField()
     invoice_value = models.ForeignKey(Warranty_plan,on_delete=models.CASCADE,null=True,blank=True)
     invoice_file = models.URLField(blank=True, null=True)
