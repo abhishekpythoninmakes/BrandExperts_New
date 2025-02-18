@@ -44,7 +44,7 @@ class WarrantyRegistration(models.Model):
 
     def __str__(self):
         warranty_plan = self.invoice_value.price_range if self.invoice_value else "No Warranty Plan"
-        return f"{self.full_name} - {self.product_name} ({warranty_plan})"
+        return f"{self.full_name} - {self.invoice_number} ({warranty_plan})"
 
 
 class ClaimWarranty(models.Model):
