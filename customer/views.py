@@ -255,7 +255,9 @@ def confirm_payment_warranty(request):
             cache_key = f"dummy_password_{customer.user.email}"
             dummy_password = cache.get(cache_key)
             if not dummy_password:
-                return JsonResponse({"error": "Dummy password expired or not found"}, status=400)
+                dummy_password = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
+                customer.user.set_password(dummy_password)
+                customer.user.save()
 
             if intent.status == 'succeeded':
                 # Update customer status to "lead"
