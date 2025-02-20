@@ -113,6 +113,10 @@ class VAT(models.Model):
         return f"VAT {self.percentage}% ({'Inclusive' if self.is_inclusive else 'Exclusive'})"
 
 
+class Higher_designer(models.Model):
+    designer_rate = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+
+
 
 
 

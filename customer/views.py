@@ -143,79 +143,62 @@ stripe.api_key = settings.STRIPE_SECRET_KEY
 
 from decimal import Decimal  # Import Decimal for precise decimal handling
 
+
 class WarrantyRegistrationAPIView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
         data = request.data.copy()
         price_range = data.get("price_range")
-        warranty_plan_amount = data.get("warranty_plan_amount")  # Get amount from request
+        warranty_plan_amount = data.get("warranty_plan_amount")
 
         # Validate warranty plan amount
         try:
-            # Convert warranty_plan_amount to float first, then to Decimal
             warranty_plan_amount_float = float(warranty_plan_amount)
-            warranty_plan_amount_decimal = Decimal(warranty_plan_amount_float).quantize(Decimal('0.01'))  # Ensure two decimal places
+            warranty_plan_amount_decimal = Decimal(warranty_plan_amount_float).quantize(Decimal('0.01'))
         except (ValueError, TypeError):
-            return Response(
-                {"error": "Invalid warranty plan amount."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": "Invalid warranty plan amount."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Check if a user with the same email already exists
+        # Get or create user
         email = data.get("email")
-        if CustomUser.objects.filter(email=email).exists():
-            return Response(
-                {"error": "A user with this email already exists."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        user, created = CustomUser.objects.get_or_create(
+            email=email,
+            defaults={
+                "username": email,
+                "first_name": data.get("full_name", "").split(" ")[0],
+                "last_name": " ".join(data.get("full_name", "").split(" ")[1:]),
+            }
+        )
 
-        # Get warranty plan based on price range
+        if created:
+            dummy_password = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
+            user.set_password(dummy_password)
+            user.save()
+
+            # Store dummy password in cache
+            cache_key = f"dummy_password_{user.id}"
+            cache.set(cache_key, dummy_password, timeout=3600)
+
+        # Get or create customer
+        customer, _ = Customer.objects.get_or_create(user=user,
+                                                     defaults={"mobile": data.get("phone"), "status": "lead"})
+
+        # Get warranty plan
         warranty_plan = Warranty_plan.objects.filter(price_range=price_range).first()
         if not warranty_plan:
-            return Response(
-                {"error": "Invalid price range. No matching warranty plan found."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": "Invalid price range. No matching warranty plan found."},
+                            status=status.HTTP_400_BAD_REQUEST)
 
-        # Create user with dummy password
-        full_name = data.get("full_name", "")
-        names = full_name.split(" ", 1)
-        first_name = names[0]
-        last_name = names[1] if len(names) > 1 else ""
-        dummy_password = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
-
-        # Use set_password to securely hash and save the password
-        user = CustomUser(
-            username=email,
-            email=email,
-            first_name=first_name,
-            last_name=last_name
-        )
-        user.set_password(dummy_password)  # Hash the password
-        user.save()
-
-        # Create customer with initial status as "client"
-        customer = Customer.objects.create(
-            user=user,
-            mobile=data.get("phone"),
-            status='client'  # Initial status
-        )
-
-        # Store dummy_password in cache with customer_id as the key
-        cache_key = f"dummy_password_{customer.id}"
-        cache.set(cache_key, dummy_password, timeout=3600)  # Expires after 1 hour
-
-        # Create warranty registration with default status
+        # Create warranty registration
         warranty_data = {
-            "full_name": full_name,
+            "full_name": data.get("full_name"),
             "email": email,
             "phone": data.get("phone"),
             "invoice_number": data.get("invoice_number"),
             "invoice_date": data.get("invoice_date"),
             "invoice_value": warranty_plan.id,
             "invoice_file": data.get("invoice_file"),
-            "warranty_plan_amount": warranty_plan_amount_decimal,  # Use Decimal value
+            "warranty_plan_amount": warranty_plan_amount_decimal,
             "customer": customer.id
         }
         serializer = WarrantyRegistrationSerializer(data=warranty_data)
@@ -226,11 +209,11 @@ class WarrantyRegistrationAPIView(APIView):
         # Create Stripe PaymentIntent
         try:
             intent = stripe.PaymentIntent.create(
-                amount=int(warranty_plan_amount_float * 100),  # AED in cents
+                amount=int(warranty_plan_amount_float * 100),
                 currency='aed',
                 metadata={
                     "customer_email": email,
-                    "customer_name": full_name,
+                    "customer_name": data.get("full_name"),
                     "invoice_number": data.get("invoice_number"),
                     "warranty_plan": warranty_plan.price_range
                 },
@@ -238,19 +221,18 @@ class WarrantyRegistrationAPIView(APIView):
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Return metadata along with the client secret
         return Response({
             "message": "Proceed to payment",
             "client_secret": intent.client_secret,
             "customer_id": customer.id,
-            "warranty_id": warranty.id,  # Include warranty ID for reference
+            "warranty_id": warranty.id,
             "metadata": {
                 "customer_email": email,
-                "customer_name": full_name,
+                "customer_name": data.get("full_name"),
                 "invoice_number": data.get("invoice_number"),
                 "invoice_date": data.get("invoice_date"),
                 "invoice_file": data.get("invoice_file"),
-                "warranty_plan_amount": warranty_plan_amount_decimal,  # Use Decimal value
+                "warranty_plan_amount": warranty_plan_amount_decimal,
                 "warranty_plan": warranty_plan.price_range
             }
         }, status=status.HTTP_200_OK)
@@ -277,7 +259,7 @@ def confirm_payment_warranty(request):
 
             if intent.status == 'succeeded':
                 # Update customer status to "lead"
-                customer.status = 'lead'
+                customer.status = 'client'
                 customer.save()
 
                 # Send email with warranty and login details
