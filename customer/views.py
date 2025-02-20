@@ -176,7 +176,7 @@ class WarrantyRegistrationAPIView(APIView):
             user.save()
 
             # Store dummy password in cache
-            cache_key = f"dummy_password_{user.id}"
+            cache_key = f"dummy_password_{user.email}"
             cache.set(cache_key, dummy_password, timeout=3600)
 
         # Get or create customer
@@ -252,7 +252,7 @@ def confirm_payment_warranty(request):
             # Retrieve dummy_password from cache using metadata
             customer_email = intent.metadata.get('customer_email')
             customer = Customer.objects.get(user__email=customer_email)
-            cache_key = f"dummy_password_{customer.id}"
+            cache_key = f"dummy_password_{customer.user.email}"
             dummy_password = cache.get(cache_key)
             if not dummy_password:
                 return JsonResponse({"error": "Dummy password expired or not found"}, status=400)
