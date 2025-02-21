@@ -118,5 +118,15 @@ class Higher_designer(models.Model):
 
 
 
+class Product_Offer_slider(models.Model):
 
+     offer_details = models.CharField(max_length=500, null=True, blank=True)
+     date = models.DateTimeField(auto_now_add=True)
 
+     def short_offer_details(self):
+         return " ".join(self.offer_details.split()[:10]) + ("..." if len(self.offer_details.split()) > 10 else "")
+
+     short_offer_details.short_description = "Offer Details"  # Custom column name in admin
+
+     def __str__(self):
+         return self.short_offer_details()

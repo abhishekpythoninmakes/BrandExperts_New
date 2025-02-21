@@ -180,3 +180,8 @@ class ProductSearchSerializer(serializers.ModelSerializer):
         return obj.image1 if obj.image1 else None
 
 
+class ProductOfferSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Product_Offer_slider
+        fields = ['id', 'offer_details', 'date']
+

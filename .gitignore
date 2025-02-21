@@ -10,3 +10,5 @@ media/
 
 # Ignore .env files (for sensitive keys)
 .env
+
+.qodo

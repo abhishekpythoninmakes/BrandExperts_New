@@ -27,3 +27,9 @@ admin.site.register(Product_status)
 admin.site.register(Warranty_plan)
 admin.site.register(VAT)
 admin.site.register(Higher_designer)
+class ProductOfferSliderAdmin(admin.ModelAdmin):
+    list_display = ('short_offer_details', 'date')
+    search_fields = ('offer_details',)
+    ordering = ('-date',)
+
+admin.site.register(Product_Offer_slider, ProductOfferSliderAdmin)

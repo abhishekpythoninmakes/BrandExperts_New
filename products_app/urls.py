@@ -47,5 +47,8 @@ urlpatterns = [
     # Wrranty plan price range
     path("price-ranges/", views.PriceRangeListAPIView.as_view(), name="price-ranges"),
 
+    # Product Offer Slider
+    path('offers/', views.offer_list, name='offer-list'),
+
 
 ]
