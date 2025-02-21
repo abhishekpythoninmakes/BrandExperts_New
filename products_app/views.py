@@ -306,33 +306,25 @@ def get_categories_and_products_by_parent(request, parent_category_id):
 def search_products(request):
     search_keyword = request.query_params.get("q", "").strip()
 
-    # Build a query to search across all relevant fields
     query = Q()
     if search_keyword:
-        # Search within product name, description, and size
         query |= Q(name__icontains=search_keyword)
         query |= Q(description__icontains=search_keyword)
         query |= Q(size__icontains=search_keyword)
+        query |= Q(categories__category_name__icontains=search_keyword)
+        query |= Q(categories__parent_categories__name__icontains=search_keyword)
 
-        # Search within category names
-        query |= Q(category__category_name__icontains=search_keyword)
-
-        # Search within parent category names
-        query |= Q(category__parent_categories__name__icontains=search_keyword)
-
-        # Handle price as a special case (exact match)
         try:
             price = float(search_keyword)
             query |= Q(price=price)
         except ValueError:
-            pass  # Ignore if the keyword is not a valid price
+            pass
 
-    # Filter products using the query
     products = Product.objects.filter(query).distinct()
 
-    # Serialize the results
     serializer = ProductSearchSerializer(products, many=True)
     return Response(serializer.data)
+
 
 
 # Warranty Plans fileterd based on price range
