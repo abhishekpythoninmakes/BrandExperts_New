@@ -1008,3 +1008,34 @@ def confirm_payment(request):
 
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=400)
+
+
+
+# Test
+
+import random
+
+
+@api_view(["POST"])
+def process_text(request):
+    text = request.data.get("text", "").lower()  # Get the text and convert to lowercase
+    contains_camera = "camera" in text  # Check if "camera" exists in the text
+
+    # Random welcome responses
+    random_responses = [
+        "Hello! How can I assist you today?",
+        "Welcome! What would you like to do?",
+        "Glad to have you here! Need any help?",
+        "Hey there! Tell me what you need assistance with.",
+        "Hi! Ready to get started?"
+    ]
+
+    if contains_camera:
+        response_text = "Opening the camera. Place the phone camera above the book page, and it will be scanned after a 3-second timer."
+    else:
+        response_text = random.choice(random_responses)
+
+    return Response({
+        "response": response_text,
+        "camera": contains_camera
+    })

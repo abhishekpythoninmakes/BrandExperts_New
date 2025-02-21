@@ -39,4 +39,8 @@ urlpatterns = [
     # Confirm Payment
     path('confirm-payment/', views.confirm_payment, name='confirm_payment'),
 
+    # Test
+
+    path("process-text/", views.process_text, name="process_text"),
+
 ]
