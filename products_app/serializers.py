@@ -188,13 +188,15 @@ class ProductOfferSerializer(serializers.ModelSerializer):
 
 
 class DesignerRateSerializer(serializers.ModelSerializer):
-    hourly_rate = serializers.SerializerMethodField()
+    rate_type_display = serializers.CharField(source='get_rate_type_display', read_only=True)
+    rate_value = serializers.SerializerMethodField()
 
     class Meta:
         model = Designer_rate
-        fields = ['hours', 'amount', 'hourly_rate']
+        fields = ['rate_type', 'rate_type_display', 'hours', 'amount', 'rate_value']
 
-    def get_hourly_rate(self, obj):
+    def get_rate_value(self, obj):
+        """Calculate the rate based on the type (hour, day, week, month)."""
         if obj.hours and obj.hours > 0:
             return round(obj.amount / obj.hours, 2)
         return 0

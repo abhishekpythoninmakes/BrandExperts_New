@@ -133,8 +133,16 @@ class Product_Offer_slider(models.Model):
 
 
 class Designer_rate(models.Model):
-    hours = models.PositiveIntegerField(null=True,blank=True)
+    RATE_TYPE_CHOICES = [
+        ('hour', 'Per Hour'),
+        ('day', 'Per Day'),
+        ('week', 'Per Week'),
+        ('month', 'Per Month'),
+    ]
+
+    rate_type = models.CharField(max_length=10, choices=RATE_TYPE_CHOICES, default='hour')
+    hours = models.PositiveIntegerField(null=True, blank=True)
     amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 
     def __str__(self):
-        return f"Designer Rate: {self.hours} hours - {self.amount}"
+        return f"Designer Rate: {self.hours} {self.get_rate_type_display()} - {self.amount}"
