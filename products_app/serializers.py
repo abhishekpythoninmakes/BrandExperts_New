@@ -201,14 +201,13 @@ class DesignerRateSerializer(serializers.ModelSerializer):
             return 0
 
         conversion_factors = {
-            'hour': 1,      # 1 hour = 1 hour
-            'day': 8,       # Assuming 1 day = 8 hours
-            'week': 40,     # Assuming 1 week = 40 hours
-            'month': 160,   # Assuming 1 month = 160 hours
+            'hour': obj.hours if obj.hours and obj.hours > 0 else 1,  # Avoid division by zero
+            'day': 8,   # Assuming a day has 8 hours
+            'week': 40,  # Assuming a week has 40 hours
+            'month': 160 # Assuming a month has 160 hours
         }
 
-        rate_type = obj.rate_type
-        hours_per_unit = conversion_factors.get(rate_type, 1)  # Default to 1 hour if not found
+        hours_per_unit = conversion_factors.get(obj.rate_type, 1)  # Default to 1 if invalid type
 
         return round(obj.amount / hours_per_unit, 2)
 
