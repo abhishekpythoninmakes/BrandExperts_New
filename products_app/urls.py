@@ -50,5 +50,8 @@ urlpatterns = [
     # Product Offer Slider
     path('offers/', views.offer_list, name='offer-list'),
 
+    # Designer rate
+    path('designer-rates/', views.DesignerRateAPIView.as_view(), name='designer-rates'),
+
 
 ]

@@ -130,3 +130,11 @@ class Product_Offer_slider(models.Model):
 
      def __str__(self):
          return self.short_offer_details()
+
+
+class Designer_rate(models.Model):
+    hours = models.PositiveIntegerField(null=True,blank=True)
+    amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+
+    def __str__(self):
+        return f"Designer Rate: {self.hours} hours - {self.amount}"

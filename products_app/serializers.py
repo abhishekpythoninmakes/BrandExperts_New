@@ -185,3 +185,17 @@ class ProductOfferSerializer(serializers.ModelSerializer):
         model = Product_Offer_slider
         fields = ['id', 'offer_details', 'date']
 
+
+
+class DesignerRateSerializer(serializers.ModelSerializer):
+    hourly_rate = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Designer_rate
+        fields = ['hours', 'amount', 'hourly_rate']
+
+    def get_hourly_rate(self, obj):
+        if obj.hours and obj.hours > 0:
+            return round(obj.amount / obj.hours, 2)
+        return 0
+

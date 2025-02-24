@@ -33,3 +33,5 @@ class ProductOfferSliderAdmin(admin.ModelAdmin):
     ordering = ('-date',)
 
 admin.site.register(Product_Offer_slider, ProductOfferSliderAdmin)
+
+admin.site.register(Designer_rate)

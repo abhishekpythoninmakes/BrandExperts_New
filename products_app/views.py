@@ -368,3 +368,10 @@ def offer_list(request):
     offers = Product_Offer_slider.objects.all().order_by('-date')  # Fetch all offers, latest first
     serializer = ProductOfferSerializer(offers, many=True)
     return Response(serializer.data)
+
+
+class DesignerRateAPIView(APIView):
+    def get(self, request, *args, **kwargs):
+        rates = Designer_rate.objects.all()
+        serializer = DesignerRateSerializer(rates, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
