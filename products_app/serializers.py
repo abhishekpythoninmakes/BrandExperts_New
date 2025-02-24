@@ -196,8 +196,19 @@ class DesignerRateSerializer(serializers.ModelSerializer):
         fields = ['rate_type', 'rate_type_display', 'hours', 'amount', 'rate_value']
 
     def get_rate_value(self, obj):
-        """Calculate the rate based on the type (hour, day, week, month)."""
-        if obj.hours and obj.hours > 0:
-            return round(obj.amount / obj.hours, 2)
-        return 0
+        """Calculate the rate based on rate type (hour, day, week, month)."""
+        if not obj.amount or obj.amount <= 0:
+            return 0
+
+        conversion_factors = {
+            'hour': 1,      # 1 hour = 1 hour
+            'day': 8,       # Assuming 1 day = 8 hours
+            'week': 40,     # Assuming 1 week = 40 hours
+            'month': 160,   # Assuming 1 month = 160 hours
+        }
+
+        rate_type = obj.rate_type
+        hours_per_unit = conversion_factors.get(rate_type, 1)  # Default to 1 hour if not found
+
+        return round(obj.amount / hours_per_unit, 2)
 
