@@ -193,7 +193,7 @@ class DesignerRateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Designer_rate
-        fields = ['rate_type', 'rate_type_display', 'hours', 'amount', 'rate_value']
+        fields = ['id','rate_type', 'rate_type_display', 'hours', 'amount', 'rate_value']
 
     def get_rate_value(self, obj):
         """Calculate the rate based on rate type (hour, day, week, month)."""

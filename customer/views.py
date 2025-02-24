@@ -683,6 +683,8 @@ from rest_framework.response import Response
 from rest_framework import status
 from .models import Cart, CartItem, Customer, Product
 from .serializers import CartItemSerializer
+from rest_framework.decorators import api_view
+from .models import Cart, CartItem, Customer, Product, Designer_rate
 
 @api_view(['POST'])
 def create_or_update_cart(request):
@@ -715,6 +717,8 @@ def create_or_update_cart(request):
         price = float(item_data.get('price', 0))
         total_price_item = float(item_data.get('total', 0))
         size_unit = item_data.get('unit', 'inches')  # Default to 'inches' if not provided
+        hire_designer_id = item_data.get('hire_designer_id', None)  # Get hire_designer_id from request
+        design_description = item_data.get('design_description', '')  # Get design_description from request
 
         if not product_id:
             return Response({"error": "Product ID is required for each cart item"}, status=status.HTTP_400_BAD_REQUEST)
@@ -723,6 +727,14 @@ def create_or_update_cart(request):
             product = Product.objects.get(id=product_id)
         except Product.DoesNotExist:
             return Response({"error": f"Product with ID {product_id} not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Fetch the Designer_rate instance if hire_designer_id is provided
+        hire_designer = None
+        if hire_designer_id:
+            try:
+                hire_designer = Designer_rate.objects.get(id=hire_designer_id)
+            except Designer_rate.DoesNotExist:
+                return Response({"error": f"Designer_rate with ID {hire_designer_id} not found"}, status=status.HTTP_404_NOT_FOUND)
 
         # Create or update the cart item
         cart_item, item_created = CartItem.objects.update_or_create(
@@ -736,7 +748,9 @@ def create_or_update_cart(request):
                 'price': price,
                 'total_price': total_price_item,
                 'size_unit': size_unit,
-                'status': 'pending'  # Default status
+                'status': 'pending',  # Default status
+                'hire_designer': hire_designer,  # Set hire_designer (can be None)
+                'design_description': design_description  # Set design_description
             }
         )
 
@@ -753,14 +767,16 @@ def create_or_update_cart(request):
                 "height": custom_height
             },
             "design_image": design_image,
-            "unit": size_unit
+            "unit": size_unit,
+            "hire_designer_id": hire_designer.id if hire_designer else None,  # Include hire_designer_id in response
+            "design_description": design_description  # Include design_description in response
         })
 
     # Prepare response
     response_data = {
         "message": "Cart updated successfully" if not created else "Cart created successfully",
         "cart": {
-            "cart_id":cart.id,
+            "cart_id": cart.id,
             "customer_id": customer.id,
             "cart_items": cart_items_list,
             "total_items": total_items,
