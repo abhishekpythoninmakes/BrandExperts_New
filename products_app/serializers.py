@@ -7,13 +7,9 @@ class CategorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Category
-        fields = ["id","category_name", "description", "category_image_url","parent_category_names"]
+        fields = ["id","category_name", "description", "category_image","parent_category_names"]
 
-    def get_category_image_url(self, obj):
-        request = self.context.get("request")
-        if obj.category_image:
-            return request.build_absolute_uri(obj.category_image.url)
-        return None
+
 
 
 
@@ -104,7 +100,7 @@ class DetailedProductSerializer(serializers.ModelSerializer):
                             "id": parent_category.id,
                             "name": parent_category.name,
                             "description": parent_category.description,
-                            "image": parent_category.image.url if parent_category.image else None
+                            "image": parent_category.image
                         })
         return parent_categories if parent_categories else None
 
@@ -117,24 +113,20 @@ class DetailedProductSerializer(serializers.ModelSerializer):
                     "id": category.id,
                     "name": category.category_name,
                     "description": category.description,
-                    "image": category.category_image.url if category.category_image else None
+                    "image": category.category_image
                 })
         return categories if categories else None
 
 
     
 class ParentCategorySerializer(serializers.ModelSerializer):
-    image_url = serializers.SerializerMethodField()
+
 
     class Meta:
         model = ParentCategory
-        fields = ['id', 'name', 'description', 'image_url']
+        fields = ['id', 'name', 'description', 'image']
 
-    def get_image_url(self, obj):
-        request = self.context.get('request')
-        if obj.image:
-            return request.build_absolute_uri(obj.image.url) if request else obj.image.url
-        return None
+
 
 
 
@@ -143,13 +135,8 @@ class CategorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Category
-        fields = ['id', 'category_name', 'description', 'category_image_url']
+        fields = ['id', 'category_name', 'description', 'category_image']
 
-    def get_category_image_url(self, obj):
-        request = self.context.get('request')
-        if obj.category_image:
-            return request.build_absolute_uri(obj.category_image.url) if request else obj.category_image.url
-        return None
 
 
 

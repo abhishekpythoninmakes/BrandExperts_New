@@ -17,7 +17,7 @@ sizes_available =  (('inches','Inches'),('feet','Feet'))
 class ParentCategory(models.Model):
     name = models.CharField(max_length=900, null=True, blank=True)
     description = models.TextField(null=True, blank=True)
-    image = models.ImageField(upload_to='parent_category_images', null=True, blank=True)
+    image = models.URLField(null=True, blank=True)
 
     def __str__(self):
         return self.name
@@ -27,7 +27,7 @@ class Category(models.Model):
     parent_categories = models.ManyToManyField(ParentCategory, blank=True, related_name="child_categories")
     category_name = models.CharField(max_length=900, null=True, blank=True)
     description = models.TextField(null=True, blank=True)
-    category_image = models.ImageField(upload_to='category_images', null=True, blank=True)
+    category_image = models.URLField(null=True, blank=True)
 
     def __str__(self):
         return self.category_name
