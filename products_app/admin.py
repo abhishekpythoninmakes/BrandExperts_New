@@ -18,8 +18,22 @@ class ProductAdminForm(forms.ModelForm):
         model = Product
         fields = "__all__"
 
+# Custom Product Admin
 class ProductAdmin(admin.ModelAdmin):
     form = ProductAdminForm
+    list_display = ('name', 'get_categories', 'get_parent_categories', 'size', 'price', 'status')
+    search_fields = ('name', 'categories__category_name', 'categories__parent_categories__name', 'size', 'description')
+
+    def get_categories(self, obj):
+        return ", ".join([category.category_name for category in obj.categories.all()])
+    get_categories.short_description = 'Categories'
+
+    def get_parent_categories(self, obj):
+        parent_categories = set()
+        for category in obj.categories.all():
+            parent_categories.update(category.parent_categories.all())
+        return ", ".join([parent.name for parent in parent_categories])
+    get_parent_categories.short_description = 'Parent Categories'
 
 admin.site.register(Product, ProductAdmin)
 admin.site.register(Standard_sizes)
