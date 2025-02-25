@@ -12,9 +12,19 @@ admin.site.index_title = "Welcome to BrandExperts Admin Dashboard"
 
 
 
-admin.site.register(CustomUser)
-admin.site.register(ParentCategory)
-admin.site.register(Category)
+@admin.register(CustomUser)
+class CustomUserAdmin(admin.ModelAdmin):
+    search_fields = ['email', 'username', 'first_name', 'last_name'] 
+
+@admin.register(ParentCategory)
+class ParentCategoryAdmin(admin.ModelAdmin):
+    search_fields = ['name', 'description']
+
+@admin.register(Category)
+class CategoryAdmin(admin.ModelAdmin):
+    search_fields = ['category_name', 'description']
+
+
 class ProductAdminForm(forms.ModelForm):
     product_overview = forms.CharField(widget=CKEditorUploadingWidget(), required=False)
     product_specifications = forms.CharField(widget=CKEditorUploadingWidget(), required=False)

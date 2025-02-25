@@ -262,12 +262,12 @@ from decouple import config
 # Retrieve the Stripe secret key from the .env file
 STRIPE_SECRET_KEY = config('STRIPE_SECRET_KEY')
 
-JAZZMIN_UI_TWEAKS = {
-    # Add Font Awesome CDN
-    "css_links": [
-        "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css",
-    ],
-}
+
+
+
+
+
+
 
 JAZZMIN_SETTINGS = {
     # General Settings
@@ -285,7 +285,7 @@ JAZZMIN_SETTINGS = {
     "show_ui_builder": False,
     "welcome_sign": "Welcome to BrandExperts Admin",
 
-    # Icons Configuration (Ensure Font Awesome is loaded via CDN)
+    # Icons Configuration (Ensure Font Awesome is loaded via local font.css)
     "icons": {
         # Auth
         "auth.Group": "fas fa-users-cog",
