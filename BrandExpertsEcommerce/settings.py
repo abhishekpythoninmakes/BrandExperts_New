@@ -324,4 +324,5 @@ JAZZMIN_SETTINGS = {
 
     # Footer
     "copyright": "Copyright © 2025 BrandExperts. All rights reserved.",
+    "show_version": False,
 }
