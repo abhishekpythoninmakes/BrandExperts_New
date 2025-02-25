@@ -283,8 +283,7 @@ def get_categories_and_products_by_parent(request, parent_category_id):
                 "category_id": category.id,
                 "category_name": category.category_name,
                 "description": category.description,
-                "category_image": request.build_absolute_uri(
-                    category.category_image.url) if category.category_image else None,
+                "category_image": category.category_image,
                 "products": product_list
             })
 
@@ -293,8 +292,7 @@ def get_categories_and_products_by_parent(request, parent_category_id):
             "parent_category_id": parent_category.id,
             "parent_category_name": parent_category.name,
             "description": parent_category.description,
-            "parent_category_image": request.build_absolute_uri(
-                parent_category.image.url) if parent_category.image else None,
+            "parent_category_image":  parent_category.image,
             "categories": category_list
         })
 

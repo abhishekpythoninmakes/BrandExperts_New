@@ -2,7 +2,6 @@ from rest_framework import serializers
 from .models import *
 
 class CategorySerializer(serializers.ModelSerializer):
-    category_image_url = serializers.SerializerMethodField()
     parent_category_names = serializers.SerializerMethodField()
 
     class Meta:
@@ -131,7 +130,7 @@ class ParentCategorySerializer(serializers.ModelSerializer):
 
 
 class CategorySerializer(serializers.ModelSerializer):
-    category_image_url = serializers.SerializerMethodField()
+
 
     class Meta:
         model = Category
