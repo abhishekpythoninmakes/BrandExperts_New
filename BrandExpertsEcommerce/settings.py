@@ -39,7 +39,7 @@ ALLOWED_HOSTS = [
 # Application definition
 
 INSTALLED_APPS = [
-    'grappelli',
+    'jazzmin',
     'django.contrib.admin',
     'django.contrib.auth',
     'corsheaders',
@@ -261,3 +261,12 @@ from decouple import config
 
 # Retrieve the Stripe secret key from the .env file
 STRIPE_SECRET_KEY = config('STRIPE_SECRET_KEY')
+
+
+JAZZMIN_SETTINGS = {
+    "site_title": "BrandExperts Admin",
+    "site_header": "BrandExperts Dashboard",
+    "site_brand": "BrandExperts",
+    "site_logo": "your_logo.png",  # Upload logo in static files
+    "welcome_sign": "Welcome to BrandExperts Admin",
+}
