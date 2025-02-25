@@ -267,6 +267,56 @@ JAZZMIN_SETTINGS = {
     "site_title": "BrandExperts Admin",
     "site_header": "BrandExperts Dashboard",
     "site_brand": "BrandExperts",
-    "site_logo": "img/logos/benewlogo.png",  # Upload logo in static files
+    "site_logo": "img/logos/benewlogo.png",  # Relative path from /static/
+    "site_icon": "img/logos/favicon.png",  # Favicon icon (optional)
+
+    # Theme Customization (Colors)
+    "theme": "cyborg",  # Alternative: lumen, cerulean, darkly, etc.
+    "custom_css": "css/custom_admin.css",  # Custom animations & styles
+    "custom_js": "js/custom_admin.js",
+
+    # Primary colors with a gradient
+    "primary_color": "#BF1A1C",
+    "secondary_color": "#590C0D",
+    "dark_mode_toggle": True,
+
+    # UI Enhancements
+    "show_ui_builder": False,  # Hide UI builder for a clean look
     "welcome_sign": "Welcome to BrandExperts Admin",
+    "search_model": ["auth.User", "customers.Customers", "products.Products"],
+
+    # Custom Icons for models
+    "icons": {
+        "auth.Group": "fas fa-users-cog",
+        "customers.Cart_items": "fas fa-shopping-cart",
+        "customers.Carts": "fas fa-shopping-basket",
+        "customers.Claim_warrantys": "fas fa-clipboard-check",
+        "customers.Customer_addresss": "fas fa-map-marker-alt",
+        "customers.Customers": "fas fa-user",
+        "customers.Orders": "fas fa-box",
+        "customers.Warranty_registrations": "fas fa-shield-alt",
+        "products_app.Categorys": "fas fa-tags",
+        "products_app.Designer_rates": "fas fa-paint-brush",
+        "products_app.Higher_designers": "fas fa-user-tie",
+        "products_app.Parent_categorys": "fas fa-folder-tree",
+        "products_app.Product_offer_sliders": "fas fa-percent",
+        "products_app.Product_statuss": "fas fa-check-circle",
+        "products_app.Products": "fas fa-box-open",
+        "products_app.Standard_sizess": "fas fa-ruler-combined",
+        "products_app.Users": "fas fa-user-circle",
+        "products_app.Vats": "fas fa-receipt",
+        "products_app.Warranty_plans": "fas fa-file-invoice-dollar",
+    },
+
+    # Side Menu Customization
+    "order_with_respect_to": [
+        "dashboard",
+        "auth",
+        "customers",
+        "products_app",
+    ],
+
+    # Footer
+    "copyright": "Copyright © 2025 BrandExperts. All rights reserved.",
 }
+
