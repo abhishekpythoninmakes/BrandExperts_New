@@ -267,6 +267,6 @@ JAZZMIN_SETTINGS = {
     "site_title": "BrandExperts Admin",
     "site_header": "BrandExperts Dashboard",
     "site_brand": "BrandExperts",
-    "site_logo": "your_logo.png",  # Upload logo in static files
+    "site_logo": "img/logos/benewlogo.png",  # Upload logo in static files
     "welcome_sign": "Welcome to BrandExperts Admin",
 }
