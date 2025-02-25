@@ -262,30 +262,29 @@ from decouple import config
 # Retrieve the Stripe secret key from the .env file
 STRIPE_SECRET_KEY = config('STRIPE_SECRET_KEY')
 
-
 JAZZMIN_SETTINGS = {
     "site_title": "BrandExperts Admin",
     "site_header": "BrandExperts Dashboard",
     "site_brand": "BrandExperts",
-    "site_logo": "img/logos/benewlogo.png",  # Relative path from /static/
-    "site_icon": "img/logos/favicon.png",  # Favicon icon (optional)
+    "site_logo": "img/logos/benewlogo.png",  # Ensure this file exists in /static/img/logos/
+    "site_icon": "img/logos/favicon.png",  # Ensure this favicon exists
 
     # Theme Customization (Colors)
-    "theme": "cyborg",  # Alternative: lumen, cerulean, darkly, etc.
-    "custom_css": "css/custom_admin.css",  # Custom animations & styles
-    "custom_js": "js/custom_admin.js",
+    "theme": "cyborg",  # Can switch to a modern alternative: lumen, darkly, cerulean, etc.
+    "custom_css": "css/custom_admin.css",  # Load custom styles
+    "custom_js": "js/custom_admin.js",  # Load custom JavaScript
 
-    # Primary colors with a gradient
-    "primary_color": "#BF1A1C",
-    "secondary_color": "#590C0D",
+    # Primary colors updated
+    "primary_color": "#E40F2D",  # New red color
+    "secondary_color": "#FFFFFF",  # White as secondary
     "dark_mode_toggle": True,
 
     # UI Enhancements
-    "show_ui_builder": False,  # Hide UI builder for a clean look
+    "show_ui_builder": False,  # Hide UI builder for a cleaner look
     "welcome_sign": "Welcome to BrandExperts Admin",
-    "search_model": ["auth.User", "customers.Customers", "products.Products"],
+    "search_model": ["auth.User", "customers.Customers", "products_app.Products"],
 
-    # Custom Icons for models
+    # **Updated Icons with Correct Paths**
     "icons": {
         "auth.Group": "fas fa-users-cog",
         "customers.Cart_items": "fas fa-shopping-cart",
@@ -308,7 +307,7 @@ JAZZMIN_SETTINGS = {
         "products_app.Warranty_plans": "fas fa-file-invoice-dollar",
     },
 
-    # Side Menu Customization
+    # Sidebar Order for Clarity
     "order_with_respect_to": [
         "dashboard",
         "auth",
@@ -319,4 +318,5 @@ JAZZMIN_SETTINGS = {
     # Footer
     "copyright": "Copyright © 2025 BrandExperts. All rights reserved.",
 }
+
 

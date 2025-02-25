@@ -1,37 +1,45 @@
+/* General Styling */
 :root {
-    --primary-color: #BF1A1C;
-    --secondary-color: #590C0D;
+    --primary-color: #E40F2D;
+    --secondary-color: #FFFFFF;
 }
 
-.navbar {
-    background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
-    color: white;
+body {
+    font-family: "Poppins", sans-serif;
+    background: linear-gradient(45deg, #E40F2D, #900D0D);
 }
 
+/* Sidebar */
 .sidebar {
-    background: var(--secondary-color);
+    background-color: var(--primary-color) !important;
 }
 
 .sidebar a {
-    color: white;
-    transition: all 0.3s ease-in-out;
+    color: white !important;
+    transition: 0.3s;
 }
 
 .sidebar a:hover {
-    color: #FFD700;
+    background: rgba(255, 255, 255, 0.2) !important;
+}
+
+/* Dashboard Cards */
+.card {
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    transition: transform 0.2s;
+}
+
+.card:hover {
     transform: scale(1.05);
 }
 
-.card {
-    border-radius: 10px;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+/* Animations */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 
-.btn-primary {
-    background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
-    border: none;
-}
-
-.btn-primary:hover {
-    background: linear-gradient(45deg, var(--secondary-color), var(--primary-color));
+.admin-panel {
+    animation: fadeIn 0.5s ease-in-out;
 }
