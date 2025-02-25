@@ -39,7 +39,7 @@ ALLOWED_HOSTS = [
 # Application definition
 
 INSTALLED_APPS = [
-    'jet',
+    'grappelli',
     'django.contrib.admin',
     'django.contrib.auth',
     'corsheaders',
