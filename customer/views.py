@@ -390,18 +390,23 @@ Please try again later."""
 #         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 # VALIDATE WARRANTY NUMBER
-@api_view(['GET'])
+@api_view(['POST'])  
+@csrf_exempt
 def validate_warranty_number(request):
-    warranty_number = request.GET.get('warranty_number')
-
-    if not warranty_number:
-        return Response({"is_valid": False, "message": "Warranty number is required"}, status=400)
-
     try:
-        warranty = WarrantyRegistration.objects.get(warranty_number=warranty_number)
-        return Response({"is_valid": True, "message": "Warranty number is valid and active"})
-    except WarrantyRegistration.DoesNotExist:
-        return Response({"is_valid": False, "message": "Invalid or inactive warranty number"}, status=404)
+        data = json.loads(request.body)  # Parse JSON body
+        warranty_number = data.get('warranty_number', '').strip()
+
+        if not warranty_number:
+            return Response({"is_valid": False, "message": "Warranty number is required"}, status=400)
+
+        if WarrantyRegistration.objects.filter(warranty_number=warranty_number).exists():
+            return Response({"is_valid": True, "message": "Warranty number is valid and active"})
+        else:
+            return Response({"is_valid": False, "message": "Invalid or inactive warranty number"}, status=404)
+
+    except json.JSONDecodeError:
+        return Response({"is_valid": False, "message": "Invalid JSON format"}, status=400)
 
 
 
