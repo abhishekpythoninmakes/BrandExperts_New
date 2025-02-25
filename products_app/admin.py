@@ -6,7 +6,7 @@ from ckeditor_uploader.widgets import CKEditorUploadingWidget
 # Register your models here.
 
 admin.site.site_header = "BrandExperts Admin Panel"
-admin.site.site_title = "Your Custom Admin"
+admin.site.site_title = "BrandExperts Admin Panel"
 admin.site.index_title = "Welcome to BrandExperts Admin Dashboard"
 
 
