@@ -262,31 +262,36 @@ from decouple import config
 # Retrieve the Stripe secret key from the .env file
 STRIPE_SECRET_KEY = config('STRIPE_SECRET_KEY')
 
+JAZZMIN_UI_TWEAKS = {
+    # Add Font Awesome CDN
+    "css_links": [
+        "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css",
+    ],
+}
+
 JAZZMIN_SETTINGS = {
+    # General Settings
     "site_title": "BrandExperts Admin",
     "site_header": "BrandExperts Dashboard",
     "site_brand": "BrandExperts",
-    "site_logo": "img/logos/benewlogo.png",  # Ensure this file exists in /static/img/logos/
-    "site_icon": "img/logos/favicon.png",  # Ensure this favicon exists
-
-    # Theme Customization (Colors)
-    "theme": "cyborg",  # Can switch to a modern alternative: lumen, darkly, cerulean, etc.
-    "custom_css": "css/custom_admin.css",  # Load custom styles
-    "custom_js": "js/custom_admin.js",  # Load custom JavaScript
-
-    # Primary colors updated
-    "primary_color": "#E40F2D",  # New red color
-    "secondary_color": "#FFFFFF",  # White as secondary
+    "site_logo": "img/logos/benewlogo.png",
+    "site_icon": "img/logos/favicon.png",
+    "theme": "cyborg",
+    "custom_css": "css/custom_admin.css",
+    "custom_js": "js/custom_admin.js",
+    "primary_color": "#BF1A1C",
+    "secondary_color": "#590C0D",
     "dark_mode_toggle": True,
-
-    # UI Enhancements
-    "show_ui_builder": False,  # Hide UI builder for a cleaner look
+    "show_ui_builder": False,
     "welcome_sign": "Welcome to BrandExperts Admin",
-    "search_model": ["auth.User", "customers.Customers", "products_app.Products"],
 
-    # **Updated Icons with Correct Paths**
+    # Icons Configuration (Ensure Font Awesome is loaded via CDN)
     "icons": {
+        # Auth
         "auth.Group": "fas fa-users-cog",
+        "auth.User": "fas fa-user-shield",
+
+        # Customers App
         "customers.Cart_items": "fas fa-shopping-cart",
         "customers.Carts": "fas fa-shopping-basket",
         "customers.Claim_warrantys": "fas fa-clipboard-check",
@@ -294,6 +299,8 @@ JAZZMIN_SETTINGS = {
         "customers.Customers": "fas fa-user",
         "customers.Orders": "fas fa-box",
         "customers.Warranty_registrations": "fas fa-shield-alt",
+
+        # Products App
         "products_app.Categorys": "fas fa-tags",
         "products_app.Designer_rates": "fas fa-paint-brush",
         "products_app.Higher_designers": "fas fa-user-tie",
@@ -307,7 +314,7 @@ JAZZMIN_SETTINGS = {
         "products_app.Warranty_plans": "fas fa-file-invoice-dollar",
     },
 
-    # Sidebar Order for Clarity
+    # Menu Structure
     "order_with_respect_to": [
         "dashboard",
         "auth",
@@ -318,5 +325,3 @@ JAZZMIN_SETTINGS = {
     # Footer
     "copyright": "Copyright © 2025 BrandExperts. All rights reserved.",
 }
-
-

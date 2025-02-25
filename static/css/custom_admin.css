@@ -1,45 +1,79 @@
-/* General Styling */
 :root {
-    --primary-color: #E40F2D;
-    --secondary-color: #FFFFFF;
+    --primary-color: #BF1A1C;
+    --secondary-color: #590C0D;
+    --auth-color: #4A90E2;
+    --customers-color: #FF6B6B;
+    --products-color: #6BFFB8;
 }
 
-body {
-    font-family: "Poppins", sans-serif;
-    background: linear-gradient(45deg, #E40F2D, #900D0D);
+/* Header Styling */
+.navbar {
+    background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+    color: white;
 }
 
-/* Sidebar */
+/* Sidebar Styling */
 .sidebar {
-    background-color: var(--primary-color) !important;
+    background: var(--secondary-color);
+    padding: 15px 0;
 }
 
-.sidebar a {
+/* App-specific sidebar headers */
+.sidebar .nav-header[data-app="auth"] {
+    border-left: 4px solid var(--auth-color);
+    background: rgba(74, 144, 226, 0.1);
+}
+
+.sidebar .nav-header[data-app="customers"] {
+    border-left: 4px solid var(--customers-color);
+    background: rgba(255, 107, 107, 0.1);
+}
+
+.sidebar .nav-header[data-app="products_app"] {
+    border-left: 4px solid var(--products-color);
+    background: rgba(107, 255, 184, 0.1);
+}
+
+/* Dropdown Menu Styling */
+.nav-treeview {
+    background: rgba(0, 0, 0, 0.2) !important;
+    margin-left: 15px;
+    border-left: 2px solid var(--primary-color);
+    display: none; /* Hide dropdown by default */
+}
+
+.nav-treeview .nav-link {
+    padding-left: 40px !important;
+    font-size: 0.9em;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.nav-treeview .nav-link:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+/* Active Dropdown */
+.nav-treeview.show {
+    display: block; /* Show dropdown when active */
+}
+
+/* Hover Effects */
+.sidebar .nav-link {
+    color: white;
+    transition: all 0.3s ease;
+    padding: 12px 25px;
+    margin: 2px 0;
+    position: relative;
+}
+
+.sidebar .nav-link:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: translateX(5px);
+}
+
+/* Active Item Highlighting */
+.sidebar .nav-link.active {
+    background: var(--primary-color) !important;
     color: white !important;
-    transition: 0.3s;
-}
-
-.sidebar a:hover {
-    background: rgba(255, 255, 255, 0.2) !important;
-}
-
-/* Dashboard Cards */
-.card {
-    border-radius: 10px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-    transition: transform 0.2s;
-}
-
-.card:hover {
-    transform: scale(1.05);
-}
-
-/* Animations */
-@keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-}
-
-.admin-panel {
-    animation: fadeIn 0.5s ease-in-out;
+    box-shadow: 2px 0 10px rgba(191, 26, 28, 0.5);
 }
