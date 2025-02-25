@@ -389,6 +389,21 @@ Please try again later."""
 #
 #         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+# VALIDATE WARRANTY NUMBER
+@api_view(['GET'])
+def validate_warranty_number(request):
+    warranty_number = request.GET.get('warranty_number')
+
+    if not warranty_number:
+        return Response({"is_valid": False, "message": "Warranty number is required"}, status=400)
+
+    try:
+        warranty = WarrantyRegistration.objects.get(warranty_number=warranty_number)
+        return Response({"is_valid": True, "message": "Warranty number is valid and active"})
+    except WarrantyRegistration.DoesNotExist:
+        return Response({"is_valid": False, "message": "Invalid or inactive warranty number"}, status=404)
+
+
 
 # CREATE CLAIM WARRANTY
 
