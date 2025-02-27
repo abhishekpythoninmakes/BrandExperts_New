@@ -27,7 +27,7 @@ class WarrantyRegistration(models.Model):
     invoice_value = models.ForeignKey(Warranty_plan,on_delete=models.CASCADE,null=True,blank=True)
     invoice_file = models.URLField(blank=True, null=True)
     warranty_plan_amount = models.DecimalField(max_digits=10, decimal_places=2,blank=True,default='0.00')
-    warranty_number = models.CharField(max_length=8, unique=True, editable=False,null=True,blank=True)  # Unique warranty number
+    warranty_number = models.CharField(max_length=8, unique=True,null=True,blank=True)  # Unique warranty number
     created_at = models.DateTimeField(auto_now_add=True)
 
     def save(self, *args, **kwargs):
