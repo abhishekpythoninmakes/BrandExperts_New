@@ -373,3 +373,19 @@ class DesignerRateAPIView(APIView):
         rates = Designer_rate.objects.all()
         serializer = DesignerRateSerializer(rates, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+
+# Banner Images
+
+class BannerImageListView(APIView):
+    def get(self, request):
+        banners = Banner_Image.objects.all()
+        data = [
+            {
+                'id': banner.id,
+                'image_url': banner.image
+            }
+            for banner in banners
+        ]
+        return Response(data, status=status.HTTP_200_OK)

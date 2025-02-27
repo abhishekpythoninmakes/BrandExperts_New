@@ -146,3 +146,13 @@ class Designer_rate(models.Model):
 
     def __str__(self):
         return f"Designer Rate: {self.hours} {self.get_rate_type_display()} - {self.amount}"
+
+
+
+class Banner_Image(models.Model):
+    name = models.CharField(max_length=500,null=True,blank=True)
+    image = models.URLField(null=True,blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Banner Image {self.name} {self.created_at}"

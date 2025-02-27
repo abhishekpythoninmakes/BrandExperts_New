@@ -53,5 +53,8 @@ urlpatterns = [
     # Designer rate
     path('designer-rates/', views.DesignerRateAPIView.as_view(), name='designer-rates'),
 
+    # Banner Image
+    path('banners/', views.BannerImageListView.as_view(), name='banner-list'),
+
 
 ]

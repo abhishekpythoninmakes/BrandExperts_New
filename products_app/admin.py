@@ -66,3 +66,18 @@ class ProductOfferSliderAdmin(admin.ModelAdmin):
 admin.site.register(Product_Offer_slider, ProductOfferSliderAdmin)
 
 admin.site.register(Designer_rate)
+
+
+class BannerImageAdminForm(forms.ModelForm):
+    class Meta:
+        model = Banner_Image
+        fields = '__all__'
+        help_texts = {
+            'image': 'The uploaded image should have a width of **1250px** and a height of **699px**.'
+        }
+
+class BannerImageAdmin(admin.ModelAdmin):
+    form = BannerImageAdminForm
+    list_display = ('name', 'image', 'created_at')
+
+admin.site.register(Banner_Image, BannerImageAdmin)
