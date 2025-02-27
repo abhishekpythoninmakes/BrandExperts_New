@@ -710,7 +710,7 @@ from .models import Cart, CartItem, Customer, Product, Designer_rate
 def create_or_update_cart(request):
     customer_id = request.data.get('customer_id')
     cart_items_data = request.data.get('cart_items', [])
-
+    print('cart data = ', request.data)
     if not customer_id:
         return Response({"error": "Customer ID is required"}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -721,6 +721,9 @@ def create_or_update_cart(request):
 
     # Get or create the cart
     cart, created = Cart.objects.get_or_create(customer=customer, status='active')
+
+    if not created:
+        CartItem.objects.filter(cart=cart, status='pending').delete()
 
     # Process each cart item in the request
     total_price = 0
@@ -896,6 +899,7 @@ def create_payment_intent(request):
         try:
             # Get cart ID from the request
             data = json.loads(request.body)
+            print("PAYMENT INTENET ==", data)
             cart_id = data.get('cart_id')
 
             # Fetch the cart and its items
@@ -919,6 +923,10 @@ def create_payment_intent(request):
                 vat_amount = (total_price * vat_percentage) / Decimal('100')
                 total_with_vat = total_price + vat_amount
 
+
+            print("TOTAL PRICE ==", total_price)
+            print("BASE PRICE ==", base_price)
+            print("total_with_vat ==", total_with_vat)
             # Get customer details
             customer = cart.customer
             customer_name = customer.user.first_name + " " + customer.user.last_name
@@ -989,7 +997,7 @@ def confirm_payment(request):
 
                 # Calculate total price
                 total_price = sum(item.total_price for item in cart_items)
-
+                print("TOTAL PRICE ==", total_price)
                 # Get the latest customer address
                 customer_address = Customer_Address.objects.filter(customer=customer).latest('id')
 

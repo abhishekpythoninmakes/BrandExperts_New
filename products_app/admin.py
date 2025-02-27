@@ -14,7 +14,7 @@ admin.site.index_title = "Welcome to BrandExperts Admin Dashboard"
 
 @admin.register(CustomUser)
 class CustomUserAdmin(admin.ModelAdmin):
-    search_fields = ['email', 'username', 'first_name', 'last_name'] 
+    search_fields = ['email', 'username', 'first_name', 'last_name']
 
 @admin.register(ParentCategory)
 class ParentCategoryAdmin(admin.ModelAdmin):
