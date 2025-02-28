@@ -42,10 +42,14 @@ class ProductAdmin(admin.ModelAdmin):
     search_fields = ('name', 'categories__category_name', 'categories__parent_categories__name', 'size', 'description')
     list_filter = ('status', 'categories')  # Filter by status and categories
     ordering = ('-price',)  # Show expensive products first
+    form = ProductAdminForm
+
+    class Media:
+        js = ('admin/js/product_admin.js',)  # Add custom JavaScript for lazy loading images
 
     def image1_preview(self, obj):
         if obj.image1:  # Show only image1 preview if available
-            return format_html('<img src="{}" width="80" height="50" style="border-radius: 5px; object-fit: cover;" />',
+            return format_html('<img data-src="{}" width="80" height="50" style="border-radius: 5px; object-fit: cover;" class="lazy-load" />',
                                obj.image1)
         return "No Image"
 
@@ -63,7 +67,6 @@ class ProductAdmin(admin.ModelAdmin):
         return ", ".join([parent.name for parent in parent_categories])
 
     get_parent_categories.short_description = 'Parent Categories'
-
 
 # Register the model with the customized admin class
 admin.site.register(Product, ProductAdmin)
