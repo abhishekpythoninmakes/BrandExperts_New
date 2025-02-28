@@ -77,3 +77,11 @@
     color: white !important;
     box-shadow: 2px 0 10px rgba(191, 26, 28, 0.5);
 }
+
+.custom-help-text {
+    color: red !important;
+    font-weight: bold;
+    font-size: 14px;
+    display: block;
+    margin-top: 5px;
+}

@@ -86,27 +86,28 @@ class BannerImageAdminForm(forms.ModelForm):
     class Meta:
         model = Banner_Image
         fields = '__all__'
-        help_texts = {
-            'image': 'The uploaded image should have a width of **1250px** and a height of **699px**.'
-        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['image'].help_text = '<span class="custom-help-text">The uploaded image should have a width of <b>1250px</b> and a height of <b>699px</b>.</span>'
 
 
 class BannerImageAdmin(admin.ModelAdmin):
-    list_display = ('name', 'image_preview', 'created_at')  # Show preview instead of the raw URL
-    list_filter = ('created_at',)  # Filter by date
-    search_fields = ('name',)  # Enable search by name
-    ordering = ('-created_at',)  # Show latest banners first
+    form = BannerImageAdminForm  # Link the custom form
+    list_display = ('name', 'image_preview', 'created_at')
+    list_filter = ('created_at',)
+    search_fields = ('name',)
+    ordering = ('-created_at',)
 
     def image_preview(self, obj):
-        if obj.image:  # Check if an image URL exists
+        if obj.image:
             return format_html('<img src="{}" width="80" height="50" style="border-radius: 5px;" />', obj.image)
         return "No Image"
 
-    image_preview.short_description = "Image Preview"  # Column header in admin panel
+    image_preview.short_description = "Image Preview"
 
-
-# Register the model with the customized admin class
 admin.site.register(Banner_Image, BannerImageAdmin)
+
 
 
 class TestimonialAdmin(admin.ModelAdmin):
