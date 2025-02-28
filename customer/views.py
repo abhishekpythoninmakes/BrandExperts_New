@@ -532,7 +532,7 @@ from datetime import datetime, timedelta
 @csrf_exempt
 def validate_warranty_number(request):
     try:
-        data = json.loads(request.body)  # Parse JSON body
+        data = json.loads(request.body)
         warranty_number = data.get('warranty_number', '').strip()
 
         if not warranty_number:
@@ -546,9 +546,9 @@ def validate_warranty_number(request):
         # Check if warranty plan has expired
         warranty_plan = warranty.invoice_value
         if not warranty_plan:
-            return Response({"is_valid": False, "message": "No warranty plan associated with this warranty number"}, status=400)
+            return Response({"is_valid": False, "message": "No warranty plan associated"}, status=400)
 
-        # Calculate warranty expiration date
+        # Calculate warranty duration
         warranty_duration = None
         if warranty_plan.year1:
             warranty_duration = 1
@@ -558,17 +558,39 @@ def validate_warranty_number(request):
             warranty_duration = 5
 
         if not warranty_duration:
-            return Response({"is_valid": False, "message": "Invalid warranty plan duration"}, status=400)
+            return Response({"is_valid": False, "message": "Invalid warranty duration"}, status=400)
 
         expiration_date = warranty.created_at + timedelta(days=365 * warranty_duration)
         if timezone.now() > expiration_date:
             return Response({"is_valid": False, "message": "Warranty plan has expired"}, status=400)
 
-        return Response({"is_valid": True, "message": "Warranty number is valid and active"})
+        # Build complete warranty details
+        warranty_details = {
+            "full_name": warranty.full_name,
+            "email": warranty.email,
+            "phone": warranty.phone,
+            "invoice_number": warranty.invoice_number,
+            "invoice_date": warranty.invoice_date.strftime("%Y-%m-%d"),
+            "invoice_file": warranty.invoice_file,
+            "warranty_plan_amount": str(warranty.warranty_plan_amount),
+            "warranty_number": warranty.warranty_number,
+            "created_at": warranty.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+            "warranty_plan": {
+                "price_range": warranty_plan.price_range,
+                "duration_years": warranty_duration,
+                "plan_amount": str(getattr(warranty_plan, f'year{warranty_duration}'))
+            },
+            "expiration_date": expiration_date.strftime("%Y-%m-%d")
+        }
+
+        return Response({
+            "is_valid": True,
+            "message": "Warranty number is valid and active",
+            "warranty_details": warranty_details
+        })
 
     except json.JSONDecodeError:
         return Response({"is_valid": False, "message": "Invalid JSON format"}, status=400)
-
 
 
 # CREATE CLAIM WARRANTY
