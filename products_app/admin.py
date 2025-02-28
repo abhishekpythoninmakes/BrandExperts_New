@@ -38,12 +38,22 @@ class ProductAdminForm(forms.ModelForm):
 
 # Custom Product Admin
 class ProductAdmin(admin.ModelAdmin):
-    form = ProductAdminForm
-    list_display = ('name', 'get_categories', 'get_parent_categories', 'size', 'price', 'status')
+    list_display = ('name', 'image1_preview', 'price', 'status', 'get_categories', 'get_parent_categories', 'size')
     search_fields = ('name', 'categories__category_name', 'categories__parent_categories__name', 'size', 'description')
+    list_filter = ('status', 'categories')  # Filter by status and categories
+    ordering = ('-price',)  # Show expensive products first
+
+    def image1_preview(self, obj):
+        if obj.image1:  # Show only image1 preview if available
+            return format_html('<img src="{}" width="80" height="50" style="border-radius: 5px; object-fit: cover;" />',
+                               obj.image1)
+        return "No Image"
+
+    image1_preview.short_description = "Image Preview"  # Column header in admin panel
 
     def get_categories(self, obj):
         return ", ".join([category.category_name for category in obj.categories.all()])
+
     get_categories.short_description = 'Categories'
 
     def get_parent_categories(self, obj):
@@ -51,8 +61,11 @@ class ProductAdmin(admin.ModelAdmin):
         for category in obj.categories.all():
             parent_categories.update(category.parent_categories.all())
         return ", ".join([parent.name for parent in parent_categories])
+
     get_parent_categories.short_description = 'Parent Categories'
 
+
+# Register the model with the customized admin class
 admin.site.register(Product, ProductAdmin)
 admin.site.register(Standard_sizes)
 admin.site.register(Product_status)
@@ -77,10 +90,22 @@ class BannerImageAdminForm(forms.ModelForm):
             'image': 'The uploaded image should have a width of **1250px** and a height of **699px**.'
         }
 
-class BannerImageAdmin(admin.ModelAdmin):
-    form = BannerImageAdminForm
-    list_display = ('name', 'image', 'created_at')
 
+class BannerImageAdmin(admin.ModelAdmin):
+    list_display = ('name', 'image_preview', 'created_at')  # Show preview instead of the raw URL
+    list_filter = ('created_at',)  # Filter by date
+    search_fields = ('name',)  # Enable search by name
+    ordering = ('-created_at',)  # Show latest banners first
+
+    def image_preview(self, obj):
+        if obj.image:  # Check if an image URL exists
+            return format_html('<img src="{}" width="80" height="50" style="border-radius: 5px;" />', obj.image)
+        return "No Image"
+
+    image_preview.short_description = "Image Preview"  # Column header in admin panel
+
+
+# Register the model with the customized admin class
 admin.site.register(Banner_Image, BannerImageAdmin)
 
 
