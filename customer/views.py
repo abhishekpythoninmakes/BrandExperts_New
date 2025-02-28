@@ -526,8 +526,9 @@ Please try again later."""
 #
 #         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+from datetime import datetime, timedelta
 # VALIDATE WARRANTY NUMBER
-@api_view(['POST'])  
+@api_view(['POST'])
 @csrf_exempt
 def validate_warranty_number(request):
     try:
@@ -537,10 +538,33 @@ def validate_warranty_number(request):
         if not warranty_number:
             return Response({"is_valid": False, "message": "Warranty number is required"}, status=400)
 
-        if WarrantyRegistration.objects.filter(warranty_number=warranty_number).exists():
-            return Response({"is_valid": True, "message": "Warranty number is valid and active"})
-        else:
+        try:
+            warranty = WarrantyRegistration.objects.get(warranty_number=warranty_number)
+        except WarrantyRegistration.DoesNotExist:
             return Response({"is_valid": False, "message": "Invalid or inactive warranty number"}, status=404)
+
+        # Check if warranty plan has expired
+        warranty_plan = warranty.invoice_value
+        if not warranty_plan:
+            return Response({"is_valid": False, "message": "No warranty plan associated with this warranty number"}, status=400)
+
+        # Calculate warranty expiration date
+        warranty_duration = None
+        if warranty_plan.year1:
+            warranty_duration = 1
+        elif warranty_plan.year2:
+            warranty_duration = 2
+        elif warranty_plan.year5:
+            warranty_duration = 5
+
+        if not warranty_duration:
+            return Response({"is_valid": False, "message": "Invalid warranty plan duration"}, status=400)
+
+        expiration_date = warranty.created_at + timedelta(days=365 * warranty_duration)
+        if timezone.now() > expiration_date:
+            return Response({"is_valid": False, "message": "Warranty plan has expired"}, status=400)
+
+        return Response({"is_valid": True, "message": "Warranty number is valid and active"})
 
     except json.JSONDecodeError:
         return Response({"is_valid": False, "message": "Invalid JSON format"}, status=400)
@@ -570,31 +594,26 @@ def create_claim_warranty(request):
             except WarrantyRegistration.DoesNotExist:
                 return JsonResponse({"error": "Invalid warranty number. No registration found."}, status=404)
 
-            # Check if a claim already exists for the same warranty number
-            existing_claim = ClaimWarranty.objects.filter(warranty_number=warranty_number).first()
-            if existing_claim:
-                return JsonResponse({
-                    "message": "A claim for this warranty number already exists.",
-                    "claim_details": {
-                        "warranty_number": existing_claim.warranty_number,
-                        "description": existing_claim.description,
-                        "status": existing_claim.status,
-                        "claimed_at": existing_claim.claimed_at.strftime("%Y-%m-%d %H:%M:%S"),
-                    },
-                    "warranty_details": {
-                        "full_name": warranty.full_name,
-                        "email": warranty.email,
-                        "phone": warranty.phone,
-                        "invoice_number": warranty.invoice_number,
-                        "invoice_date": warranty.invoice_date.strftime("%Y-%m-%d"),
-                        "invoice_value": warranty.invoice_value.price_range,
-                        "invoice_file": warranty.invoice_file if warranty.invoice_file else None,
-                        "warranty_plan": warranty.invoice_value.price_range if warranty.invoice_value else "No Warranty Plan",
-                        "warranty_number": warranty.warranty_number,
-                        "warranty_amount":warranty.warranty_plan_amount,
-                        "created_at": warranty.created_at.strftime("%Y-%m-%d %H:%M:%S"),
-                    }
-                }, status=200)
+            # Check if warranty plan has expired
+            warranty_plan = warranty.invoice_value
+            if not warranty_plan:
+                return JsonResponse({"error": "No warranty plan associated with this warranty number"}, status=400)
+
+            # Calculate warranty expiration date
+            warranty_duration = None
+            if warranty_plan.year1:
+                warranty_duration = 1
+            elif warranty_plan.year2:
+                warranty_duration = 2
+            elif warranty_plan.year5:
+                warranty_duration = 5
+
+            if not warranty_duration:
+                return JsonResponse({"error": "Invalid warranty plan duration"}, status=400)
+
+            expiration_date = warranty.created_at + timedelta(days=365 * warranty_duration)
+            if timezone.now() > expiration_date:
+                return JsonResponse({"error": "Warranty plan has expired. Cannot create a new claim."}, status=400)
 
             # Create a new claim warranty entry
             claim = ClaimWarranty.objects.create(
@@ -617,10 +636,11 @@ def create_claim_warranty(request):
                     "phone": warranty.phone,
                     "invoice_number": warranty.invoice_number,
                     "invoice_date": warranty.invoice_date.strftime("%Y-%m-%d"),
-                    "invoice_value": str(warranty.invoice_value),
+                    "invoice_value": warranty.invoice_value.price_range if warranty.invoice_value else "No Warranty Plan",
                     "invoice_file": warranty.invoice_file if warranty.invoice_file else None,
-                    "warranty_plan": warranty.get_warranty_plan_display(),
+                    "warranty_plan": warranty.invoice_value.price_range if warranty.invoice_value else "No Warranty Plan",
                     "warranty_number": warranty.warranty_number,
+                    "warranty_amount": warranty.warranty_plan_amount,
                     "created_at": warranty.created_at.strftime("%Y-%m-%d %H:%M:%S"),
                 }
             }
