@@ -1285,6 +1285,12 @@ def confirm_payment(request):
             return JsonResponse({'error': str(e)}, status=400)
 
 
+
+
+
+
+
+
 # Test
 
 
@@ -1314,3 +1320,6 @@ def process_text(request):
         "response": response_text,
         "camera": contains_camera
     })
+
+
+
