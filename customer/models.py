@@ -55,7 +55,7 @@ class ClaimWarranty(models.Model):
         ('Rejected', 'Rejected'),
     ]
 
-    warranty_number = models.CharField(max_length=8, unique=True)  # Must match WarrantyRegistration number
+    warranty_number = models.CharField(max_length=8)  # Must match WarrantyRegistration number
     description = models.TextField()  # User's claim message
     claimed_at = models.DateTimeField(auto_now_add=True)  # Automatically stores the claim date
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending')  # Default to Pending
