@@ -397,3 +397,12 @@ def get_all_testimonials(request):
     testimonials = Testimonials.objects.all().order_by('-created_at')  # Fetch all testimonials
     serializer = TestimonialSerializer(testimonials, many=True)  # Serialize data
     return Response(serializer.data)
+
+
+@api_view(['GET'])
+def get_site_visit_amount(request):
+    """Returns the amount from the single site_visit record."""
+    site_visit_obj = site_visit.objects.first()  # Get the only available site_visit record
+    if site_visit_obj:
+        return Response({'amount': site_visit_obj.amount})
+    return Response({'error': 'No site visit record found'}, status=404)

@@ -60,5 +60,7 @@ urlpatterns = [
 
     path('testimonials/', views.get_all_testimonials, name='testimonials-list'),
 
+    # Site visit amount
 
+    path('site-visit/', views.get_site_visit_amount, name='site-visit-amount'),
 ]
