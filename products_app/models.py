@@ -11,7 +11,7 @@ class CustomUser(AbstractUser):
         return self.username
 
 
-sizes_available =  (('inches','Inches'),('feet','Feet'))
+sizes_available =  (('centimeter','Centimeter'),('inches','Inches'),('feet','Feet'))
 
 
 class ParentCategory(models.Model):
@@ -51,7 +51,11 @@ class Product(models.Model):
     image2 = models.URLField(null=True, blank=True)
     image3 = models.URLField(null=True, blank=True)
     image4 = models.URLField(null=True, blank=True)
-    size = models.CharField(max_length=100, null=True, blank=True, choices=sizes_available, default='inches')
+    min_width = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True, help_text="Minimum width (cm)")
+    min_height = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True,help_text="Minimum height (cm)")
+    max_width = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True, help_text="Maximum width (cm)")
+    max_height = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True,help_text="Maximum height (cm)")
+    size = models.CharField(max_length=100, null=True, blank=True, choices=sizes_available, default='centimeter')
     price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     status = models.ForeignKey(Product_status, on_delete=models.CASCADE, null=True, blank=True)
     def __str__(self):

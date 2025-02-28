@@ -889,6 +889,7 @@ from .models import Cart, CartItem, Customer, Product, Designer_rate
 def create_or_update_cart(request):
     customer_id = request.data.get('customer_id')
     cart_items_data = request.data.get('cart_items', [])
+    site_visit = request.data.get('site_visit', False)
     print('cart data = ', request.data)
     if not customer_id:
         return Response({"error": "Customer ID is required"}, status=status.HTTP_400_BAD_REQUEST)
@@ -900,6 +901,9 @@ def create_or_update_cart(request):
 
     # Get or create the cart
     cart, created = Cart.objects.get_or_create(customer=customer, status='active')
+
+    cart.site_visit = site_visit
+    cart.save()
 
     if not created:
         CartItem.objects.filter(cart=cart, status='pending').delete()
@@ -980,6 +984,7 @@ def create_or_update_cart(request):
         "cart": {
             "cart_id": cart.id,
             "customer_id": customer.id,
+            "site_visit": cart.site_visit,
             "cart_items": cart_items_list,
             "total_items": total_items,
             "total_price": total_price
@@ -1158,6 +1163,7 @@ from django.utils.html import strip_tags
 from .models import Order, Cart, Customer_Address
 
 @csrf_exempt
+@csrf_exempt
 def confirm_payment(request):
     if request.method == 'POST':
         try:
@@ -1174,21 +1180,39 @@ def confirm_payment(request):
                 customer = cart.customer
                 cart_items = cart.items.filter(status='pending')
 
-                # Calculate total price
+                # Calculate the base total price (without tax adjustments)
                 total_price = sum(item.total_price for item in cart_items)
-                print("TOTAL PRICE ==", total_price)
+
+                # Fetch VAT settings from the database (default to 5% exclusive tax)
+                vat = VAT.objects.first()
+                vat_percentage = Decimal(vat.percentage) if vat else Decimal('5.00')
+                is_vat_inclusive = vat.is_inclusive if vat else False  # Check if VAT is inclusive
+
+                if is_vat_inclusive:
+                    base_price = total_price / (Decimal('1') + vat_percentage / Decimal('100'))
+                    vat_amount = total_price - base_price
+                    total_with_vat = total_price  # No additional tax applied
+                else:
+                    base_price = total_price
+                    vat_amount = (total_price * vat_percentage) / Decimal('100')
+                    total_with_vat = total_price + vat_amount
+
                 # Get the latest customer address
                 customer_address = Customer_Address.objects.filter(customer=customer).latest('id')
 
-                # Create an order with the transaction ID
+                # Create an order with the transaction ID and VAT details
                 order = Order.objects.create(
                     customer=customer,
                     address=customer_address,
                     cart=cart,
                     payment_method='card',
                     payment_status='paid',
-                    amount=total_price,
-                    transaction_id=payment_intent_id  # Save the Stripe PaymentIntent ID
+                    amount=total_with_vat,  # Use total_with_vat instead of total_price
+                    transaction_id=payment_intent_id,
+                    higher_designer=cart.higher_designer,  # Add from cart
+                    site_visit=cart.site_visit,
+                    vat_percentage=vat_percentage,  # Store VAT percentage
+                    vat_amount=vat_amount  # Store VAT amount
                 )
 
                 # Update cart and cart item statuses
@@ -1204,7 +1228,10 @@ def confirm_payment(request):
                 html_message = render_to_string('order_confirmation.html', {
                     'order': order,
                     'cart_items': cart_items,
-                    'total_price': total_price,
+                    'base_product_amount': float(base_price),
+                    'vat_percentage': float(vat_percentage),
+                    'vat_amount': float(vat_amount),
+                    'total_with_vat': float(total_with_vat),
                     'customer_name': customer.user.first_name,
                     'customer_email': customer.user.email,
                     'billing_address': f"{customer_address.address_line1}, {customer_address.city}, {customer_address.zip_code}",
@@ -1223,7 +1250,13 @@ def confirm_payment(request):
                     'success': True,
                     'message': 'Payment successful!',
                     'order_id': order.id,
-                    'transaction_id': payment_intent_id
+                    'transaction_id': payment_intent_id,
+                    'base_product_amount': float(base_price),
+                    'vat_percentage': float(vat_percentage),
+                    'vat_amount': float(vat_amount),
+                    'total_with_vat': float(total_with_vat),
+                    'higher_designer': order.higher_designer,
+                    'site_visit': order.site_visit
                 })
 
             else:
@@ -1231,7 +1264,6 @@ def confirm_payment(request):
 
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=400)
-
 
 
 # Test
