@@ -38,22 +38,46 @@ class CustomerRegistrationView(APIView):
         serializer = CustomerRegistrationSerializer(data=request.data)
 
         try:
-            if serializer.is_valid(raise_exception=True):
-                try:
-                    serializer.save()
-                    return Response({
-                        "success": True,
-                        "message": "User registered successfully.",
-                        "status_code": status.HTTP_201_CREATED
-                    }, status=status.HTTP_201_CREATED)
+            serializer.is_valid(raise_exception=True)
+            validated_data = serializer.validated_data
 
-                except IntegrityError as e:
-                    return Response({
-                        "success": False,
-                        "message": "A user with this email or mobile already exists.",
-                        "error_details": str(e),
-                        "status_code": status.HTTP_409_CONFLICT
-                    }, status=status.HTTP_409_CONFLICT)
+            # Check if email already exists
+            if CustomUser.objects.filter(email=validated_data['email']).exists():
+                return Response({
+                    "success": False,
+                    "message": "A user with this email already exists.",
+                    "status_code": status.HTTP_409_CONFLICT
+                }, status=status.HTTP_409_CONFLICT)
+
+            # Generate a 4-digit OTP
+            otp = ''.join(random.choices('0123456789', k=4))
+
+            # Send OTP via email
+            subject = 'Your OTP for Registration'
+            message = f'Your OTP code is: {otp}'
+            from_email = settings.DEFAULT_FROM_EMAIL
+            recipient_list = [validated_data['email']]
+
+            send_mail(subject, message, from_email, recipient_list)
+
+            # Delete existing OTP records for this email
+            OTPRecord.objects.filter(email=validated_data['email']).delete()
+
+            # Create new OTP record
+            OTPRecord.objects.create(
+                email=validated_data['email'],
+                otp=otp,
+                first_name=validated_data['first_name'],
+                last_name=validated_data['last_name'],
+                mobile=validated_data['mobile'],
+                password=validated_data['password']
+            )
+
+            return Response({
+                "success": True,
+                "message": "OTP sent successfully.",
+                "status_code": status.HTTP_200_OK
+            }, status=status.HTTP_200_OK)
 
         except serializers.ValidationError as e:
             return Response({
@@ -62,7 +86,6 @@ class CustomerRegistrationView(APIView):
                 "errors": serializer.errors,
                 "status_code": status.HTTP_400_BAD_REQUEST
             }, status=status.HTTP_400_BAD_REQUEST)
-
         except Exception as e:
             return Response({
                 "success": False,
@@ -70,6 +93,120 @@ class CustomerRegistrationView(APIView):
                 "error_details": str(e),
                 "status_code": status.HTTP_500_INTERNAL_SERVER_ERROR
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+from django.utils import timezone
+# Verify OTP
+class OTPVerificationView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        otp = request.data.get('otp')
+
+        if not otp:
+            return Response({
+                "success": False,
+                "error": "OTP is required.",
+                "status_code": status.HTTP_400_BAD_REQUEST
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            otp_record = OTPRecord.objects.get(otp=otp)
+        except OTPRecord.DoesNotExist:
+            return Response({
+                "success": False,
+                "error": "Invalid OTP.",
+                "status_code": status.HTTP_400_BAD_REQUEST
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check OTP expiration (10 minutes)
+        current_time = timezone.now()
+        time_difference = current_time - otp_record.created_at
+        if time_difference.total_seconds() > 600:
+            otp_record.delete()
+            return Response({
+                "success": False,
+                "error": "OTP has expired.",
+                "status_code": status.HTTP_400_BAD_REQUEST
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check for existing user (race condition)
+        if CustomUser.objects.filter(username=otp_record.email).exists():
+            otp_record.delete()
+            return Response({
+                "success": False,
+                "error": "A user with this email already exists.",
+                "status_code": status.HTTP_409_CONFLICT
+            }, status=status.HTTP_409_CONFLICT)
+
+        # Check for existing mobile (race condition)
+        if Customer.objects.filter(mobile=otp_record.mobile).exists():
+            otp_record.delete()
+            return Response({
+                "success": False,
+                "error": "A user with this mobile number already exists.",
+                "status_code": status.HTTP_409_CONFLICT
+            }, status=status.HTTP_409_CONFLICT)
+
+        try:
+            # Create user
+            user = CustomUser.objects.create(
+                username=otp_record.email,
+                email=otp_record.email,
+                first_name=otp_record.first_name,
+                last_name=otp_record.last_name
+            )
+            user.set_password(otp_record.password)
+            user.save()
+
+            # Create customer
+            customer = Customer.objects.create(
+                user=user,
+                mobile=otp_record.mobile
+            )
+        except IntegrityError as e:
+            otp_record.delete()
+            return Response({
+                "success": False,
+                "error": "User creation failed due to a conflict.",
+                "error_details": str(e),
+                "status_code": status.HTTP_409_CONFLICT
+            }, status=status.HTTP_409_CONFLICT)
+        except Exception as e:
+            otp_record.delete()
+            return Response({
+                "success": False,
+                "error": "An error occurred during user creation.",
+                "error_details": str(e),
+                "status_code": status.HTTP_500_INTERNAL_SERVER_ERROR
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        # Generate tokens
+        refresh = RefreshToken.for_user(user)
+        access_token = str(refresh.access_token)
+
+        # Delete OTP record
+        otp_record.delete()
+
+        return Response({
+            "success": True,
+            "message": "User registered and logged in successfully.",
+            "user_id": user.id,
+            "customer_id": customer.id,
+            "access_token": access_token,
+            "refresh_token": str(refresh),
+            "user_details": {
+                "username": user.username,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "email": user.email,
+                "mobile": customer.mobile,
+            },
+            "status_code": status.HTTP_200_OK
+        }, status=status.HTTP_200_OK)
+
+
+
+
 
 
 # CUSTOMER LOGIN

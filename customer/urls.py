@@ -5,6 +5,7 @@ urlpatterns = [
 
     path('',views.home,name='home'),
     path('register/', views.CustomerRegistrationView.as_view(), name='customer-registration'),
+    path('verify-otp/', views.OTPVerificationView.as_view(), name='verify-otp'),
     path('login/', views.LoginAPIView.as_view(), name='login'),
     path('token/refresh/',TokenRefreshView.as_view(), name='token_refresh'),
 

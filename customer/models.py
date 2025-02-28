@@ -177,6 +177,24 @@ class Order(models.Model):
 
 
 
+# OTP RECORDS
+class OTPRecord(models.Model):
+    email = models.EmailField(unique=True)
+    otp = models.CharField(max_length=4)
+    created_at = models.DateTimeField(auto_now_add=True)
+    first_name = models.CharField(max_length=150)
+    last_name = models.CharField(max_length=150)
+    mobile = models.CharField(max_length=20)
+    password = models.CharField(max_length=128)
+
+    def __str__(self):
+        return f"OTP for {self.email}"
+
+
+
+
+
+
 # Test Model
 
 # class TestModel(models.Model):
