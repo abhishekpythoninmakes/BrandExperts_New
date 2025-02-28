@@ -14,7 +14,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, serializers
 
-from products_app.models import VAT
+from products_app.models import VAT, site_visit
 from .serializers import *
 from rest_framework_simplejwt.tokens import RefreshToken
 from .models import *
@@ -1092,7 +1092,12 @@ def create_payment_intent(request):
 
             # Calculate the base total price (without tax adjustments)
             total_price = sum(item.total_price for item in cart_items)
-
+            # Add 350 AED if site_visit is True
+            if cart.site_visit:
+                # Fetch the first site_visit amount from the database
+                site_visit_obj = site_visit.objects.first()
+                if site_visit_obj and site_visit_obj.amount:
+                    total_price += Decimal(str(site_visit_obj.amount))  # Add site_visit amount to the total price
             # Fetch VAT settings from the database (default to 5% exclusive tax)
             vat = VAT.objects.first()
             vat_percentage = Decimal(vat.percentage) if vat else Decimal('5.00')
@@ -1147,7 +1152,9 @@ def create_payment_intent(request):
                 'vat_percentage': float(vat_percentage),
                 'vat_amount': float(vat_amount),
                 'total_with_vat': float(total_with_vat),
-                'is_vat_inclusive': is_vat_inclusive
+                'is_vat_inclusive': is_vat_inclusive,
+                'site_visit': cart.site_visit,
+                'site_visit_fee': float(site_visit_obj.amount) if cart.site_visit and site_visit_obj else 0.00
             })
 
         except Exception as e:
@@ -1162,7 +1169,7 @@ from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 from .models import Order, Cart, Customer_Address
 
-@csrf_exempt
+
 @csrf_exempt
 def confirm_payment(request):
     if request.method == 'POST':
@@ -1182,6 +1189,15 @@ def confirm_payment(request):
 
                 # Calculate the base total price (without tax adjustments)
                 total_price = sum(item.total_price for item in cart_items)
+
+                # Add site_visit amount if site_visit is True
+                site_visit_fee = Decimal('0.00')
+                if cart.site_visit:
+                    # Fetch the first site_visit amount from the database
+                    site_visit_obj = site_visit.objects.first()
+                    if site_visit_obj and site_visit_obj.amount:
+                        site_visit_fee = Decimal(str(site_visit_obj.amount))
+                        total_price += site_visit_fee  # Add site_visit amount to the total price
 
                 # Fetch VAT settings from the database (default to 5% exclusive tax)
                 vat = VAT.objects.first()
@@ -1211,6 +1227,7 @@ def confirm_payment(request):
                     transaction_id=payment_intent_id,
                     higher_designer=cart.higher_designer,  # Add from cart
                     site_visit=cart.site_visit,
+                    site_visit_fee=site_visit_fee,  # Store site visit fee
                     vat_percentage=vat_percentage,  # Store VAT percentage
                     vat_amount=vat_amount  # Store VAT amount
                 )
@@ -1235,7 +1252,8 @@ def confirm_payment(request):
                     'customer_name': customer.user.first_name,
                     'customer_email': customer.user.email,
                     'billing_address': f"{customer_address.address_line1}, {customer_address.city}, {customer_address.zip_code}",
-                    'transaction_id': payment_intent_id
+                    'transaction_id': payment_intent_id,
+                    'site_visit_fee': float(site_visit_fee)  # Include site visit fee in email
                 })
                 plain_message = strip_tags(html_message)
                 send_mail(
@@ -1256,7 +1274,8 @@ def confirm_payment(request):
                     'vat_amount': float(vat_amount),
                     'total_with_vat': float(total_with_vat),
                     'higher_designer': order.higher_designer,
-                    'site_visit': order.site_visit
+                    'site_visit': order.site_visit,
+                    'site_visit_fee': float(site_visit_fee)  # Include site visit fee in response
                 })
 
             else:

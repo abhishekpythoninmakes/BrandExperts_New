@@ -172,6 +172,9 @@ class Order(models.Model):
     transaction_id = models.CharField(max_length=100,null=True,blank=True)
     higher_designer = models.BooleanField(default=False, null=True, blank=True)
     site_visit = models.BooleanField(default=False, null=True, blank=True)
+    site_visit_fee = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    vat_percentage = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    vat_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 
 
     def __str__(self):
