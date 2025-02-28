@@ -139,7 +139,10 @@ class SiteVisitAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         """Prevent adding a new record if one already exists."""
         if site_visit.objects.exists():
-            self.message_user(request, "Only one site visit record is allowed. You can only edit the existing one.", level=messages.ERROR)
+            if not request.GET.get("only_one_warning"):  # Prevent multiple warnings
+                messages.error(request, "Only one site visit record is allowed. You can only edit the existing one.")
+                request.GET = request.GET.copy()
+                request.GET["only_one_warning"] = "true"  # Mark that we've shown the warning
             return False
         return True
 
