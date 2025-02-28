@@ -129,3 +129,13 @@ class TestimonialAdmin(admin.ModelAdmin):
 
 # Register the model with the custom admin class
 admin.site.register(Testimonials, TestimonialAdmin)
+
+
+class SiteVisitAdmin(admin.ModelAdmin):
+    list_display = ('amount', 'created_at')
+    list_filter = ('created_at',)
+    search_fields = ('amount',)
+    ordering = ('-created_at',)
+    readonly_fields = ('created_at',)
+
+admin.site.register(site_visit, SiteVisitAdmin)
