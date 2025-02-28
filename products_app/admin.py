@@ -1,6 +1,7 @@
 from django.contrib import admin
 from .models import *
 from django import forms
+from django.utils.html import format_html
 from ckeditor.widgets import CKEditorWidget
 from ckeditor_uploader.widgets import CKEditorUploadingWidget
 # Register your models here.
@@ -81,3 +82,21 @@ class BannerImageAdmin(admin.ModelAdmin):
     list_display = ('name', 'image', 'created_at')
 
 admin.site.register(Banner_Image, BannerImageAdmin)
+
+
+class TestimonialAdmin(admin.ModelAdmin):
+    list_display = ('name', 'occupation', 'image_preview', 'rating', 'created_at')  # Display relevant fields
+    list_filter = ('rating', 'created_at')  # Add filtering options
+    search_fields = ('name', 'occupation', 'description')  # Enable search
+    ordering = ('-created_at',)  # Order by newest first
+
+    def image_preview(self, obj):
+        if obj.image:  # Check if image URL exists
+            return format_html('<img src="{}" width="50" height="50" style="border-radius: 5px;" />', obj.image)
+        return "No Image"
+
+    image_preview.short_description = "Image Preview"  # Column header in admin panel
+
+
+# Register the model with the custom admin class
+admin.site.register(Testimonials, TestimonialAdmin)

@@ -274,7 +274,7 @@ JAZZMIN_SETTINGS = {
     "site_title": "BrandExperts Admin",
     "site_header": "BrandExperts Dashboard",
     "site_brand": "BrandExperts",
-    "site_logo": "img/logos/benewlogo.png",
+    "site_logo": "",
     "site_icon": "img/logos/favicon.png",
     "theme": "cyborg",
     "custom_css": "css/custom_admin.css",

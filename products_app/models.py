@@ -156,3 +156,15 @@ class Banner_Image(models.Model):
 
     def __str__(self):
         return f"Banner Image {self.name} {self.created_at}"
+
+
+class Testimonials(models.Model):
+    name = models.CharField(max_length=500,null=True,blank=True)
+    occupation = models.CharField(max_length=500,null=True,blank=True)
+    image = models.URLField(null=True,blank=True)
+    description = models.TextField(null=True,blank=True)
+    rating = models.PositiveIntegerField(null=True,blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Testimonial {self.name} {self.created_at}"

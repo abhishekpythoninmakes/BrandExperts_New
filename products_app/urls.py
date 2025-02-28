@@ -56,5 +56,9 @@ urlpatterns = [
     # Banner Image
     path('banners/', views.BannerImageListView.as_view(), name='banner-list'),
 
+    # Testimonials
+
+    path('testimonials/', views.get_all_testimonials, name='testimonials-list'),
+
 
 ]

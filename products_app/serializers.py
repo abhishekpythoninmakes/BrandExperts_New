@@ -197,3 +197,8 @@ class DesignerRateSerializer(serializers.ModelSerializer):
 
         return round(obj.amount / hours_per_unit, 2)
 
+
+class TestimonialSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Testimonials
+        fields = ['id', 'name', 'occupation', 'image', 'created_at', 'description', 'rating']

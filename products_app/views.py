@@ -389,3 +389,11 @@ class BannerImageListView(APIView):
             for banner in banners
         ]
         return Response(data, status=status.HTTP_200_OK)
+
+# Testimonial
+
+@api_view(['GET'])
+def get_all_testimonials(request):
+    testimonials = Testimonials.objects.all().order_by('-created_at')  # Fetch all testimonials
+    serializer = TestimonialSerializer(testimonials, many=True)  # Serialize data
+    return Response(serializer.data)
