@@ -133,9 +133,17 @@ admin.site.register(Testimonials, TestimonialAdmin)
 
 class SiteVisitAdmin(admin.ModelAdmin):
     list_display = ('amount', 'created_at')
-    list_filter = ('created_at',)
-    search_fields = ('amount',)
-    ordering = ('-created_at',)
-    readonly_fields = ('created_at',)
+    readonly_fields = ('created_at',)  # Prevent editing of created_at field
+
+    def has_add_permission(self, request):
+        """Prevent adding a new record if one already exists."""
+        if site_visit.objects.exists():
+            self.message_user(request, "Only one site visit record is allowed. You can only edit the existing one.", level=messages.ERROR)
+            return False
+        return True
+
+    def has_delete_permission(self, request, obj=None):
+        """Prevent deletion of the existing object."""
+        return False
 
 admin.site.register(site_visit, SiteVisitAdmin)
