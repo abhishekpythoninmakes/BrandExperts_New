@@ -52,10 +52,7 @@ class WarrantyRegistrationSerializer(serializers.ModelSerializer):
 
 
 
-class CartSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Cart
-        fields = ['id', 'status', 'created_at']
+
 
 class CartItemSerializer(serializers.ModelSerializer):
     class Meta:
@@ -65,6 +62,12 @@ class CartItemSerializer(serializers.ModelSerializer):
             'design_image', 'quantity', 'price', 'total_price', 'status', 'created_at'
         ]
 
+
+class CartSerializer(serializers.ModelSerializer):
+    items = CartItemSerializer(many=True, read_only=True)
+    class Meta:
+        model = Cart
+        fields = ['id', 'status', 'created_at','items']
 
 class CartItemUpdateSerializer(serializers.ModelSerializer):
     class Meta:
