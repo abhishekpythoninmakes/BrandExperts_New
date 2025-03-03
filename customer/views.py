@@ -1224,8 +1224,7 @@ def confirm_payment(request):
                     payment_method='card',
                     payment_status='paid',
                     amount=total_with_vat,  # Use total_with_vat instead of total_price
-                    transaction_id=payment_intent_id,
-                    higher_designer=cart.higher_designer,  # Add from cart
+                    transaction_id=payment_intent_id, # Add from cart
                     site_visit=cart.site_visit,
                     site_visit_fee=site_visit_fee,  # Store site visit fee
                     vat_percentage=vat_percentage,  # Store VAT percentage
@@ -1273,7 +1272,6 @@ def confirm_payment(request):
                     'vat_percentage': float(vat_percentage),
                     'vat_amount': float(vat_amount),
                     'total_with_vat': float(total_with_vat),
-                    'higher_designer': order.higher_designer,
                     'site_visit': order.site_visit,
                     'site_visit_fee': float(site_visit_fee)  # Include site visit fee in response
                 })
@@ -1286,6 +1284,36 @@ def confirm_payment(request):
 
 
 
+# Order Detail View
+
+class CustomerOrderDetailView(APIView):
+    def get(self, request, customer_id):
+        try:
+            # Check if the customer exists
+            customer = Customer.objects.filter(id=customer_id).first()
+            if not customer:
+                return Response(
+                    {"error": "Customer not found."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            # Fetch all orders for the given customer ID
+            orders = Order.objects.filter(customer=customer)
+            if not orders.exists():
+                return Response(
+                    {"error": "No orders found for this customer."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            # Serialize the orders
+            serializer = OrderSerializer(orders, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 

@@ -45,6 +45,9 @@ urlpatterns = [
     path("process-text/", views.process_text, name="process_text"),
 
     # Database Backup
+    #path('backup/', views.backup_database, name='backup_database'),
 
+    # Order Details
+    path('orders/<int:customer_id>/', views.CustomerOrderDetailView.as_view(), name='customer-order-detail'),
 
 ]

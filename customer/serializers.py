@@ -76,3 +76,25 @@ class CartItemUpdateSerializer(serializers.ModelSerializer):
         if value < 1:
             raise serializers.ValidationError("Quantity must be at least 1.")
         return value
+
+
+class CustomerAddressSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Customer_Address
+        fields = [
+            'company_name', 'ext', 'address_line1', 'address_line2',
+            'country', 'city', 'state', 'zip_code'
+        ]
+
+class OrderSerializer(serializers.ModelSerializer):
+    cart = CartSerializer(read_only=True)
+    address = CustomerAddressSerializer(read_only=True)
+
+    class Meta:
+        model = Order
+        fields = [
+            'id', 'customer', 'status', 'ordered_date', 'payment_method',
+            'payment_status', 'amount', 'delivered_date', 'transaction_id',
+            'site_visit', 'site_visit_fee', 'vat_percentage', 'vat_amount',
+            'cart', 'address'
+        ]
