@@ -406,3 +406,92 @@ def get_site_visit_amount(request):
     if site_visit_obj:
         return Response({'amount': site_visit_obj.amount})
     return Response({'error': 'No site visit record found'}, status=404)
+
+
+# QUERY PRODUCTS
+#
+# import re
+# from io import BytesIO
+# from django.http import HttpResponse
+# from openpyxl import Workbook
+# from bs4 import BeautifulSoup
+# from .models import Product
+#
+# def export_square_signs_products(request):
+#     # Compile regex pattern to match variations of square signs
+#     pattern = re.compile(r'square[-_\s]?signs', re.IGNORECASE)
+#
+#     # Create workbook and worksheet
+#     wb = Workbook()
+#     ws = wb.active
+#     ws.title = "Square Signs Products"
+#     # Updated headers with new columns
+#     ws.append(['ID', 'Product Name', 'Found Locations', 'Details', 'Frontend URL', 'Backend URL'])
+#
+#     # Analyze all products
+#     for product in Product.objects.all().prefetch_related('categories'):
+#         locations = []
+#         details = []
+#
+#         # Check direct image URLs
+#         for i in range(1, 5):
+#             img_url = getattr(product, f'image{i}')
+#             if img_url and pattern.search(img_url):
+#                 locations.append(f'Image {i} URL')
+#                 details.append(f'Found in Image {i} URL: {img_url}')
+#
+#         # Check rich text fields and their embedded images
+#         rich_text_fields = [
+#             ('product_overview', 'Product Overview'),
+#             ('product_specifications', 'Product Specifications'),
+#             ('installation', 'Installation'),
+#         ]
+#
+#         for field, name in rich_text_fields:
+#             content = getattr(product, field)
+#             if content:
+#                 soup = BeautifulSoup(content, 'html.parser')
+#                 text_content = soup.get_text()
+#
+#                 # Check in text content
+#                 for match in pattern.finditer(text_content):
+#                     locations.append(f'{name} Text')
+#                     start = max(0, match.start() - 50)
+#                     end = min(len(text_content), match.end() + 50)
+#                     snippet = text_content[start:end].replace('\n', ' ').strip()
+#                     details.append(f'Found in {name} Text: "...{snippet}..."')
+#
+#                 # Check in embedded images
+#                 for img in soup.find_all('img'):
+#                     src = img.get('src', '')
+#                     if src and pattern.search(src):
+#                         locations.append(f'{name} Images')
+#                         details.append(f'Found in {name} Image: {src}')
+#
+#         # Add to Excel if matches found
+#         if locations:
+#             # Generate URLs
+#             frontend_url = f"https://www.brandexperts.ae/product/{product.id}/"
+#             backend_url = f"https://dash.brandexperts.ae/admin/products_app/product/{product.id}/change/"
+#
+#             ws.append([
+#                 product.id,
+#                 product.name or "Unnamed Product",
+#                 ', '.join(locations),
+#                 '\n'.join(details),
+#                 frontend_url,
+#                 backend_url
+#             ])
+#
+#     # Save workbook to an in-memory buffer
+#     buffer = BytesIO()
+#     wb.save(buffer)
+#     buffer.seek(0)
+#
+#     # Create HTTP response
+#     response = HttpResponse(
+#         buffer.getvalue(),
+#         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+#     )
+#     response['Content-Disposition'] = 'attachment; filename="square_signs_products.xlsx"'
+#     return response

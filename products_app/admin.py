@@ -5,6 +5,7 @@ from django.utils.html import format_html
 from ckeditor.widgets import CKEditorWidget
 from ckeditor_uploader.widgets import CKEditorUploadingWidget
 from django.contrib import messages
+from django.utils.safestring import mark_safe
 # Register your models here.
 
 admin.site.site_header = "BrandExperts Admin Panel"
@@ -139,10 +140,9 @@ class SiteVisitAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         """Prevent adding a new record if one already exists."""
         if site_visit.objects.exists():
-            if not request.GET.get("only_one_warning"):  # Prevent multiple warnings
-                messages.error(request, "Only one site visit record is allowed. You can only edit the existing one.")
-                request.GET = request.GET.copy()
-                request.GET["only_one_warning"] = "true"  # Mark that we've shown the warning
+            if not request.session.get("only_one_warning_shown", False):  # Use session to track warning
+                messages.error(request, mark_safe("<b>Only one site visit record is allowed.</b> You can only edit the existing one."))
+                request.session["only_one_warning_shown"] = True  # Store flag in session
             return False
         return True
 
