@@ -1336,15 +1336,14 @@ class OrderDetailView(RetrieveAPIView):
 # Test
 
 
+import random
+
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 import random
 import re
 import requests
 from urllib.parse import quote
-
-# Gemini AI API Key (replace with your actual key)
-GEMINI_API_KEY = "AIzaSyALzrRwE5h2pl7r5bJbd8oH7US0i7UX1rE"
 
 
 # Helper Functions
@@ -1403,11 +1402,6 @@ def get_nearby_places(lat, lng, query):
 
 def get_wikipedia_summary(query):
     try:
-        # Clean up the query (remove typos, special characters, etc.)
-        query = re.sub(r'[^\w\s]', '', query)  # Remove special characters
-        query = query.strip()  # Remove leading/trailing spaces
-
-        # Fetch Wikipedia summary
         url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{quote(query)}"
         response = requests.get(url).json()
         return response.get('extract', 'No information found')
@@ -1417,57 +1411,21 @@ def get_wikipedia_summary(query):
 
 def get_youtube_link(query):
     try:
-        # YouTube Data API endpoint
-        url = "https://www.googleapis.com/youtube/v3/search"
-        params = {
-            'part': 'snippet',
-            'q': query,
-            'type': 'video',
-            'maxResults': 1,
-            'key': 'AIzaSyBo5Puiw-zvTDedEKFjxyuW4JlLPHwHeEE'  # Replace with your API key
-        }
-
-        # Make the request
+        url = "https://www.youtube.com/results"
+        params = {'search_query': query}
         response = requests.get(url, params=params)
         response.raise_for_status()
 
-        # Extract the video link
-        items = response.json().get('items', [])
-        if items:
-            video_id = items[0]['id']['videoId']
-            return f"https://www.youtube.com/watch?v={video_id}"
+        # Extract the first video link
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(response.text, 'html.parser')
+        video = soup.find('a', {'class': 'yt-uix-tile-link'})
+        if video:
+            return f"https://www.youtube.com{video['href']}"
         return None
     except Exception as e:
         print(f"Error fetching YouTube link: {e}")
         return None
-
-
-def ask_gemini_ai(query, location=None):
-    try:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_API_KEY}"
-        headers = {"Content-Type": "application/json"}
-
-        # Build the prompt
-        prompt = query
-        if location and any(word in query for word in ["near me", "nearby", "close to me"]):
-            prompt += f"\n\nContext: User's current location is {location}."
-
-        payload = {
-            "contents": [{
-                "parts": [{"text": prompt}]
-            }]
-        }
-
-        response = requests.post(url, headers=headers, json=payload)
-        response.raise_for_status()
-
-        result = response.json()
-        if "candidates" in result and result["candidates"]:
-            return result["candidates"][0]["content"]["parts"][0]["text"]
-        return "No information found."
-    except Exception as e:
-        print(f"Error fetching Gemini AI response: {e}")
-        return "Could not fetch information at this time."
 
 
 def contains_word(text, words):
@@ -1485,7 +1443,7 @@ def process_text(request):
         "longitude": request.data.get("longitude"),
         "latitude": request.data.get("latitude"),
         "map_link": "",
-        "response_urls": []  # New field for YouTube or Wikipedia URLs
+        "response_urls": []  # New field for all URLs
     }
 
     text = request.data.get("text", "").lower()
@@ -1495,13 +1453,14 @@ def process_text(request):
     data['camera'] = contains_word(text, camera_words)
 
     # Emergency detection
-    emergency_words = ['emergency', 'help', 'rescue', 'urgent', 'accident', 'danger', 'fire', 'police', 'ambulance',
-                       'robbery']
+    emergency_words = ['emergency', 'help', 'rescue', 'urgent', 'accident','danger','fire','police','ambulance','fight','robbery','theft']
     data['emergency'] = contains_word(text, emergency_words)
 
-    # Generate map link (only for location-related responses)
+    # Generate map link
     if data['latitude'] and data['longitude']:
-        data['map_link'] = f"https://www.openstreetmap.org/?mlat={data['latitude']}&mlon={data['longitude']}&zoom=16"
+        map_link = f"https://www.openstreetmap.org/?mlat={data['latitude']}&mlon={data['longitude']}&zoom=16"
+        data['map_link'] = map_link
+        data['response_urls'].append(map_link)
 
     # Handle greetings
     greeting_words = ['hi', 'hello', 'hey', 'hola', 'namaste']
@@ -1566,17 +1525,6 @@ def process_text(request):
         return Response(data)
 
     # Fallback to Wikipedia for general queries
-    wikipedia_summary = get_wikipedia_summary(text)
-    if "No information found" not in wikipedia_summary and "Could not fetch" not in wikipedia_summary:
-        data['response'] = wikipedia_summary
-        data['response_urls'].append(f"https://en.wikipedia.org/wiki/{quote(text)}")
-    else:
-        # If Wikipedia fails, ask Gemini AI
-        location = None
-        if data['latitude'] and data['longitude'] and any(
-                word in text for word in ["near me", "nearby", "close to me"]):
-            location = f"{data['latitude']},{data['longitude']}"
-        gemini_response = ask_gemini_ai(text, location)
-        data['response'] = gemini_response
-
+    data['response'] = get_wikipedia_summary(text)
     return Response(data)
+
