@@ -427,10 +427,10 @@ class ProductPriceView(APIView):
             # Convert all units to cm
             unit_conversion = {
                 'cm': 1,
-                'm': 100,
-                'ft': 30.48,
-                'yd': 91.44,
-                'in': 2.54,
+                'meter': 100,
+                'feet': 30.48,
+                'yard': 91.44,
+                'inches': 2.54,
                 'mm': 0.1
             }
             width_cm = width * unit_conversion[unit]

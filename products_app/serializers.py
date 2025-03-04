@@ -220,7 +220,7 @@ class ProductPriceSerializer(serializers.Serializer):
     quantity = serializers.IntegerField(min_value=1)  # Add quantity field
 
     def validate_unit(self, value):
-        valid_units = ['cm', 'm', 'ft', 'yd', 'in', 'mm']
+        valid_units = ['cm', 'meter', 'feet', 'yard', 'inches', 'mm']
         if value not in valid_units:
             raise serializers.ValidationError(f"Invalid unit. Valid units are: {', '.join(valid_units)}")
         return value

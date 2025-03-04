@@ -92,9 +92,12 @@ class Customer_Address(models.Model):
 
 # Choices for sizes
 SIZE_CHOICES = [
-    ('centimeter', 'Centimeter'),
+    ('cm', 'Centimeter'),
     ('inches', 'Inches'),
     ('feet', 'Feet'),
+    ('yard', 'Yard'),
+    ('meter', 'Meter'),
+    ('mm', 'Millimeter'),
 ]
 
 
@@ -130,7 +133,7 @@ class CartItem(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, null=True, blank=True)
     custom_width = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
     custom_height = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
-    size_unit = models.CharField(max_length=10, choices=SIZE_CHOICES, default='centimeter')
+    size_unit = models.CharField(max_length=10, choices=SIZE_CHOICES, default='cm')
     design_image = models.URLField(null=True, blank=True)
     # Order Status
     quantity = models.PositiveIntegerField(default=1)
