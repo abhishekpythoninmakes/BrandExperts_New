@@ -44,6 +44,7 @@ class ProductAdmin(admin.ModelAdmin):
     search_fields = ('name', 'categories__category_name', 'categories__parent_categories__name', 'size', 'description')
     list_filter = ('status', 'categories')  # Filter by status and categories
     ordering = ('-id',) # Order by newest first
+    list_per_page = 20  # Enable pagination with 20 products per page
     form = ProductAdminForm
 
     class Media:
