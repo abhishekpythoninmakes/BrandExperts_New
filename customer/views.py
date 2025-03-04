@@ -1453,7 +1453,7 @@ def process_text(request):
     data['camera'] = contains_word(text, camera_words)
 
     # Emergency detection
-    emergency_words = ['emergency', 'help', 'rescue', 'urgent', 'accident']
+    emergency_words = ['emergency', 'help', 'rescue', 'urgent', 'accident','danger','fire','police','ambulance','fight','robbery','theft']
     data['emergency'] = contains_word(text, emergency_words)
 
     # Generate map link
