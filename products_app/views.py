@@ -418,14 +418,14 @@ class ProductPriceView(APIView):
             width = serializer.validated_data['width']
             height = serializer.validated_data['height']
             unit = serializer.validated_data['unit']
-            quantity = serializer.validated_data['quantity']  # Get quantity from validated data
+            quantity = serializer.validated_data['quantity']
 
             try:
                 product = Product.objects.get(id=product_id)
             except Product.DoesNotExist:
                 return Response({"error": "Product not found"}, status=status.HTTP_404_NOT_FOUND)
 
-            # Convert all units to cm
+            # Unit conversion factors
             unit_conversion = {
                 'cm': 1,
                 'meter': 100,
@@ -434,32 +434,47 @@ class ProductPriceView(APIView):
                 'inches': 2.54,
                 'mm': 0.1
             }
-            width_cm = width * unit_conversion[unit]
-            height_cm = height * unit_conversion[unit]
+
+            # Convert provided dimensions to the product's size unit
+            if unit != product.size:
+                conversion_factor = unit_conversion[unit] / unit_conversion[product.size]
+                width_in_product_unit = width * conversion_factor
+                height_in_product_unit = height * conversion_factor
+            else:
+                width_in_product_unit = width
+                height_in_product_unit = height
 
             # Validate dimensions
-            if width_cm < product.min_width:
+            if width_in_product_unit < product.min_width:
+                max_width_in_unit = product.min_width * (unit_conversion[unit] / unit_conversion[product.size])
                 return Response({
-                    "error": f"Width is below the minimum allowed value. Minimum width is {product.min_width} cm."
+                    "error": f"Width is below the minimum allowed value. Minimum width is {product.min_width} {product.size}. "
+                             f"Maximum allowed width for this product is {max_width_in_unit:.2f} {unit}."
                 }, status=status.HTTP_400_BAD_REQUEST)
-            if width_cm > product.max_width:
+            if width_in_product_unit > product.max_width:
+                max_width_in_unit = product.max_width * (unit_conversion[unit] / unit_conversion[product.size])
                 return Response({
-                    "error": f"Width exceeds the maximum allowed value. Maximum width is {product.max_width} cm."
+                    "error": f"Width exceeds the maximum allowed value. Maximum width is {product.max_width} {product.size}. "
+                             f"Maximum allowed width for this product is {max_width_in_unit:.2f} {unit}."
                 }, status=status.HTTP_400_BAD_REQUEST)
-            if height_cm < product.min_height:
+            if height_in_product_unit < product.min_height:
+                max_height_in_unit = product.min_height * (unit_conversion[unit] / unit_conversion[product.size])
                 return Response({
-                    "error": f"Height is below the minimum allowed value. Minimum height is {product.min_height} cm."
+                    "error": f"Height is below the minimum allowed value. Minimum height is {product.min_height} {product.size}. "
+                             f"Maximum allowed height for this product is {max_height_in_unit:.2f} {unit}."
                 }, status=status.HTTP_400_BAD_REQUEST)
-            if height_cm > product.max_height:
+            if height_in_product_unit > product.max_height:
+                max_height_in_unit = product.max_height * (unit_conversion[unit] / unit_conversion[product.size])
                 return Response({
-                    "error": f"Height exceeds the maximum allowed value. Maximum height is {product.max_height} cm."
+                    "error": f"Height exceeds the maximum allowed value. Maximum height is {product.max_height} {product.size}. "
+                             f"Maximum allowed height for this product is {max_height_in_unit:.2f} {unit}."
                 }, status=status.HTTP_400_BAD_REQUEST)
 
             # Calculate total price
-            area_cm2 = width_cm * height_cm
-            price_per_unit = product.price / (product.min_width * product.min_height)
-            total_price_per_item = area_cm2 * price_per_unit
-            total_price = total_price_per_item * quantity  # Multiply by quantity
+            area_in_product_unit = width_in_product_unit * height_in_product_unit
+            price_per_unit_area = product.price / (product.min_width * product.min_height)
+            total_price_per_item = area_in_product_unit * price_per_unit_area
+            total_price = total_price_per_item * quantity
 
             return Response({
                 "product_id": product_id,
@@ -467,7 +482,7 @@ class ProductPriceView(APIView):
                 "height": height,
                 "unit": unit,
                 "quantity": quantity,
-                "total_price": round(total_price, 2)  # Round to 2 decimal places
+                "total_price": round(total_price, 2)
             })
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
