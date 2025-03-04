@@ -1323,6 +1323,14 @@ class CustomerOrderDetailView(APIView):
 class OrderDetailView(RetrieveAPIView):
     queryset = Order.objects.select_related('customer__user', 'address', 'cart').prefetch_related('cart__items')
     serializer_class = OrderDetailSerializer
+    # permission_classes = [IsAuthenticated]
+
+
+#
+
+
+
+
 
 
 # Test
@@ -1354,6 +1362,7 @@ def process_text(request):
         "response": response_text,
         "camera": contains_camera
     })
+
 
 
 
