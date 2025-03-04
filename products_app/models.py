@@ -55,7 +55,7 @@ class Product(models.Model):
     min_height = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True,help_text="📐 Minimum height (cm)")
     max_width = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True, help_text="📏 Maximum width (cm)")
     max_height = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True,help_text="📐 Maximum height (cm)")
-    size = models.CharField(max_length=100, null=True, blank=True, choices=sizes_available, default='centimeter',help_text="🛠 Select the measurement unit")
+    size = models.CharField(max_length=100, choices=sizes_available, default='centimeter',help_text="🛠 Select the measurement unit")
     price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     status = models.ForeignKey(Product_status, on_delete=models.CASCADE, null=True, blank=True)
     def __str__(self):
