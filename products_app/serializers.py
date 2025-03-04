@@ -72,6 +72,7 @@ class DetailedProductSerializer(serializers.ModelSerializer):
             "max_height",
             "min_width",
             "min_height",
+            "size",
             "standard_sizes",
             "price",
             "parent_category",
