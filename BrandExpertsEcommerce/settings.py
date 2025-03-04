@@ -263,7 +263,8 @@ from decouple import config
 STRIPE_SECRET_KEY = config('STRIPE_SECRET_KEY')
 
 
-
+GEMINI_API_KEY = config('GEMINI_API_KEY')
+YOUTUBE_API_KEY = config('YOUTUBE_API_KEY')
 
 
 
