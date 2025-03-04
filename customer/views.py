@@ -1190,7 +1190,7 @@ def confirm_payment(request):
 
                 # Calculate the base total price (without tax adjustments)
                 total_price = sum(item.total_price for item in cart_items)
-
+                product_price = total_price
                 # Add site_visit amount if site_visit is True
                 site_visit_fee = Decimal('0.00')
                 if cart.site_visit:
@@ -1245,6 +1245,7 @@ def confirm_payment(request):
                 html_message = render_to_string('order_confirmation.html', {
                     'order': order,
                     'cart_items': cart_items,
+                    'product_price': float(product_price),
                     'base_product_amount': float(base_price),
                     'vat_percentage': float(vat_percentage),
                     'vat_amount': float(vat_amount),
