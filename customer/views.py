@@ -1338,31 +1338,193 @@ class OrderDetailView(RetrieveAPIView):
 
 import random
 
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+import random
+import re
+import requests
+from urllib.parse import quote
+
+
+# Helper Functions
+
+def get_address_from_coords(lat, lng):
+    try:
+        url = f"https://nominatim.openstreetmap.org/reverse?format=json&lat={lat}&lon={lng}"
+        headers = {'User-Agent': 'YourAppName/1.0 (contact@yourapp.com)'}  # Required for Nominatim
+        response = requests.get(url, headers=headers).json()
+        address = response.get('address', {})
+        return f"{address.get('road', '')} {address.get('city', '')} {address.get('country', '')}".strip()
+    except:
+        return "Location details not available"
+
+
+def get_nearby_places(lat, lng, query):
+    try:
+        # Map query to OpenStreetMap amenity tags
+        amenity_mapping = {
+            "restaurant": "restaurant",
+            "hospital": "hospital",
+            "park": "park",
+            "hotel": "hotel",
+            "bus_station": "bus_station",
+            "cinema": "cinema"
+        }
+
+        # Get the correct OpenStreetMap tag
+        amenity = amenity_mapping.get(query, query)
+
+        # Overpass API query
+        overpass_query = f"""
+        [out:json];
+        node(around:1000,{lat},{lng})["amenity"="{amenity}"];
+        out;
+        """
+
+        # Make the request
+        url = "https://overpass-api.de/api/interpreter"
+        response = requests.post(url, data=overpass_query)
+        response.raise_for_status()  # Raise an error for bad status codes
+
+        # Parse the response
+        places = response.json().get('elements', [])
+        if not places:
+            return None  # No places found
+
+        # Extract place names
+        return [place['tags'].get('name', 'Unnamed place')
+                for place in places
+                if 'tags' in place][:3]
+    except Exception as e:
+        print(f"Error fetching nearby places: {e}")
+        return None
+
+
+def get_wikipedia_summary(query):
+    try:
+        url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{quote(query)}"
+        response = requests.get(url).json()
+        return response.get('extract', 'No information found')
+    except:
+        return "Could not fetch information at this time"
+
+
+def get_youtube_link(query):
+    try:
+        url = "https://www.youtube.com/results"
+        params = {'search_query': query}
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+
+        # Extract the first video link
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(response.text, 'html.parser')
+        video = soup.find('a', {'class': 'yt-uix-tile-link'})
+        if video:
+            return f"https://www.youtube.com{video['href']}"
+        return None
+    except Exception as e:
+        print(f"Error fetching YouTube link: {e}")
+        return None
+
+
+def contains_word(text, words):
+    return any(re.search(rf'\b{word}\b', text, re.IGNORECASE) for word in words)
+
+
+# Main API View
 
 @api_view(["POST"])
 def process_text(request):
-    text = request.data.get("text", "").lower()  # Get the text and convert to lowercase
-    contains_camera = "camera" in text  # Check if "camera" exists in the text
+    data = {
+        "response": "",
+        "camera": False,
+        "emergency": False,
+        "longitude": request.data.get("longitude"),
+        "latitude": request.data.get("latitude"),
+        "map_link": "",
+        "response_urls": []  # New field for all URLs
+    }
 
-    # Random welcome responses
-    random_responses = [
-        "Hello! How can I assist you today?",
-        "Welcome! What would you like to do?",
-        "Glad to have you here! Need any help?",
-        "Hey there! Tell me what you need assistance with.",
-        "Hi! Ready to get started?"
-    ]
+    text = request.data.get("text", "").lower()
 
-    if contains_camera:
-        response_text = "Opening the camera. Place the phone camera above the book page, and it will be scanned after a 3-second timer."
-    else:
-        response_text = random.choice(random_responses)
+    # Camera detection
+    camera_words = ['camera', 'open camera', 'scan', 'scanner']
+    data['camera'] = contains_word(text, camera_words)
 
-    return Response({
-        "response": response_text,
-        "camera": contains_camera
-    })
+    # Emergency detection
+    emergency_words = ['emergency', 'help', 'rescue', 'urgent', 'accident']
+    data['emergency'] = contains_word(text, emergency_words)
 
+    # Generate map link
+    if data['latitude'] and data['longitude']:
+        map_link = f"https://www.openstreetmap.org/?mlat={data['latitude']}&mlon={data['longitude']}&zoom=16"
+        data['map_link'] = map_link
+        data['response_urls'].append(map_link)
 
+    # Handle greetings
+    greeting_words = ['hi', 'hello', 'hey', 'hola', 'namaste']
+    if contains_word(text, greeting_words):
+        data['response'] = random.choice([
+            "Hello! How can I assist you today?",
+            "Welcome! What would you like to do?",
+            "Glad to have you here! Need any help?"
+        ])
+        return Response(data)
 
+    # Handle location requests
+    if 'current location' in text or 'where am i' in text:
+        if data['latitude'] and data['longitude']:
+            address = get_address_from_coords(data['latitude'], data['longitude'])
+            data['response'] = f"Your approximate location: {address}"
+        else:
+            data['response'] = "Location coordinates not provided"
+        return Response(data)
+
+    # Handle nearby places requests
+    place_mapping = {
+        'restaurant': ['restaurant', 'dine', 'eat'],
+        'hospital': ['hospital', 'clinic'],
+        'park': ['park', 'garden'],
+        'hotel': ['hotel', 'lodging'],
+        'bus_station': ['bus stand', 'bus station'],
+        'cinema': ['theater', 'theatre', 'cinema']
+    }
+
+    for place_type, keywords in place_mapping.items():
+        if contains_word(text, keywords):
+            if data['latitude'] and data['longitude']:
+                places = get_nearby_places(data['latitude'], data['longitude'], place_type)
+                if places:
+                    data['response'] = f"Nearby {place_type}s: {', '.join(places)}"
+                else:
+                    data['response'] = f"No nearby {place_type}s found. Try expanding your search area."
+            else:
+                data['response'] = "Location coordinates needed to find nearby places"
+            return Response(data)
+
+    # Handle emergency case
+    if data['emergency']:
+        data['response'] = "Emergency detected! Here's your map link for reference. Contact local authorities."
+        return Response(data)
+
+    # Handle camera case
+    if data['camera']:
+        data['response'] = "Camera access requested. When ready, point your camera at the subject."
+        return Response(data)
+
+    # Handle YouTube search for songs
+    if 'play' in text:
+        song_query = text.replace('play', '').strip()
+        youtube_link = get_youtube_link(song_query)
+        if youtube_link:
+            data['response'] = f"Here's a YouTube link for '{song_query}':"
+            data['response_urls'].append(youtube_link)
+        else:
+            data['response'] = f"Could not find a YouTube link for '{song_query}'."
+        return Response(data)
+
+    # Fallback to Wikipedia for general queries
+    data['response'] = get_wikipedia_summary(text)
+    return Response(data)
 
