@@ -409,6 +409,7 @@ def get_site_visit_amount(request):
 
 
 
+
 class ProductPriceView(APIView):
     def post(self, request):
         serializer = ProductPriceSerializer(data=request.data)
@@ -437,10 +438,22 @@ class ProductPriceView(APIView):
             height_cm = height * unit_conversion[unit]
 
             # Validate dimensions
-            if width_cm < product.min_width or width_cm > product.max_width:
-                return Response({"error": "Width is out of allowed range"}, status=status.HTTP_400_BAD_REQUEST)
-            if height_cm < product.min_height or height_cm > product.max_height:
-                return Response({"error": "Height is out of allowed range"}, status=status.HTTP_400_BAD_REQUEST)
+            if width_cm < product.min_width:
+                return Response({
+                    "error": f"Width is below the minimum allowed value. Minimum width is {product.min_width} cm."
+                }, status=status.HTTP_400_BAD_REQUEST)
+            if width_cm > product.max_width:
+                return Response({
+                    "error": f"Width exceeds the maximum allowed value. Maximum width is {product.max_width} cm."
+                }, status=status.HTTP_400_BAD_REQUEST)
+            if height_cm < product.min_height:
+                return Response({
+                    "error": f"Height is below the minimum allowed value. Minimum height is {product.min_height} cm."
+                }, status=status.HTTP_400_BAD_REQUEST)
+            if height_cm > product.max_height:
+                return Response({
+                    "error": f"Height exceeds the maximum allowed value. Maximum height is {product.max_height} cm."
+                }, status=status.HTTP_400_BAD_REQUEST)
 
             # Calculate total price
             area_cm2 = width_cm * height_cm
