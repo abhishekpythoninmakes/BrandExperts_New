@@ -128,10 +128,10 @@
 
             <div class="order-summary">
                 <h3>Order Summary</h3>
-                <p>Subtotal: ${{ subtotal }}</p>
-                <p>VAT ({{ vat_percentage }}%): ${{ vat_amount }}</p>
-                <p>Site Visit Fee: ${{ site_visit_fee }}</p>
-                <p class="total">Total Amount: ${{ total_with_vat }}</p>
+                <p>Product Amount: {{ base_product_amount }} AED</p>
+                <p>VAT ({{ vat_percentage }}%): {{ vat_amount }} AED</p>
+                <p>Site Visit Fee: {{ site_visit_fee }} AED</p>
+                <p class="total">Total Amount: {{ total_with_vat }} AED</p>
             </div>
 
             <a href="https://your-website.com/orders_detail/{{ order.id }}/" class="cta-button">View Order Details</a>
