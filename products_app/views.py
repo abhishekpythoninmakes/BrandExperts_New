@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import render, get_object_or_404
@@ -410,6 +412,7 @@ def get_site_visit_amount(request):
 
 
 
+
 class ProductPriceView(APIView):
     def post(self, request):
         serializer = ProductPriceSerializer(data=request.data)
@@ -427,51 +430,40 @@ class ProductPriceView(APIView):
 
             # Unit conversion factors
             unit_conversion = {
-                'cm': 1,
-                'meter': 100,
-                'feet': 30.48,
-                'yard': 91.44,
-                'inches': 2.54,
-                'mm': 0.1
+                'cm': Decimal('1'),
+                'meter': Decimal('100'),
+                'feet': Decimal('30.48'),
+                'yard': Decimal('91.44'),
+                'inches': Decimal('2.54'),
+                'mm': Decimal('0.1')
             }
 
-            # Convert provided dimensions to the product's size unit
-            if unit != product.size:
-                conversion_factor = unit_conversion[unit] / unit_conversion[product.size]
-                width_in_product_unit = width * conversion_factor
-                height_in_product_unit = height * conversion_factor
-            else:
-                width_in_product_unit = width
-                height_in_product_unit = height
+            # Convert product dimensions to the provided unit
+            product_min_width_in_unit = product.min_width * (unit_conversion[product.size] / unit_conversion[unit])
+            product_max_width_in_unit = product.max_width * (unit_conversion[product.size] / unit_conversion[unit])
+            product_min_height_in_unit = product.min_height * (unit_conversion[product.size] / unit_conversion[unit])
+            product_max_height_in_unit = product.max_height * (unit_conversion[product.size] / unit_conversion[unit])
 
             # Validate dimensions
-            if width_in_product_unit < product.min_width:
-                max_width_in_unit = product.min_width * (unit_conversion[unit] / unit_conversion[product.size])
+            if width < product_min_width_in_unit:
                 return Response({
-                    "error": f"Width is below the minimum allowed value. Minimum width is {product.min_width} {product.size}. "
-                             f"Maximum allowed width for this product is {max_width_in_unit:.2f} {unit}."
+                    "error": f"Width is below the minimum allowed value. Minimum width is {product_min_width_in_unit:.2f} {unit}."
                 }, status=status.HTTP_400_BAD_REQUEST)
-            if width_in_product_unit > product.max_width:
-                max_width_in_unit = product.max_width * (unit_conversion[unit] / unit_conversion[product.size])
+            if width > product_max_width_in_unit:
                 return Response({
-                    "error": f"Width exceeds the maximum allowed value. Maximum width is {product.max_width} {product.size}. "
-                             f"Maximum allowed width for this product is {max_width_in_unit:.2f} {unit}."
+                    "error": f"Width exceeds the maximum allowed value. Maximum width is {product_max_width_in_unit:.2f} {unit}."
                 }, status=status.HTTP_400_BAD_REQUEST)
-            if height_in_product_unit < product.min_height:
-                max_height_in_unit = product.min_height * (unit_conversion[unit] / unit_conversion[product.size])
+            if height < product_min_height_in_unit:
                 return Response({
-                    "error": f"Height is below the minimum allowed value. Minimum height is {product.min_height} {product.size}. "
-                             f"Maximum allowed height for this product is {max_height_in_unit:.2f} {unit}."
+                    "error": f"Height is below the minimum allowed value. Minimum height is {product_min_height_in_unit:.2f} {unit}."
                 }, status=status.HTTP_400_BAD_REQUEST)
-            if height_in_product_unit > product.max_height:
-                max_height_in_unit = product.max_height * (unit_conversion[unit] / unit_conversion[product.size])
+            if height > product_max_height_in_unit:
                 return Response({
-                    "error": f"Height exceeds the maximum allowed value. Maximum height is {product.max_height} {product.size}. "
-                             f"Maximum allowed height for this product is {max_height_in_unit:.2f} {unit}."
+                    "error": f"Height exceeds the maximum allowed value. Maximum height is {product_max_height_in_unit:.2f} {unit}."
                 }, status=status.HTTP_400_BAD_REQUEST)
 
             # Calculate total price
-            area_in_product_unit = width_in_product_unit * height_in_product_unit
+            area_in_product_unit = width * height
             price_per_unit_area = product.price / (product.min_width * product.min_height)
             total_price_per_item = area_in_product_unit * price_per_unit_area
             total_price = total_price_per_item * quantity
@@ -584,7 +576,8 @@ class UpdateProductDimensionsView(APIView):
             min_width=10.00,
             min_height=5.00,
             max_width=50.00,
-            max_height=100.00
+            max_height=100.00,
+            size = 'cm'
         )
 
         return Response({"message": "All product dimensions updated to 5.00"}, status=status.HTTP_200_OK)
