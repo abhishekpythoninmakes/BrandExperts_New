@@ -40,11 +40,11 @@ class ProductAdminForm(forms.ModelForm):
 
 # Custom Product Admin
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ('name', 'image1_preview', 'price', 'status', 'get_categories', 'get_parent_categories', 'size')
+    list_display = ('id','name', 'image1_preview', 'price', 'status', 'get_categories', 'get_parent_categories', 'size')
     search_fields = ('name', 'categories__category_name', 'categories__parent_categories__name', 'size', 'description')
     list_filter = ('status', 'categories')  # Filter by status and categories
     ordering = ('-id',) # Order by newest first
-    list_per_page = 20  # Enable pagination with 20 products per page
+    list_per_page = 12  # Enable pagination with 20 products per page
     form = ProductAdminForm
 
     class Media:
