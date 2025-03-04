@@ -84,7 +84,7 @@ class OrderAdmin(admin.ModelAdmin):
             items = []
             for item in obj.cart.items.all():
                 image_tag = format_html(
-                    '<img src="{}" width="50" height="50">', item.product.image1
+                    '<img src="{}" width="50" height="50">', item.design_image
                 )
                 cart_item_link = reverse(
                     "admin:customer_cartitem_change", args=(item.id,)

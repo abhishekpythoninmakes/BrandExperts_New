@@ -1,18 +1,146 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Order Confirmation</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Confirmation - BrandExperts</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 20px;
+        }
+        .header {
+            text-align: center;
+            padding: 20px;
+            border-bottom: 2px solid #eee;
+        }
+        .header img {
+            max-width: 150px;
+            height: auto;
+        }
+        .main-content {
+            padding: 20px;
+        }
+        .order-summary {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .order-summary h3 {
+            margin: 0 0 10px;
+            color: #2c3e50;
+        }
+        .order-summary p {
+            margin: 5px 0;
+            color: #666;
+        }
+        .order-items table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        .order-items th, .order-items td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        .order-items th {
+            background-color: #f0f0f0;
+            color: #333;
+        }
+        .order-items td:last-child {
+            text-align: right;
+        }
+        .cta-button {
+            display: inline-block;
+            background-color: #27ae60;
+            color: white;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            margin-top: 20px;
+        }
+        .footer {
+            text-align: center;
+            padding: 20px;
+            background-color: #2c3e50;
+            color: white;
+            margin-top: 20px;
+            border-radius: 5px;
+        }
+        .footer a {
+            color: #3498db;
+            text-decoration: none;
+        }
+    </style>
 </head>
 <body>
-    <h1>Thank you for your order!</h1>
-    <p>Order ID: {{ order.id }}</p>
-    <p>Total Amount: ${{ total_price }}</p>
-    <p>Date: {{ order.ordered_date }}</p>
-    <h2>Order Details:</h2>
-    <ul>
-        {% for item in cart_items %}
-            <li>{{ item.product.name }} - Quantity: {{ item.quantity }} - Price: ${{ item.total_price }}</li>
-        {% endfor %}
-    </ul>
+    <div class="container">
+        <div class="header">
+            <img src="https://www.brandexperts.ae/assets/br_logo-JUO0DtaB.png" alt="Brand Logo">
+            <h1>Order Confirmation</h1>
+        </div>
+
+        <div class="main-content">
+            <h2>Thank you for your order!</h2>
+
+            <div class="order-summary">
+                <h3>Order Details</h3>
+                <p>Order ID: {{ order.id }}</p>
+                <p>Transaction No : {{order.transaction_id}}</p>
+                <p>Date: {{ order.ordered_date }}</p>
+                <p>Status: {{ order.status }}</p>
+                <p>Payment Method: {{ order.payment_method }}</p>
+            </div>
+
+            <div class="order-items">
+                <h3>Order Items</h3>
+                <table>
+                    <tr>
+                        <th>Product</th>
+                        <th>Quantity</th>
+                        <th>Unit Price</th>
+                        <th>Total</th>
+                    </tr>
+                    {% for item in cart_items %}
+                    <tr>
+                        <td>{{ item.product.name }}</td>
+                        <td>{{ item.quantity }}</td>
+                        <td>{{ item.price }} AED</td>
+                        <td>{{ item.total_price }} AED</td>
+                    </tr>
+                    {% endfor %}
+                </table>
+            </div>
+
+            <div class="order-summary">
+                <h3>Order Summary</h3>
+                <p>Subtotal: ${{ subtotal }}</p>
+                <p>VAT ({{ vat_percentage }}%): ${{ vat_amount }}</p>
+                <p>Site Visit Fee: ${{ site_visit_fee }}</p>
+                <p class="total">Total Amount: ${{ total_with_vat }}</p>
+            </div>
+
+            <a href="https://your-website.com/orders_detail/{{ order.id }}/" class="cta-button">View Order Details</a>
+        </div>
+
+        <div class="footer">
+            <p>Questions? Contact us at support hello@brandexperts.ae or +971-06-531-4088</p>
+<!--            <p>Follow us on <a href="https://facebook.com/yourbrand">Facebook</a> | <a href="https://instagram.com/yourbrand">Instagram</a></p>-->
+        </div>
+    </div>
 </body>
 </html>
