@@ -1298,7 +1298,7 @@ class CustomerOrderDetailView(APIView):
                 )
 
             # Fetch all orders for the given customer ID
-            orders = Order.objects.filter(customer=customer)
+            orders = Order.objects.filter(customer=customer).order_by('-id')
             if not orders.exists():
                 return Response(
                     {"error": "No orders found for this customer."},
