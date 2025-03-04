@@ -43,7 +43,7 @@ class ProductAdmin(admin.ModelAdmin):
     list_display = ('name', 'image1_preview', 'price', 'status', 'get_categories', 'get_parent_categories', 'size')
     search_fields = ('name', 'categories__category_name', 'categories__parent_categories__name', 'size', 'description')
     list_filter = ('status', 'categories')  # Filter by status and categories
-    ordering = ('-price',)  # Show expensive products first
+    ordering = ('-id',) # Order by newest first
     form = ProductAdminForm
 
     class Media:
