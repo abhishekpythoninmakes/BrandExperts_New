@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 from ckeditor.fields import RichTextField
 from ckeditor_uploader.fields import RichTextUploadingField
+from django.core.exceptions import ValidationError
 # Create your models here.
 
 class CustomUser(AbstractUser):
@@ -51,15 +52,21 @@ class Product(models.Model):
     image2 = models.URLField(null=True, blank=True)
     image3 = models.URLField(null=True, blank=True)
     image4 = models.URLField(null=True, blank=True)
-    min_width = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True, help_text="📏 Minimum width (cm)")
-    min_height = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True,help_text="📐 Minimum height (cm)")
-    max_width = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True, help_text="📏 Maximum width (cm)")
-    max_height = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True,help_text="📐 Maximum height (cm)")
+    min_width = models.DecimalField(max_digits=6, decimal_places=2, default=5.00, help_text="📏 Minimum width (cm)")
+    min_height = models.DecimalField(max_digits=6, decimal_places=2, default=5.00,help_text="📐 Minimum height (cm)")
+    max_width = models.DecimalField(max_digits=6, decimal_places=2, default=5.00, help_text="📏 Maximum width (cm)")
+    max_height = models.DecimalField(max_digits=6, decimal_places=2, default=5.00,help_text="📐 Maximum height (cm)")
     size = models.CharField(max_length=100, choices=sizes_available, default='centimeter',help_text="🛠 Select the measurement unit")
     price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     status = models.ForeignKey(Product_status, on_delete=models.CASCADE, null=True, blank=True)
     def __str__(self):
         return self.name if self.name else "Unnamed Product"
+
+    def clean(self):
+        if self.min_width > self.max_width:
+            raise ValidationError("Minimum width cannot be greater than maximum width.")
+        if self.min_height > self.max_height:
+            raise ValidationError("Minimum height cannot be greater than maximum height.")
 
 
 class Standard_sizes(models.Model):

@@ -210,3 +210,16 @@ class TestimonialSerializer(serializers.ModelSerializer):
     class Meta:
         model = Testimonials
         fields = ['id', 'name', 'occupation', 'image', 'created_at', 'description', 'rating']
+
+
+class ProductPriceSerializer(serializers.Serializer):
+    product_id = serializers.IntegerField()
+    width = serializers.DecimalField(max_digits=6, decimal_places=2)
+    height = serializers.DecimalField(max_digits=6, decimal_places=2)
+    unit = serializers.CharField(max_length=10)
+
+    def validate_unit(self, value):
+        valid_units = ['cm', 'm', 'ft', 'yd', 'in', 'mm']
+        if value not in valid_units:
+            raise serializers.ValidationError(f"Invalid unit. Valid units are: {', '.join(valid_units)}")
+        return value

@@ -408,6 +408,55 @@ def get_site_visit_amount(request):
     return Response({'error': 'No site visit record found'}, status=404)
 
 
+
+class ProductPriceView(APIView):
+    def post(self, request):
+        serializer = ProductPriceSerializer(data=request.data)
+        if serializer.is_valid():
+            product_id = serializer.validated_data['product_id']
+            width = serializer.validated_data['width']
+            height = serializer.validated_data['height']
+            unit = serializer.validated_data['unit']
+
+            try:
+                product = Product.objects.get(id=product_id)
+            except Product.DoesNotExist:
+                return Response({"error": "Product not found"}, status=status.HTTP_404_NOT_FOUND)
+
+            # Convert all units to cm
+            unit_conversion = {
+                'cm': 1,
+                'm': 100,
+                'ft': 30.48,
+                'yd': 91.44,
+                'in': 2.54,
+                'mm': 0.1
+            }
+            width_cm = width * unit_conversion[unit]
+            height_cm = height * unit_conversion[unit]
+
+            # Validate dimensions
+            if width_cm < product.min_width or width_cm > product.max_width:
+                return Response({"error": "Width is out of allowed range"}, status=status.HTTP_400_BAD_REQUEST)
+            if height_cm < product.min_height or height_cm > product.max_height:
+                return Response({"error": "Height is out of allowed range"}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Calculate total price
+            area_cm2 = width_cm * height_cm
+            price_per_unit = product.price / (product.min_width * product.min_height)
+            total_price = area_cm2 * price_per_unit
+
+            return Response({
+                "product_id": product_id,
+                "width": width,
+                "height": height,
+                "unit": unit,
+                "total_price": round(total_price, 2)  # Round to 2 decimal places
+            })
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+
 # QUERY PRODUCTS
 #
 # import re
@@ -495,3 +544,16 @@ def get_site_visit_amount(request):
 #     )
 #     response['Content-Disposition'] = 'attachment; filename="square_signs_products.xlsx"'
 #     return response
+
+from django.db.models import F
+class UpdateProductDimensionsView(APIView):
+    def post(self, request):
+        # Update all products with the new values
+        Product.objects.update(
+            min_width=10.00,
+            min_height=5.00,
+            max_width=50.00,
+            max_height=100.00
+        )
+
+        return Response({"message": "All product dimensions updated to 5.00"}, status=status.HTTP_200_OK)

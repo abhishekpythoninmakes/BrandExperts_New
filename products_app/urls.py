@@ -64,6 +64,14 @@ urlpatterns = [
 
     path('site-visit/', views.get_site_visit_amount, name='site-visit-amount'),
 
+
+    # Update
+    path('update-product-dimensions/', views.UpdateProductDimensionsView.as_view(), name='update_product_dimensions'),
+
+    # Product Price
+
+    path('product-price/', views.ProductPriceView.as_view(), name='product-price'),
+
     # QUERY
     # path('square-signs-report/', views.export_square_signs_products, name='square_signs_report'),
 ]
