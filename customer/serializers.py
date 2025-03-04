@@ -101,3 +101,48 @@ class OrderSerializer(serializers.ModelSerializer):
             'site_visit', 'site_visit_fee', 'vat_percentage', 'vat_amount',
             'cart', 'address'
         ]
+
+
+
+class CartItemWithProductNameSerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source='product.name')
+    # product_image = serializers.URLField(source='product.image1')
+
+    class Meta:
+        model = CartItem
+        fields = [
+            'id', 'product_name', 'custom_width', 'custom_height',
+            'size_unit', 'design_image', 'quantity', 'price', 'total_price',
+            'hire_designer', 'status', 'created_at'
+        ]
+
+class CartWithItemsSerializer(serializers.ModelSerializer):
+    items = CartItemWithProductNameSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Cart
+        fields = ['id', 'status', 'created_at', 'items']
+
+class PaymentSerializer(serializers.Serializer):
+    transaction_id = serializers.CharField()
+    method = serializers.CharField(source='payment_method')
+    status = serializers.CharField(source='payment_status')
+
+class OrderDetailSerializer(serializers.ModelSerializer):
+    customer_name = serializers.SerializerMethodField()
+    address = CustomerAddressSerializer()
+    cart = CartWithItemsSerializer()
+    payment = PaymentSerializer(source='*')
+    total_amount = serializers.DecimalField(max_digits=10, decimal_places=2, source='amount')
+    site_visit_charge = serializers.DecimalField(max_digits=10, decimal_places=2, source='site_visit_fee')
+    vat = serializers.DecimalField(max_digits=10, decimal_places=2, source='vat_amount')
+
+    class Meta:
+        model = Order
+        fields = [
+            'id', 'customer_name', 'ordered_date', 'delivered_date', 'payment',
+            'status', 'total_amount', 'cart', 'address', 'site_visit_charge', 'vat'
+        ]
+
+    def get_customer_name(self, obj):
+        return obj.customer.user.get_full_name()

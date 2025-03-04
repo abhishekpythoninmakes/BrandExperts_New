@@ -50,4 +50,8 @@ urlpatterns = [
     # Order Details
     path('orders/<int:customer_id>/', views.CustomerOrderDetailView.as_view(), name='customer-order-detail'),
 
+    #Order Detail view
+
+    path('orders_detail/<int:pk>/', views.OrderDetailView.as_view(), name='order-detail'),
+
 ]
