@@ -1,4 +1,6 @@
 from django.contrib import admin
+from django.utils.html import format_html
+from django.urls import reverse
 from .models import (
     Customer, WarrantyRegistration, ClaimWarranty, Customer_Address,
     Cart, CartItem, Order, OTPRecord
@@ -8,20 +10,47 @@ from django.contrib.auth.models import Group
 # Unregister the default Group model
 admin.site.unregister(Group)
 
-class CartItemInline(admin.TabularInline):
-    model = CartItem
-    extra = 0
-    readonly_fields = ('product', 'quantity', 'price', 'total_price', 'status')
-    can_delete = False
-
-    def has_add_permission(self, request, obj=None):
-        return False
-
 class OrderAdmin(admin.ModelAdmin):
-    list_display = ('id', 'customer_name', 'customer_email', 'total_amount', 'status', 'ordered_date')
+    list_display = (
+        'order_link', 'customer_name', 'customer_email', 'total_amount',
+        'status', 'ordered_date'
+    )
     list_filter = ('status', 'ordered_date')
     search_fields = ('id', 'customer__user__username', 'customer__user__email')
-    readonly_fields = ('id', 'ordered_date', 'delivered_date')
+    readonly_fields = (
+        'id', 'ordered_date', 'cart_id', 'cart_details',
+        'cart_items_display', 'customer_details', 'address_details'
+    )
+    fieldsets = (
+        ('Order Information', {
+            'fields': (
+                'id', 'ordered_date', 'delivered_date', 'status', 'cart_id',
+                'cart_details', 'cart_items_display'
+            )
+        }),
+        ('Payment Information', {
+            'fields': (
+                'amount', 'payment_method', 'payment_status', 'transaction_id'
+            )
+        }),
+        ('Customer Information', {
+            'fields': ('customer_details', 'address_details',)
+        }),
+        ('Site Visit', {
+            'fields': ('site_visit', 'site_visit_fee')
+        }),
+        ('VAT', {
+            'fields': ('vat_percentage', 'vat_amount')
+        }),
+    )
+
+    def order_link(self, obj):
+        link = reverse("admin:customer_order_change", args=(obj.id,))
+        return format_html(
+            '<a href="{}">Order #{} - {}</a>', link, obj.id,
+            obj.customer.user.get_full_name()
+        )
+    order_link.short_description = 'Order'
 
     def customer_name(self, obj):
         return obj.customer.user.get_full_name() if obj.customer.user else "Unknown Customer"
@@ -35,29 +64,73 @@ class OrderAdmin(admin.ModelAdmin):
         return obj.amount
     total_amount.short_description = 'Total Amount'
 
-    def cart_items(self, obj):
+    def cart_id(self, obj):
+        return obj.cart.id if obj.cart else "No Cart"
+    cart_id.short_description = 'Cart ID'
+
+    def cart_details(self, obj):
         if obj.cart:
-            return ", ".join([item.product.name for item in obj.cart.items.all()])
+            cart_details = []
+            cart_details.append(f"Status: {obj.cart.status}")
+            cart_details.append(f"Created At: {obj.cart.created_at}")
+            cart_details.append(f"Higher Designer: {obj.cart.higher_designer}")
+            cart_details.append(f"Site Visit: {obj.cart.site_visit}")
+            return format_html("<br>".join(cart_details))
+        return "No Cart"
+    cart_details.short_description = 'Cart Details'
+
+    def cart_items_display(self, obj):
+        if obj.cart:
+            items = []
+            for item in obj.cart.items.all():
+                image_tag = format_html(
+                    '<img src="{}" width="50" height="50">', item.product.image1
+                )
+                cart_item_link = reverse(
+                    "admin:customer_cartitem_change", args=(item.id,)
+                )
+                items.append(format_html(
+                    '<a href="{}">{} - {}</a>', cart_item_link, image_tag,
+                    item.product.name
+                ))
+            return format_html("<br>".join(items))
         return "No Cart Items"
-    cart_items.short_description = 'Cart Items'
+    cart_items_display.short_description = 'Cart Items'
 
-    def cart_quantities(self, obj):
-        if obj.cart:
-            return ", ".join([str(item.quantity) for item in obj.cart.items.all()])
-        return "No Quantities"
-    cart_quantities.short_description = 'Quantities'
+    def customer_details(self, obj):
+        customer = obj.customer
+        if customer and customer.user:
+            link = reverse("admin:customer_customer_change", args=(customer.id,))
+            full_name = customer.user.get_full_name()
+            email = customer.user.email
+            mobile = customer.mobile if customer.mobile else "No Mobile"
+            return format_html(
+                '<a href="{}">{} ({})</a> - {} - {}',
+                link, full_name, customer.user.username, email, mobile
+            )
+        return "Unknown Customer"
+    customer_details.short_description = 'Customer Details'
 
-    def cart_total_price(self, obj):
-        if obj.cart:
-            return sum(item.total_price for item in obj.cart.items.all())
-        return 0
-    cart_total_price.short_description = 'Cart Total Price'
-
-    # Add these methods to the list_display
-    list_display += ('cart_items', 'cart_quantities', 'cart_total_price')
+    def address_details(self, obj):
+        address = obj.address
+        if address:
+            details = []
+            details.append(f"Company: {address.company_name}")
+            details.append(f"Extension: {address.ext}")
+            details.append(f"Address Line 1: {address.address_line1}")
+            details.append(f"Address Line 2: {address.address_line2}")
+            details.append(f"Country: {address.country}")
+            details.append(f"City: {address.city}")
+            details.append(f"State: {address.state}")
+            details.append(f"Zip Code: {address.zip_code}")
+            return format_html("<br>".join(details))
+        return "No Address"
+    address_details.short_description = 'Customer Address'
 
     def get_queryset(self, request):
-        return super().get_queryset(request).select_related('customer__user', 'cart')
+        return super().get_queryset(request).select_related(
+            'customer__user', 'cart', 'address'
+        )
 
 # Register models
 admin.site.register(Customer)
