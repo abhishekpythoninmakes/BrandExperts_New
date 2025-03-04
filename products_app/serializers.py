@@ -217,6 +217,7 @@ class ProductPriceSerializer(serializers.Serializer):
     width = serializers.DecimalField(max_digits=6, decimal_places=2)
     height = serializers.DecimalField(max_digits=6, decimal_places=2)
     unit = serializers.CharField(max_length=10)
+    quantity = serializers.IntegerField(min_value=1)  # Add quantity field
 
     def validate_unit(self, value):
         valid_units = ['cm', 'm', 'ft', 'yd', 'in', 'mm']

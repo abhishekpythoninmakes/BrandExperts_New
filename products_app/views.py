@@ -417,6 +417,7 @@ class ProductPriceView(APIView):
             width = serializer.validated_data['width']
             height = serializer.validated_data['height']
             unit = serializer.validated_data['unit']
+            quantity = serializer.validated_data['quantity']  # Get quantity from validated data
 
             try:
                 product = Product.objects.get(id=product_id)
@@ -444,13 +445,15 @@ class ProductPriceView(APIView):
             # Calculate total price
             area_cm2 = width_cm * height_cm
             price_per_unit = product.price / (product.min_width * product.min_height)
-            total_price = area_cm2 * price_per_unit
+            total_price_per_item = area_cm2 * price_per_unit
+            total_price = total_price_per_item * quantity  # Multiply by quantity
 
             return Response({
                 "product_id": product_id,
                 "width": width,
                 "height": height,
                 "unit": unit,
+                "quantity": quantity,
                 "total_price": round(total_price, 2)  # Round to 2 decimal places
             })
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
