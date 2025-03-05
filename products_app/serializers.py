@@ -229,32 +229,11 @@ class ProductPriceSerializer(serializers.Serializer):
 
 
 class ProductBasicDetailSerializer(serializers.ModelSerializer):
-    size = serializers.CharField(source='get_size_display')  # Human-readable unit (e.g., "Centimeter")
-    max_width = serializers.SerializerMethodField()  # Override to return pixels
-    max_height = serializers.SerializerMethodField()  # Override to return pixels
+    size = serializers.CharField(source='get_size_display')  # To get the display value of the choice field
 
     class Meta:
         model = Product
-        fields = ['id', 'name', 'size', 'max_width', 'max_height', 'price', 'image1']
-
-    def _convert_to_pixels(self, value, unit):
-        """Convert a value (in the given unit) to pixels."""
-        # Conversion factors: how many inches per unit
-        conversion_to_inches = {
-            'cm': 0.393701,
-            'inches': 1,
-            'feet': 12,
-            'yard': 36,
-            'meter': 39.3701,
-            'mm': 0.0393701,
-        }
-        dpi = 96  # Standard screen DPI
-        inches_per_unit = conversion_to_inches.get(unit, 1.0)  # Default to inches
-        value_in_inches = float(value) * inches_per_unit
-        return round(value_in_inches * dpi, 2)  # Return pixels rounded to 2 decimals
-
-    def get_max_width(self, obj):
-        return self._convert_to_pixels(obj.max_width, obj.size)  # Use obj.size (e.g., "cm")
-
-    def get_max_height(self, obj):
-        return self._convert_to_pixels(obj.max_height, obj.size)
+        fields = [
+            'id', 'name', 'size', 'max_width', 'max_height',
+            'price', 'image1'
+        ]
