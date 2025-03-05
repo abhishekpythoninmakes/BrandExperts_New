@@ -54,4 +54,7 @@ urlpatterns = [
 
     path('orders_detail/<int:pk>/', views.OrderDetailView.as_view(), name='order-detail'),
 
+    # Send RFQ
+    path("send-rfq/", views.RFQRequestView.as_view(), name="send_rfq"),
+
 ]

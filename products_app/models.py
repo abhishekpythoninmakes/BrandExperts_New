@@ -77,7 +77,7 @@ class Product(models.Model):
 
 
 class Standard_sizes(models.Model):
-    product = models.ForeignKey(Product, on_delete=models.CASCADE, null=True, blank=True,related_name="standard_sizes")
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, null=True, blank=True,related_name="standard_sizes",verbose_name="Product")
     standard_sizes = models.CharField(max_length=200, null=True, blank=True,editable=False)
     width = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
     height = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)

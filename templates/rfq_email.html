@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Request for Quotation</title>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        .container { width: 80%; margin: auto; padding: 20px; }
+        .logo { text-align: center; }
+        .logo img { max-width: 200px; }
+        .details { margin-top: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        table, th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        th { background-color: #f4f4f4; }
+        .total { font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">
+            <img src="https://www.brandexperts.ae/assets/br_logo-JUO0DtaB.png" alt="BrandExperts Logo">
+        </div>
+        <h2>Request for Quotation (RFQ)</h2>
+        <p><strong>Company:</strong> {{ company_name }}</p>
+        <p><strong>Email:</strong> {{ company_email }}</p>
+        <p><strong>Phone:</strong> {{ company_phone }}</p>
+        <p><strong>Date:</strong> {{ current_datetime }}</p>
+
+        <h3>Order Details</h3>
+        <table>
+            <tr>
+                <th>Item Name</th>
+                <th>Size</th>
+                <th>Quantity</th>
+                <th>Unit Price</th>
+                <th>Total</th>
+            </tr>
+            {% for item in cart_items %}
+            <tr>
+                <td>{{ item.name }}</td>
+                <td>{{ item.size }}</td>
+                <td>{{ item.quantity }}</td>
+                <td>{{ item.unit_price }}</td>
+                <td>{{ item.total }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+        <p class="details"><strong>Subtotal:</strong> {{ subtotal }} AED</p>
+        {% if site_visit %}
+        <p class="details"><strong>Site Visit Fee:</strong> {{ site_visit_fee }} AED</p>
+        {% endif %}
+        <p class="details total"><strong>Total:</strong> {{ total }} AED</p>
+    </div>
+</body>
+</html>

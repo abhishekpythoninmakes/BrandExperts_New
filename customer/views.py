@@ -1326,7 +1326,58 @@ class OrderDetailView(RetrieveAPIView):
     # permission_classes = [IsAuthenticated]
 
 
-#
+# SEND EMAIL RFQ
+from django.core.mail import EmailMultiAlternatives
+from django.utils.timezone import now
+
+
+class RFQRequestView(APIView):
+    permission_classes = [AllowAny]
+    def post(self, request, *args, **kwargs):
+        data = request.data
+        email = data.get("email")
+        cart_items = data.get("cart_items", [])
+        subtotal = data.get("subtotal", 0)
+        site_visit = data.get("site_visit", False)
+        site_visit_fee = data.get("site_visit_fee", 0)
+        total = data.get("total", 0)
+
+        # Render the email template
+        context = {
+            "company_name": "BrandExperts",
+            "company_email": "hello@brandexperts.ae",
+            "company_phone": "+971-123-4567",
+            "current_datetime": now().strftime('%Y-%m-%d %H:%M:%S'),
+            "cart_items": cart_items,
+            "subtotal": subtotal,
+            "site_visit": site_visit,
+            "site_visit_fee": site_visit_fee,
+            "total": total
+        }
+        html_content = render_to_string("rfq_email.html", context)
+        text_content = strip_tags(html_content)
+
+        subject = "Request for Quotation (RFQ) - BrandExperts"
+        from_email = "hello@brandexperts.ae"
+        to_email = [email]
+
+        # Send the email
+        msg = EmailMultiAlternatives(subject, text_content, from_email, to_email)
+        msg.attach_alternative(html_content, "text/html")
+        msg.send()
+
+        return Response({"message": "RFQ email sent successfully."}, status=status.HTTP_200_OK)
+
+
+
+
+
+
+
+
+
+
+
 
 
 

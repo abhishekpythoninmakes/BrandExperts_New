@@ -1,4 +1,6 @@
 from django.contrib import admin
+from django.http import JsonResponse
+
 from .models import *
 from django import forms
 from django.utils.html import format_html
@@ -6,6 +8,7 @@ from ckeditor.widgets import CKEditorWidget
 from ckeditor_uploader.widgets import CKEditorUploadingWidget
 from django.contrib import messages
 from django.utils.safestring import mark_safe
+from django.urls import path
 # Register your models here.
 
 admin.site.site_header = "BrandExperts Admin Panel"
@@ -73,7 +76,69 @@ class ProductAdmin(admin.ModelAdmin):
 
 # Register the model with the customized admin class
 admin.site.register(Product, ProductAdmin)
-admin.site.register(Standard_sizes)
+
+
+class StandardSizesAdmin(admin.ModelAdmin):
+    change_form_template = 'admin/products_app/standard_sizes/change_form.html'
+    list_display = ('product', 'standard_sizes', 'width', 'height')
+    readonly_fields = ('product_details',)
+
+    fieldsets = (
+        (None, {
+            'fields': ('product', 'width', 'height', 'product_details')
+        }),
+    )
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                'get-product-details/',
+                self.admin_site.admin_view(self.get_product_details),
+                name='get_product_details'
+            ),
+        ]
+        return custom_urls + urls
+
+    def get_product_details(self, request):
+        product_id = request.GET.get('product_id')
+        try:
+            product = Product.objects.get(id=product_id)
+            return JsonResponse({
+                'size': product.size,
+                'min_width': float(product.min_width),
+                'max_width': float(product.max_width),
+                'min_height': float(product.min_height),
+                'max_height': float(product.max_height),
+            })
+        except Product.DoesNotExist:
+            return JsonResponse({'error': 'Product not found'}, status=404)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
+    def product_details(self, obj):
+        if obj.product:
+            return format_html(
+                'Unit: {}<br>'
+                'Min Width: {} {}<br>'
+                'Max Width: {} {}<br>'
+                'Min Height: {} {}<br>'
+                'Max Height: {} {}',
+                obj.product.size,
+                obj.product.min_width, obj.product.size,
+                obj.product.max_width, obj.product.size,
+                obj.product.min_height, obj.product.size,
+                obj.product.max_height, obj.product.size,
+            )
+        return "No product selected"
+
+    product_details.short_description = 'Product Details'
+    product_details.allow_tags = True
+
+    class Media:
+        js = ('admin/js/product_details.js',)
+admin.site.register(Standard_sizes, StandardSizesAdmin)
+
 admin.site.register(Product_status)
 admin.site.register(Warranty_plan)
 admin.site.register(VAT)
