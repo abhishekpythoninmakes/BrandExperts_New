@@ -488,6 +488,13 @@ class ProductPriceView(APIView):
         })
 
 
+
+class ProductBasicDetailView(APIView):
+    def get(self, request, *args, **kwargs):
+        products = Product.objects.all().order_by('-id')
+        serializer = ProductBasicDetailSerializer(products, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
 # QUERY PRODUCTS
 #
 # import re

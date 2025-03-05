@@ -72,6 +72,10 @@ urlpatterns = [
 
     path('product-price/', views.ProductPriceView.as_view(), name='product-price'),
 
+    # Produt Serializer for editor
+
+    path('product-basic-details/', views.ProductBasicDetailView.as_view(), name='product-basic-detail-list'),
+
     # QUERY
     # path('square-signs-report/', views.export_square_signs_products, name='square_signs_report'),
 ]

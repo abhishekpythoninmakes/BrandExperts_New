@@ -225,3 +225,15 @@ class ProductPriceSerializer(serializers.Serializer):
         if value not in valid_units:
             raise serializers.ValidationError(f"Invalid unit. Valid units are: {', '.join(valid_units)}")
         return value
+
+
+
+class ProductBasicDetailSerializer(serializers.ModelSerializer):
+    size = serializers.CharField(source='get_size_display')  # To get the display value of the choice field
+
+    class Meta:
+        model = Product
+        fields = [
+            'id', 'name', 'size', 'max_width', 'max_height',
+            'price', 'image1'
+        ]

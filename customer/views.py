@@ -73,7 +73,7 @@ class CustomerRegistrationView(APIView):
                 mobile=validated_data['mobile'],
                 password=validated_data['password']
             )
-
+            print("OTP =",otp)
             return Response({
                 "success": True,
                 "message": "OTP sent successfully.",
