@@ -35,6 +35,7 @@ ALLOWED_HOSTS = [
     'http://localhost:5174',
 ]
 
+SITE_URL="dash.brandexperts.ae"
 
 # Application definition
 

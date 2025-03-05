@@ -1,3 +1,5 @@
+import re
+
 from rest_framework import serializers
 from .models import *
 
@@ -81,12 +83,20 @@ class DetailedProductSerializer(serializers.ModelSerializer):
         ]
 
     def get_absolute_html(self, content):
-        """Convert relative media URLs to absolute URLs in HTML fields."""
-        if content:
-            request = self.context.get("request")
-            domain = request.build_absolute_uri("/")[:-1] if request else settings.SITE_URL
-            return content.replace('src="/media/', f'src="{domain}/media/')
-        return None
+        """Convert relative media URLs to unquoted absolute URLs"""
+        if not content:
+            return content
+
+        request = self.context.get("request")
+        domain = settings.SITE_URL.rstrip('/')
+        if request:
+            domain = request.build_absolute_uri("/").rstrip('/')
+
+        # Regex to match src="..." or src='...' with /media/ paths
+        pattern = r'src=([\'"])(/media/.*?)\1'
+        replacement = f'src={domain}\\2'
+
+        return re.sub(pattern, replacement, content, flags=re.IGNORECASE)
 
     def get_product_overview(self, obj):
         return self.get_absolute_html(obj.product_overview)
