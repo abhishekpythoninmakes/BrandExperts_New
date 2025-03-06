@@ -144,7 +144,7 @@ admin.site.register(Order, OrderAdmin)
 
 @admin.register(CustomerDesign)
 class CustomerDesignAdmin(admin.ModelAdmin):
-    list_display = ('id', 'customer_id', 'anonymous_uuid', 'product_name', 'width', 'height', 'quantity', 'created_at')
+    list_display = ('id', 'customer_id', 'product_name', 'product_max_width', 'product_max_height', 'quantity', 'created_at')
     list_filter = ('customer', 'product_name', 'created_at')
     search_fields = ('customer__user__username', 'anonymous_uuid', 'product_name')
     readonly_fields = ('id', 'created_at', 'updated_at')
@@ -154,7 +154,7 @@ class CustomerDesignAdmin(admin.ModelAdmin):
             "fields": ("id", "customer", "anonymous_uuid", "created_at"),
         }),
         ("Product Details", {
-            "fields": ("product_name", "width", "height", "quantity"),
+            "fields": ("product_name", "product_max_width", "product_max_height", "quantity"),
         }),
         ("Design Data", {
             "fields": ("design_data",),
