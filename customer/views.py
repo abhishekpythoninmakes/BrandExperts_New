@@ -1896,11 +1896,21 @@ def ask_gemini_ai(query, location=None):
         result = response.json()
         if "candidates" in result and result["candidates"]:
             full_response = result["candidates"][0]["content"]["parts"][0]["text"]
-            # Truncate the response to 4 sentences
-            sentences = full_response.split('. ')  # Split into sentences
-            truncated_response = '. '.join(sentences[:4])  # Join first 4 sentences
+
+            # Step 1: Remove markdown formatting (e.g., ##, **, etc.)
+            cleaned_response = re.sub(r'#+\s*', '', full_response)  # Remove headers
+            cleaned_response = re.sub(r'\*\*', '', cleaned_response)  # Remove bold
+            cleaned_response = re.sub(r'\*', '', cleaned_response)  # Remove italics
+
+            # Step 2: Replace newlines with spaces
+            cleaned_response = cleaned_response.replace('\n', ' ')
+
+            # Step 3: Split into sentences and truncate to 4 sentences
+            sentences = re.split(r'(?<=[.!?])\s+', cleaned_response)  # Split by punctuation
+            truncated_response = ' '.join(sentences[:4])  # Join first 4 sentences
             if len(sentences) > 4:
                 truncated_response += '.'  # Add a period if the response was truncated
+
             return truncated_response
         return "No information found."
     except Exception as e:
