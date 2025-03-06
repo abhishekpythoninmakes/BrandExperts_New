@@ -1,4 +1,5 @@
 import json
+import os
 from decimal import Decimal
 
 from django.conf import settings
@@ -1484,9 +1485,100 @@ class GenerateAnonymousUUID(APIView):
 
 
 
+# GET DESIGN
+
+from io import BytesIO
+from PIL import Image, ImageDraw, ImageFont
+from django.conf import settings
+from django.core.files.storage import default_storage
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404
+from .models import CustomerDesign
 
 
+def generate_design_image(request, uid):
+    # Fetch the design from the database
+    design = get_object_or_404(CustomerDesign, id=uid)
 
+    # Debug: Print raw stored data
+    print("Raw Design Data from DB:", design.design_data)
+
+    # Parse design_data safely
+    try:
+        design_data = json.loads(design.design_data)
+    except json.JSONDecodeError as e:
+        return JsonResponse({"error": f"Invalid JSON in design_data: {e}"}, status=400)
+
+    # Debug: Print extracted design_data
+    print("Parsed Design Data:", design_data)
+
+    # Get canvas size from design_data
+    frame_data = design_data.get("frame", {})
+    canvas_width = int(frame_data.get("width", 400))  # Default to 400 if missing
+    canvas_height = int(frame_data.get("height", 100))  # Default to 100 if missing
+
+    # Debug: Print extracted width and height
+    print(f"Extracted Canvas Size: Width = {canvas_width}, Height = {canvas_height}")
+
+    # Create a blank transparent canvas
+    canvas = Image.new("RGBA", (canvas_width, canvas_height), (255, 255, 255, 255))
+    draw = ImageDraw.Draw(canvas)
+
+    # Process layers
+    for scene in design_data.get("scenes", []):
+        for layer in scene.get("layers", []):
+            layer_type = layer.get("type")
+
+            if layer_type == "Background":
+                draw.rectangle(
+                    [layer["left"], layer["top"], layer["left"] + layer["width"], layer["top"] + layer["height"]],
+                    fill=layer.get("fill", "#FFFFFF")  # Default white if missing
+                )
+
+            elif layer_type == "StaticImage":
+                try:
+                    response = requests.get(layer["src"])
+                    if response.status_code == 200:
+                        img = Image.open(BytesIO(response.content)).convert("RGBA")
+                        img = img.resize(
+                            (
+                            int(layer["width"] * layer.get("scaleX", 1)), int(layer["height"] * layer.get("scaleY", 1)))
+                        )
+                        canvas.paste(img, (int(layer["left"]), int(layer["top"])), img)
+                except Exception as e:
+                    print(f"Error loading image: {e}")
+
+            elif layer_type == "StaticText":
+                try:
+                    font_size = int(layer.get("fontSize", 20))
+                    font = ImageFont.truetype(BytesIO(requests.get(layer["fontURL"]).content), font_size)
+                except:
+                    font = ImageFont.load_default()
+
+                draw.text(
+                    (layer["left"], layer["top"]),
+                    layer.get("text", ""),
+                    font=font,
+                    fill=layer.get("fill", "#000000")
+                )
+
+    # Save the generated image
+    image_filename = f"{uid}_{uuid.uuid4().hex}.png"
+    image_path = os.path.join(settings.MEDIA_ROOT, "designs", image_filename)
+    image_url = settings.MEDIA_URL + "designs/" + image_filename
+
+    os.makedirs(os.path.dirname(image_path), exist_ok=True)
+    canvas.save(image_path, format="PNG")
+
+    # Update database with the generated image URL
+    design.design_image_url = image_url
+    design.save()
+
+    return JsonResponse({
+        "image_url": request.build_absolute_uri(image_url),
+        "canvas_width": canvas_width,
+        "canvas_height": canvas_height
+    })
 
 
 # Test

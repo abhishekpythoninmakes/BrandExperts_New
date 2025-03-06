@@ -65,4 +65,7 @@ urlpatterns = [
 
     path('save-design/', views.CustomerDesignView.as_view(), name='save_design'),
 
+    # GET DESIGNS
+    path('generate-image/<uuid:uid>/', views.generate_design_image, name='generate_design_image'),
+
 ]
