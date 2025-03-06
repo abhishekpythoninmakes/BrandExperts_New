@@ -7,7 +7,7 @@ from django.core.exceptions import ValidationError
 
 class CustomUser(AbstractUser):
     is_admin = models.BooleanField(default=False)
-
+    otp = models.CharField(max_length=6,null=True,blank=True)
     def __str__(self):
         return self.username
 

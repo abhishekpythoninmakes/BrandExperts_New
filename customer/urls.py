@@ -68,4 +68,12 @@ urlpatterns = [
     # GET DESIGNS
     path('generate-image/<uuid:uid>/', views.generate_design_image, name='generate_design_image'),
 
+    # send otp
+    path('send-otp/', views.send_otp, name='send_otp'),
+
+    path('verify-otp2/', views.verify_otp2, name='verify_otp'),
+
+    path('reset-password/', views.reset_password, name='reset_password'),
+
+
 ]

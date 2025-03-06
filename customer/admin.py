@@ -3,7 +3,7 @@ from django.utils.html import format_html
 from django.urls import reverse
 from .models import (
     Customer, WarrantyRegistration, ClaimWarranty, Customer_Address,
-    Cart, CartItem, Order,CustomerDesign, OTPRecord
+    Cart, CartItem, Order,CustomerDesign, OTPRecord ,PasswordResetSession
 )
 from django.contrib.auth.models import Group
 
@@ -166,3 +166,6 @@ class CustomerDesignAdmin(admin.ModelAdmin):
         return obj.customer.id if obj.customer else "Anonymous"
 
     customer_id.short_description = "Customer ID"
+
+
+admin.site.register(PasswordResetSession)

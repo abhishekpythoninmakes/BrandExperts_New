@@ -253,8 +253,18 @@ class CustomerDesign(models.Model):
             )
         ]
 
+from django.utils import timezone
+from datetime import timedelta
 
+class PasswordResetSession(models.Model):
+    email = models.EmailField()
+    otp = models.CharField(max_length=6)
+    session_token = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_verified = models.BooleanField(default=False)
 
+    def is_valid(self):
+        return (timezone.now() - self.created_at) < timedelta(minutes=10)
 
 
 

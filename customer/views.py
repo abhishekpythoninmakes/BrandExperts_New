@@ -1645,6 +1645,126 @@ def generate_design_image(request, uid):
         "total_price": total_price
     })
 
+
+from .models import PasswordResetSession
+
+
+@api_view(['POST'])
+def send_otp(request):
+    email = request.data.get('email')
+    if not email:
+        return JsonResponse({"error": "Email is required"}, status=400)
+
+    # Check if email exists
+    try:
+        user = CustomUser.objects.get(email=email)
+    except CustomUser.DoesNotExist:
+        return JsonResponse({"error": "Email not found"}, status=404)
+
+    # Generate OTP and session token
+    otp = str(random.randint(100000, 999999))
+    session = PasswordResetSession.objects.create(email=email, otp=otp)
+
+    # Send OTP via email
+    send_mail(
+        'Password Reset OTP',
+        f'Your OTP is: {otp}',
+        'hello@brandexperts.ae',
+        [email],
+        fail_silently=False,
+    )
+
+
+    return JsonResponse({
+        "message": "OTP sent successfully",
+        "session_token": str(session.session_token)
+    }, status=200)
+
+
+@api_view(['POST'])
+def verify_otp2(request):
+    session_token = request.data.get('session_token')
+    otp = request.data.get('otp')
+
+    if not session_token or not otp:
+        return JsonResponse({"error": "Session token and OTP are required"}, status=400)
+
+    # Validate UUID format
+    try:
+        session_token = uuid.UUID(session_token, version=4)
+    except ValueError:
+        return JsonResponse({"error": "Invalid session token"}, status=400)
+
+    try:
+        session = PasswordResetSession.objects.get(session_token=session_token)
+    except PasswordResetSession.DoesNotExist:
+        return JsonResponse({"error": "Invalid session token"}, status=404)
+
+    if not session.is_valid():
+        return JsonResponse({"error": "Session expired or already used"}, status=400)
+
+    if session.otp != otp:
+        return JsonResponse({"error": "Invalid OTP"}, status=400)
+
+    session.is_verified = True
+    session.save()
+
+    return JsonResponse({"message": "OTP verified successfully"}, status=200)
+
+
+@api_view(['POST'])
+def reset_password(request):
+    session_token = request.data.get('session_token')
+    new_password = request.data.get('new_password')
+    confirm_password = request.data.get('confirm_password')
+
+    if not session_token or not new_password or not confirm_password:
+        return JsonResponse({"error": "Session token, new password, and confirm password are required"}, status=400)
+
+    if new_password != confirm_password:
+        return JsonResponse({"error": "Passwords do not match"}, status=400)
+
+    # Validate UUID format
+    try:
+        session_token = uuid.UUID(session_token, version=4)
+    except ValueError:
+        return JsonResponse({"error": "Invalid session token"}, status=400)
+
+    try:
+        session = PasswordResetSession.objects.get(session_token=session_token)
+    except PasswordResetSession.DoesNotExist:
+        return JsonResponse({"error": "Invalid session token"}, status=404)
+
+    # Debugging logs
+    print(f"Session Found: {session.email}, Verified: {session.is_verified}, Created At: {session.created_at}, Token: {session.session_token}")
+
+    # Check if the session is still valid
+    if not session.is_valid():
+        return JsonResponse({"error": "Session expired"}, status=400)
+
+    if not session.is_verified:
+        return JsonResponse({"error": "OTP not verified"}, status=400)
+
+    try:
+        user = CustomUser.objects.get(email=session.email)
+    except CustomUser.DoesNotExist:
+        return JsonResponse({"error": "User not found"}, status=404)
+
+    # Update password
+    user.set_password(new_password)
+    user.save()
+
+    # Invalidate the session
+    session.delete()
+
+    return JsonResponse({"message": "Password reset successfully"}, status=200)
+
+
+
+
+
+
+
 # Test
 
 
