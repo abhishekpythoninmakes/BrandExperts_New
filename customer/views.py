@@ -1895,7 +1895,13 @@ def ask_gemini_ai(query, location=None):
 
         result = response.json()
         if "candidates" in result and result["candidates"]:
-            return result["candidates"][0]["content"]["parts"][0]["text"]
+            full_response = result["candidates"][0]["content"]["parts"][0]["text"]
+            # Truncate the response to 4 sentences
+            sentences = full_response.split('. ')  # Split into sentences
+            truncated_response = '. '.join(sentences[:4])  # Join first 4 sentences
+            if len(sentences) > 4:
+                truncated_response += '.'  # Add a period if the response was truncated
+            return truncated_response
         return "No information found."
     except Exception as e:
         print(f"Error fetching Gemini AI response: {e}")
