@@ -158,22 +158,19 @@ class CustomerDesignSerializer(serializers.ModelSerializer):
         model = CustomerDesign
         fields = [
             'id', 'customer', 'anonymous_uuid', 'product',
-            'width', 'height', 'unit', 'quantity', 'design_data'
+            'width', 'height', 'unit', 'quantity', 'design_data', 'design_image_url'
         ]
         extra_kwargs = {
             'customer': {'required': False},
             'product': {'required': False},
-            # Remove unique validator from anonymous_uuid
-            'anonymous_uuid': {'validators': []},
+            'anonymous_uuid': {'required': False, 'validators': []},  # No validation for anonymous_uuid
+            'design_image_url': {'required': False},  # Optional field
         }
 
     def validate(self, data):
-        # Custom validation logic
-        if not data.get('customer') and not data.get('anonymous_uuid'):
-            raise serializers.ValidationError("Either customer or anonymous_uuid must be provided")
-
+        # No validation for customer or anonymous_uuid
         try:
-            json.dumps(data['design_data'])
+            json.dumps(data['design_data'])  # Validate JSON data structure
         except TypeError:
             raise serializers.ValidationError("Invalid JSON data structure")
         return data

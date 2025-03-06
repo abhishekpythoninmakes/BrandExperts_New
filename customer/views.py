@@ -1386,7 +1386,7 @@ class CustomerDesignView(APIView):
         anonymous_uuid = data.get('anonymous_uuid')
         customer = data.get('customer')
 
-        # Generate new UUID only for completely new anonymous designs
+        # Generate new UUID if neither customer nor anonymous_uuid is provided
         if not anonymous_uuid and not customer:
             anonymous_uuid = uuid.uuid4()
             response_data['anonymous_uuid'] = str(anonymous_uuid)
@@ -1423,9 +1423,11 @@ class CustomerDesignView(APIView):
             'height': data.get('height'),
             'unit': data.get('unit', 'cm'),
             'quantity': data.get('quantity', 1),
-            'design_data': json.dumps(data['design_data'])
+            'design_data': json.dumps(data['design_data']),
+            'design_image_url': data.get('design_image_url', None),  # Add design_image_url
         }
 
+        # Create or update based on customer or anonymous_uuid
         if customer:
             design, created = CustomerDesign.objects.update_or_create(
                 customer=customer,
@@ -1449,6 +1451,7 @@ class CustomerDesignView(APIView):
             'height': float(design.height) if design.height else None,
             'unit': design.unit,
             'quantity': design.quantity,
+            'design_image_url': design.design_image_url,  # Include design_image_url in response
         })
 
         return Response(

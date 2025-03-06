@@ -232,6 +232,7 @@ class CustomerDesign(models.Model):
 
     # JSON design data (stored as text for MySQL compatibility)
     design_data = models.TextField()
+    design_image_url = models.URLField(null=True, blank=True)  # New field for design image URL
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -251,7 +252,6 @@ class CustomerDesign(models.Model):
                 name="customer_or_anon_uuid_required"
             )
         ]
-
 
 
 

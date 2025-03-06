@@ -3,7 +3,7 @@ from django.utils.html import format_html
 from django.urls import reverse
 from .models import (
     Customer, WarrantyRegistration, ClaimWarranty, Customer_Address,
-    Cart, CartItem, Order, OTPRecord
+    Cart, CartItem, Order,CustomerDesign, OTPRecord
 )
 from django.contrib.auth.models import Group
 
@@ -140,3 +140,4 @@ admin.site.register(Customer_Address)
 admin.site.register(Cart)
 admin.site.register(CartItem)
 admin.site.register(Order, OrderAdmin)
+admin.site.register(CustomerDesign)
