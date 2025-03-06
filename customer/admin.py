@@ -140,4 +140,39 @@ admin.site.register(Customer_Address)
 admin.site.register(Cart)
 admin.site.register(CartItem)
 admin.site.register(Order, OrderAdmin)
-admin.site.register(CustomerDesign)
+
+
+@admin.register(CustomerDesign)
+class CustomerDesignAdmin(admin.ModelAdmin):
+    list_display = ('id', 'customer', 'anonymous_uuid', 'product', 'quantity', 'created_at', 'preview_image')
+    list_filter = ('customer', 'product', 'created_at')
+    search_fields = ('customer__user__username', 'anonymous_uuid', 'product__name')
+    readonly_fields = ('id', 'created_at', 'updated_at', 'design_image_url', 'preview_image')
+    ordering = ('-created_at',)
+
+    def preview_image(self, obj):
+        """Show a preview of the design image in the admin panel."""
+        if obj.design_image_url:
+            return format_html(
+                f'<img src="{obj.design_image_url}" width="100" height="100" style="border-radius:5px;" />')
+        return "No Image"
+
+    preview_image.short_description = "Design Preview"
+
+    fieldsets = (
+        ("Design Details", {
+            "fields": ("id", "customer", "anonymous_uuid", "product", "quantity", "unit"),
+        }),
+        ("Product Info", {
+            "fields": (
+            "product_name", "product_min_width", "product_min_height", "product_max_width", "product_max_height",
+            "product_price", "product_image"),
+        }),
+        ("Design Configuration", {
+            "fields": ("width", "height", "design_data", "design_image_url", "preview_image"),
+        }),
+        ("Timestamps", {
+            "fields": ("created_at", "updated_at"),
+        }),
+    )
+
