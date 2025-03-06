@@ -1642,7 +1642,7 @@ def generate_design_image(request, uid):
         "canvas_height": canvas_height,
         "product_id": str(product.id) if product else None,
         "quantity": design.quantity,
-        "total_price": dtotal_price
+        "total_price": total_price
     })
 
 # Test
