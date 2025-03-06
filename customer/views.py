@@ -1405,28 +1405,70 @@ class CustomerDesignView(APIView):
             except Product.DoesNotExist:
                 return Response({"error": "Product not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        # Create design entry
-        design = CustomerDesign.objects.create(
-            customer=data.get('customer'),
-            anonymous_uuid=anonymous_uuid,
-            product=product,
-            product_name=product.name if product else None,
-            product_min_width=product.min_width if product else None,
-            product_min_height=product.min_height if product else None,
-            product_max_width=product.max_width if product else None,
-            product_max_height=product.max_height if product else None,
-            product_price=product.price if product else None,
-            product_image=product.image1 if product else None,
-            width=data.get('width'),
-            height=data.get('height'),
-            unit=data.get('unit', 'cm'),
-            quantity=data.get('quantity', 1),
-            design_data=json.dumps(data['design_data'])
-        )
+        # Check if a design already exists for the customer or anonymous UUID
+        design = None
+        if data.get('customer'):
+            design, created = CustomerDesign.objects.get_or_create(
+                customer=data['customer'],
+                defaults={
+                    'anonymous_uuid': anonymous_uuid,
+                    'product': product,
+                    'product_name': product.name if product else None,
+                    'product_min_width': product.min_width if product else None,
+                    'product_min_height': product.min_height if product else None,
+                    'product_max_width': product.max_width if product else None,
+                    'product_max_height': product.max_height if product else None,
+                    'product_price': product.price if product else None,
+                    'product_image': product.image1 if product else None,
+                    'width': data.get('width'),
+                    'height': data.get('height'),
+                    'unit': data.get('unit', 'cm'),
+                    'quantity': data.get('quantity', 1),
+                    'design_data': json.dumps(data['design_data'])
+                }
+            )
+        elif anonymous_uuid:
+            design, created = CustomerDesign.objects.get_or_create(
+                anonymous_uuid=anonymous_uuid,
+                defaults={
+                    'customer': data.get('customer'),
+                    'product': product,
+                    'product_name': product.name if product else None,
+                    'product_min_width': product.min_width if product else None,
+                    'product_min_height': product.min_height if product else None,
+                    'product_max_width': product.max_width if product else None,
+                    'product_max_height': product.max_height if product else None,
+                    'product_price': product.price if product else None,
+                    'product_image': product.image1 if product else None,
+                    'width': data.get('width'),
+                    'height': data.get('height'),
+                    'unit': data.get('unit', 'cm'),
+                    'quantity': data.get('quantity', 1),
+                    'design_data': json.dumps(data['design_data'])
+                }
+            )
+
+        # If the design already exists, update it
+        if not created:
+            design.product = product
+            design.product_name = product.name if product else None
+            design.product_min_width = product.min_width if product else None
+            design.product_min_height = product.min_height if product else None
+            design.product_max_width = product.max_width if product else None
+            design.product_max_height = product.max_height if product else None
+            design.product_price = product.price if product else None
+            design.product_image = product.image1 if product else None
+            design.width = data.get('width')
+            design.height = data.get('height')
+            design.unit = data.get('unit', 'cm')
+            design.quantity = data.get('quantity', 1)
+            design.design_data = json.dumps(data['design_data'])
+            design.save()
 
         response_data.update({
             'id': str(design.id),
             'created_at': design.created_at,
+            'updated_at': design.updated_at,
             'design_data': design.get_design_data(),
             'width': design.width,
             'height': design.height,
@@ -1434,7 +1476,7 @@ class CustomerDesignView(APIView):
             'quantity': design.quantity,
         })
 
-        return Response(response_data, status=status.HTTP_201_CREATED)
+        return Response(response_data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
 
 
