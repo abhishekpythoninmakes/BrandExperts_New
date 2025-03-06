@@ -1,3 +1,5 @@
+import json
+
 from rest_framework import serializers
 from django.contrib.auth.hashers import make_password
 from .models import *
@@ -146,3 +148,41 @@ class OrderDetailSerializer(serializers.ModelSerializer):
 
     def get_customer_name(self, obj):
         return obj.customer.user.get_full_name()
+
+
+class CustomerDesignSerializer(serializers.ModelSerializer):
+    design_data = serializers.JSONField()  # Handle JSON parsing/validation
+
+    class Meta:
+        model = CustomerDesign
+        fields = [
+            'id', 'customer', 'anonymous_uuid', 'product',
+            'width', 'height', 'unit', 'quantity', 'design_data'
+        ]
+        extra_kwargs = {
+            'customer': {'required': False},
+            'anonymous_uuid': {'required': False},
+            'product': {'required': False},
+        }
+
+    def validate(self, data):
+        # Ensure either customer or anonymous_uuid is provided
+        if not data.get('customer') and not data.get('anonymous_uuid'):
+            raise serializers.ValidationError("Either customer or anonymous_uuid must be provided")
+
+        # Validate JSON data structure
+        try:
+            json.dumps(data['design_data'])  # Test JSON serialization
+        except TypeError:
+            raise serializers.ValidationError("Invalid JSON data structure")
+
+        return data
+
+    def to_internal_value(self, data):
+        # Convert UUID strings to UUID objects if present
+        if 'anonymous_uuid' in data and data['anonymous_uuid']:
+            try:
+                data['anonymous_uuid'] = uuid.UUID(data['anonymous_uuid'])
+            except ValueError:
+                raise serializers.ValidationError({"anonymous_uuid": "Invalid UUID format"})
+        return super().to_internal_value(data)

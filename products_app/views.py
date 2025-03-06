@@ -488,7 +488,7 @@ class ProductPriceView(APIView):
             "total_price": round(total_price, 2)
         })
 
-    
+
 
 class ProductBasicDetailView(APIView):
     def get(self, request, *args, **kwargs):

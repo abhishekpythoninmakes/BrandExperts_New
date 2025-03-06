@@ -200,6 +200,60 @@ class OTPRecord(models.Model):
         return f"OTP for {self.email}"
 
 
+import uuid
+
+class CustomerDesign(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, null=True, blank=True)
+    anonymous_uuid = models.UUIDField(null=True, blank=True, unique=True)
+    product = models.ForeignKey(Product, on_delete=models.SET_NULL, null=True, blank=True)
+
+    # Product details cache (populated if product exists)
+    product_name = models.CharField(max_length=900, null=True, blank=True)
+    product_min_width = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
+    product_min_height = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
+    product_max_width = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
+    product_max_height = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
+    product_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    product_image = models.URLField(null=True, blank=True)
+
+    # Design specifications
+    width = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
+    height = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
+    quantity = models.PositiveIntegerField(default=1)
+    unit = models.CharField(max_length=10, choices=[
+        ('cm', 'Centimeter'),
+        ('inches', 'Inches'),
+        ('feet', 'Feet'),
+        ('yard', 'Yard'),
+        ('meter', 'Meter'),
+        ('mm', 'Millimeter'),
+    ], default='cm')
+
+    # JSON design data (stored as text for MySQL compatibility)
+    design_data = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        identifier = self.customer.user.username if self.customer else f"Anonymous-{self.anonymous_uuid}"
+        return f"Design {self.id} by {identifier}"
+
+    def get_design_data(self):
+        """Parse stored text back to JSON-compatible structure"""
+        import json
+        return json.loads(self.design_data)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(customer__isnull=False) | models.Q(anonymous_uuid__isnull=False),
+                name="customer_or_anon_uuid_required"
+            )
+        ]
+
+
+
 
 
 

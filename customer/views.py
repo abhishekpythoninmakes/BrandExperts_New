@@ -1371,7 +1371,70 @@ class RFQRequestView(APIView):
 
 
 
+# SAVE DESIGNER DETAILS
 
+class CustomerDesignView(APIView):
+    def post(self, request):
+        serializer = CustomerDesignSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        data = serializer.validated_data
+        response_data = {}
+
+        # Get or create UUID for anonymous users
+        anonymous_uuid = data.get('anonymous_uuid')
+        if not anonymous_uuid and not data.get('customer'):
+            anonymous_uuid = uuid.uuid4()
+            response_data['anonymous_uuid'] = str(anonymous_uuid)
+
+        # Handle product data
+        product = None
+        if data.get('product'):
+            try:
+                product = Product.objects.get(pk=data['product'].id)
+                response_data.update({
+                    'product_name': product.name,
+                    'product_min_width': product.min_width,
+                    'product_min_height': product.min_height,
+                    'product_max_width': product.max_width,
+                    'product_max_height': product.max_height,
+                    'product_price': product.price,
+                    'product_image': product.image1
+                })
+            except Product.DoesNotExist:
+                return Response({"error": "Product not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Create design entry
+        design = CustomerDesign.objects.create(
+            customer=data.get('customer'),
+            anonymous_uuid=anonymous_uuid,
+            product=product,
+            product_name=product.name if product else None,
+            product_min_width=product.min_width if product else None,
+            product_min_height=product.min_height if product else None,
+            product_max_width=product.max_width if product else None,
+            product_max_height=product.max_height if product else None,
+            product_price=product.price if product else None,
+            product_image=product.image1 if product else None,
+            width=data.get('width'),
+            height=data.get('height'),
+            unit=data.get('unit', 'cm'),
+            quantity=data.get('quantity', 1),
+            design_data=json.dumps(data['design_data'])
+        )
+
+        response_data.update({
+            'id': str(design.id),
+            'created_at': design.created_at,
+            'design_data': design.get_design_data(),
+            'width': design.width,
+            'height': design.height,
+            'unit': design.unit,
+            'quantity': design.quantity,
+        })
+
+        return Response(response_data, status=status.HTTP_201_CREATED)
 
 
 
