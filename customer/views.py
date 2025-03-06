@@ -1500,84 +1500,104 @@ def generate_design_image(request, uid):
     # Fetch the design from the database
     design = get_object_or_404(CustomerDesign, id=uid)
 
-    # Check if a product is linked to this design
+    try:
+        design_data = json.loads(design.design_data)
+    except json.JSONDecodeError as e:
+        return JsonResponse({"error": f"Invalid JSON: {e}"}, status=400)
+
+    # Determine canvas size
     product = design.product
-    if product:
+    if product and design.product_max_width and design.product_max_height:
         canvas_width = int(design.product_max_width)
         canvas_height = int(design.product_max_height)
-        product_id = product.id
     else:
-        # Get canvas size from design_data if no product is associated
-        try:
-            design_data = json.loads(design.design_data)
-        except json.JSONDecodeError as e:
-            return JsonResponse({"error": f"Invalid JSON in design_data: {e}"}, status=400)
-
         frame_data = design_data.get("frame", {})
-        canvas_width = int(frame_data.get("width", 400))
-        canvas_height = int(frame_data.get("height", 100))
-        product_id = None
+        canvas_width = int(frame_data.get("width", 1200))
+        canvas_height = int(frame_data.get("height", 1200))
 
-    # Create a blank transparent canvas
-    canvas = Image.new("RGBA", (canvas_width, canvas_height), (255, 255, 255, 255))
+    # Create TRANSPARENT canvas (RGBA with alpha=0)
+    canvas = Image.new("RGBA", (canvas_width, canvas_height), (255, 255, 255, 0))
     draw = ImageDraw.Draw(canvas)
 
-    # Process layers if design_data exists
-    if not product:
-        for scene in design_data.get("scenes", []):
-            for layer in scene.get("layers", []):
-                layer_type = layer.get("type")
-                if layer_type == "Background":
-                    draw.rectangle(
-                        [layer["left"], layer["top"], layer["left"] + layer["width"], layer["top"] + layer["height"]],
-                        fill=layer.get("fill", "#FFFFFF")
-                    )
-                elif layer_type == "StaticImage":
-                    try:
-                        response = requests.get(layer["src"])
-                        if response.status_code == 200:
-                            img = Image.open(BytesIO(response.content)).convert("RGBA")
-                            img = img.resize(
-                                (
-                                    int(layer["width"] * layer.get("scaleX", 1)),
-                                    int(layer["height"] * layer.get("scaleY", 1))
-                                )
-                            )
-                            canvas.paste(img, (int(layer["left"]), int(layer["top"])), img)
-                    except Exception as e:
-                        print(f"Error loading image: {e}")
-                elif layer_type == "StaticText":
-                    try:
-                        font_size = int(layer.get("fontSize", 20))
-                        font = ImageFont.truetype(BytesIO(requests.get(layer["fontURL"]).content), font_size)
-                    except:
-                        font = ImageFont.load_default()
-                    draw.text(
-                        (layer["left"], layer["top"]),
-                        layer.get("text", ""),
-                        font=font,
-                        fill=layer.get("fill", "#000000")
-                    )
+    # Process all layers
+    for scene in design_data.get("scenes", []):
+        for layer in scene.get("layers", []):
+            layer_type = layer.get("type")
 
-    # Save the generated image
+            # Convert negative coordinates to positive
+            left = max(0, int(layer.get("left", 0)))
+            top = max(0, int(layer.get("top", 0)))
+
+            if layer_type == "Background":
+                # Draw background rectangle
+                draw.rectangle(
+                    [
+                        left,
+                        top,
+                        left + int(layer["width"]),
+                        top + int(layer["height"])
+                    ],
+                    fill=layer.get("fill", "#FFFFFF")
+                )
+
+            elif layer_type == "StaticImage":
+                try:
+                    response = requests.get(layer["src"], timeout=10)
+                    if response.status_code == 200:
+                        img = Image.open(BytesIO(response.content)).convert("RGBA")
+                        img = img.resize((
+                            int(layer["width"] * layer.get("scaleX", 1)),
+                            int(layer["height"] * layer.get("scaleY", 1))
+                        ))
+                        # Ensure image stays within canvas bounds
+                        paste_x = max(0, min(left, canvas_width - img.width))
+                        paste_y = max(0, min(top, canvas_height - img.height))
+                        canvas.paste(img, (paste_x, paste_y), img)
+                except Exception as e:
+                    print(f"Image Error: {str(e)}")
+
+            elif layer_type == "StaticText":
+                try:
+                    text = layer.get("text", "")
+                    fill_color = layer.get("fill", "#000000")
+                    font_size = int(layer.get("fontSize", 20))
+
+                    # Load font with fallback
+                    font = None
+                    if "fontURL" in layer:
+                        try:
+                            font_data = requests.get(layer["fontURL"], timeout=5).content
+                            font = ImageFont.truetype(BytesIO(font_data), font_size)
+                        except:
+                            pass
+                    if not font:
+                        font = ImageFont.load_default(size=font_size)
+
+                    # Calculate text position
+                    text_x = max(0, min(left, canvas_width))
+                    text_y = max(0, min(top, canvas_height))
+
+                    draw.text((text_x, text_y), text, font=font, fill=fill_color)
+                except Exception as e:
+                    print(f"Text Error: {str(e)}")
+
+    # Save as PNG with transparency
     image_filename = f"{uid}_{uuid.uuid4().hex}.png"
     image_path = os.path.join(settings.MEDIA_ROOT, "designs", image_filename)
-    image_url = settings.MEDIA_URL + "designs/" + image_filename
     os.makedirs(os.path.dirname(image_path), exist_ok=True)
-    canvas.save(image_path, format="PNG")
+    canvas.save(image_path, "PNG")
 
-    # Update database with the generated image URL
-    design.design_image_url = image_url
+    # Update model
+    design.design_image_url = settings.MEDIA_URL + "designs/" + image_filename
     design.save()
 
     return JsonResponse({
-        "image_url": request.build_absolute_uri(image_url),
+        "image_url": request.build_absolute_uri(design.design_image_url),
         "canvas_width": canvas_width,
         "canvas_height": canvas_height,
-        "product_id": product_id,
-        "quantiy":design.quantity
+        "product_id": str(product.id) if product else None,
+        "quantity": design.quantity
     })
-
 
 # Test
 
