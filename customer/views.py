@@ -1,6 +1,6 @@
 import json
 import os
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 from django.conf import settings
 from django.core.cache import cache
@@ -1496,6 +1496,23 @@ from django.shortcuts import get_object_or_404
 from .models import CustomerDesign
 
 
+def convert_units(value, from_unit, to_unit):
+    """Convert a value from one unit to another using meter as base unit"""
+    unit_to_meters = {
+        'mm': Decimal('0.001'),
+        'cm': Decimal('0.01'),
+        'meter': Decimal('1'),
+        'inches': Decimal('0.0254'),
+        'feet': Decimal('0.3048'),
+        'yard': Decimal('0.9144'),
+    }
+
+    if from_unit not in unit_to_meters or to_unit not in unit_to_meters:
+        raise ValueError("Invalid unit provided")
+
+    value_in_meters = Decimal(str(value)) * unit_to_meters[from_unit]
+    return value_in_meters / unit_to_meters[to_unit]
+
 def generate_design_image(request, uid):
     # Fetch the design from the database
     design = get_object_or_404(CustomerDesign, id=uid)
@@ -1514,6 +1531,8 @@ def generate_design_image(request, uid):
         frame_data = design_data.get("frame", {})
         canvas_width = int(frame_data.get("width", 1200))
         canvas_height = int(frame_data.get("height", 1200))
+
+
 
     # Create TRANSPARENT canvas (RGBA with alpha=0)
     canvas = Image.new("RGBA", (canvas_width, canvas_height), (255, 255, 255, 0))
@@ -1591,12 +1610,39 @@ def generate_design_image(request, uid):
     design.design_image_url = settings.MEDIA_URL + "designs/" + image_filename
     design.save()
 
+    # Calculate total price
+    total_price = None
+    if product and product.price:
+        try:
+            # Validate design dimensions
+            if not design.width or not design.height:
+                raise ValueError("Design width or height is missing")
+
+            # Convert design dimensions to Decimal
+            width = Decimal(str(design.width))
+            height = Decimal(str(design.height))
+
+            # Convert dimensions to product's unit
+            converted_width = convert_units(width, design.unit, product.size)
+            converted_height = convert_units(height, design.unit, product.size)
+
+            # Calculate area in product's units
+            area = converted_width * converted_height
+
+            # Calculate total price
+            total_price = float(area * product.price * design.quantity)
+        except (ValueError, InvalidOperation, TypeError) as e:
+            print(f"Price calculation error: {str(e)}")
+        except AttributeError:
+            print("Missing required fields for price calculation")
+
     return JsonResponse({
         "image_url": request.build_absolute_uri(design.design_image_url),
         "canvas_width": canvas_width,
         "canvas_height": canvas_height,
         "product_id": str(product.id) if product else None,
-        "quantity": design.quantity
+        "quantity": design.quantity,
+        "total_price": dtotal_price
     })
 
 # Test
