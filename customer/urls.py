@@ -57,6 +57,10 @@ urlpatterns = [
     # Send RFQ
     path("send-rfq/", views.RFQRequestView.as_view(), name="send_rfq"),
 
+    # UUID
+
+    path('generate-uuid/',views.GenerateAnonymousUUID.as_view(),name='generate-uuid'),
+
     # SAVE DESIGN
 
     path('save-design/', views.CustomerDesignView.as_view(), name='save_design'),

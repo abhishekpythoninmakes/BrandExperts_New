@@ -1382,105 +1382,102 @@ class CustomerDesignView(APIView):
         data = serializer.validated_data
         response_data = {}
 
-        # Get or create UUID for anonymous users
+        # Handle anonymous UUID
         anonymous_uuid = data.get('anonymous_uuid')
-        if not anonymous_uuid and not data.get('customer'):
+        customer = data.get('customer')
+
+        # Generate new UUID only for completely new anonymous designs
+        if not anonymous_uuid and not customer:
             anonymous_uuid = uuid.uuid4()
             response_data['anonymous_uuid'] = str(anonymous_uuid)
 
-        # Handle product data
+        # Product handling
         product = None
         if data.get('product'):
             try:
                 product = Product.objects.get(pk=data['product'].id)
-                response_data.update({
+                product_data = {
                     'product_name': product.name,
-                    'product_min_width': product.min_width,
-                    'product_min_height': product.min_height,
-                    'product_max_width': product.max_width,
-                    'product_max_height': product.max_height,
-                    'product_price': product.price,
+                    'product_min_width': float(product.min_width),
+                    'product_min_height': float(product.min_height),
+                    'product_max_width': float(product.max_width),
+                    'product_max_height': float(product.max_height),
+                    'product_price': float(product.price) if product.price else None,
                     'product_image': product.image1
-                })
+                }
+                response_data.update(product_data)
             except Product.DoesNotExist:
                 return Response({"error": "Product not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        # Check if a design already exists for the customer or anonymous UUID
-        design = None
-        if data.get('customer'):
-            design, created = CustomerDesign.objects.get_or_create(
-                customer=data['customer'],
-                defaults={
-                    'anonymous_uuid': anonymous_uuid,
-                    'product': product,
-                    'product_name': product.name if product else None,
-                    'product_min_width': product.min_width if product else None,
-                    'product_min_height': product.min_height if product else None,
-                    'product_max_width': product.max_width if product else None,
-                    'product_max_height': product.max_height if product else None,
-                    'product_price': product.price if product else None,
-                    'product_image': product.image1 if product else None,
-                    'width': data.get('width'),
-                    'height': data.get('height'),
-                    'unit': data.get('unit', 'cm'),
-                    'quantity': data.get('quantity', 1),
-                    'design_data': json.dumps(data['design_data'])
-                }
+        # Update or create logic
+        update_data = {
+            'product': product,
+            'product_name': product.name if product else None,
+            'product_min_width': product.min_width if product else None,
+            'product_min_height': product.min_height if product else None,
+            'product_max_width': product.max_width if product else None,
+            'product_max_height': product.max_height if product else None,
+            'product_price': product.price if product else None,
+            'product_image': product.image1 if product else None,
+            'width': data.get('width'),
+            'height': data.get('height'),
+            'unit': data.get('unit', 'cm'),
+            'quantity': data.get('quantity', 1),
+            'design_data': json.dumps(data['design_data'])
+        }
+
+        if customer:
+            design, created = CustomerDesign.objects.update_or_create(
+                customer=customer,
+                defaults=update_data
             )
         elif anonymous_uuid:
-            design, created = CustomerDesign.objects.get_or_create(
+            design, created = CustomerDesign.objects.update_or_create(
                 anonymous_uuid=anonymous_uuid,
-                defaults={
-                    'customer': data.get('customer'),
-                    'product': product,
-                    'product_name': product.name if product else None,
-                    'product_min_width': product.min_width if product else None,
-                    'product_min_height': product.min_height if product else None,
-                    'product_max_width': product.max_width if product else None,
-                    'product_max_height': product.max_height if product else None,
-                    'product_price': product.price if product else None,
-                    'product_image': product.image1 if product else None,
-                    'width': data.get('width'),
-                    'height': data.get('height'),
-                    'unit': data.get('unit', 'cm'),
-                    'quantity': data.get('quantity', 1),
-                    'design_data': json.dumps(data['design_data'])
-                }
+                defaults=update_data
             )
+        else:
+            return Response({"error": "Missing identifier"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # If the design already exists, update it
-        if not created:
-            design.product = product
-            design.product_name = product.name if product else None
-            design.product_min_width = product.min_width if product else None
-            design.product_min_height = product.min_height if product else None
-            design.product_max_width = product.max_width if product else None
-            design.product_max_height = product.max_height if product else None
-            design.product_price = product.price if product else None
-            design.product_image = product.image1 if product else None
-            design.width = data.get('width')
-            design.height = data.get('height')
-            design.unit = data.get('unit', 'cm')
-            design.quantity = data.get('quantity', 1)
-            design.design_data = json.dumps(data['design_data'])
-            design.save()
-
+        # Build response
         response_data.update({
             'id': str(design.id),
             'created_at': design.created_at,
             'updated_at': design.updated_at,
             'design_data': design.get_design_data(),
-            'width': design.width,
-            'height': design.height,
+            'width': float(design.width) if design.width else None,
+            'height': float(design.height) if design.height else None,
             'unit': design.unit,
             'quantity': design.quantity,
         })
 
-        return Response(response_data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+        return Response(
+            response_data,
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK
+        )
 
 
+class GenerateAnonymousUUID(APIView):
+    def get(self, request):
+        """
+        Generates a unique UUID for anonymous users.
+        Ensures the UUID does not already exist in the CustomerDesign model.
+        """
+        max_attempts = 10  # Maximum attempts to generate a unique UUID
+        for _ in range(max_attempts):
+            new_uuid = uuid.uuid4()
+            # Check if the UUID already exists in the database
+            if not CustomerDesign.objects.filter(anonymous_uuid=new_uuid).exists():
+                return Response(
+                    {"anonymous_uuid": str(new_uuid)},
+                    status=status.HTTP_200_OK
+                )
 
-
+        # If no unique UUID can be generated after max attempts
+        return Response(
+            {"error": "Unable to generate a unique UUID. Please try again."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 
 

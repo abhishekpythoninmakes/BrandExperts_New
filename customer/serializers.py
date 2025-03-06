@@ -151,7 +151,8 @@ class OrderDetailSerializer(serializers.ModelSerializer):
 
 
 class CustomerDesignSerializer(serializers.ModelSerializer):
-    design_data = serializers.JSONField()  # Handle JSON parsing/validation
+    design_data = serializers.JSONField()
+    anonymous_uuid = serializers.UUIDField(required=False)  # Explicitly declare to override validation
 
     class Meta:
         model = CustomerDesign
@@ -161,25 +162,23 @@ class CustomerDesignSerializer(serializers.ModelSerializer):
         ]
         extra_kwargs = {
             'customer': {'required': False},
-            'anonymous_uuid': {'required': False},
             'product': {'required': False},
+            # Remove unique validator from anonymous_uuid
+            'anonymous_uuid': {'validators': []},
         }
 
     def validate(self, data):
-        # Ensure either customer or anonymous_uuid is provided
+        # Custom validation logic
         if not data.get('customer') and not data.get('anonymous_uuid'):
             raise serializers.ValidationError("Either customer or anonymous_uuid must be provided")
 
-        # Validate JSON data structure
         try:
-            json.dumps(data['design_data'])  # Test JSON serialization
+            json.dumps(data['design_data'])
         except TypeError:
             raise serializers.ValidationError("Invalid JSON data structure")
-
         return data
 
     def to_internal_value(self, data):
-        # Convert UUID strings to UUID objects if present
         if 'anonymous_uuid' in data and data['anonymous_uuid']:
             try:
                 data['anonymous_uuid'] = uuid.UUID(data['anonymous_uuid'])
