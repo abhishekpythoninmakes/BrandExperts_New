@@ -465,13 +465,19 @@ class ProductPriceView(APIView):
             print(error_msg)
             return Response({"error": error_msg}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Convert user's dimensions to product's unit
-        conversion_factor = unit_conversion[unit] / unit_conversion[product.size]
-        width_in_product_unit = width * conversion_factor
-        height_in_product_unit = height * conversion_factor
+        # Calculate area in the provided unit
+        area_in_provided_unit = width * height
 
-        # Calculate area in product's unit
-        area_in_product_unit = width_in_product_unit * height_in_product_unit
+        # Convert area to product's unit (square centimeters)
+        if unit == 'inches':
+            # Convert square inches to square centimeters
+            area_in_product_unit = area_in_provided_unit * Decimal('6.4516')
+        else:
+            # Convert other units to centimeters first, then calculate area
+            conversion_factor = unit_conversion[unit] / unit_conversion[product.size]
+            width_in_product_unit = width * conversion_factor
+            height_in_product_unit = height * conversion_factor
+            area_in_product_unit = width_in_product_unit * height_in_product_unit
 
         # Calculate total price
         total_price_per_item = area_in_product_unit * product.price
@@ -486,7 +492,6 @@ class ProductPriceView(APIView):
             "quantity": quantity,
             "total_price": round(total_price, 2)
         })
-
 
 
 class ProductBasicDetailView(APIView):
