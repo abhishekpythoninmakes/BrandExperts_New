@@ -432,7 +432,6 @@ class ProductPriceView(APIView):
         except Product.DoesNotExist:
             return Response({"error": "Product not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        # Unit conversion factors (to cm)
         unit_conversion = {
             'cm': Decimal('1'),
             'meter': Decimal('100'),
