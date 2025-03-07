@@ -471,7 +471,7 @@ class ProductPriceView(APIView):
         # Convert area to product's unit (square centimeters)
         if unit == 'inches':
             # Convert square inches to square centimeters
-            area_in_product_unit = area_in_provided_unit * Decimal('6.4516')
+            area_in_product_unit = area_in_provided_unit * Decimal('6.452')
         else:
             # Convert other units to centimeters first, then calculate area
             conversion_factor = unit_conversion[unit] / unit_conversion[product.size]
