@@ -80,12 +80,12 @@ admin.site.register(Product, ProductAdmin)
 
 class StandardSizesAdmin(admin.ModelAdmin):
     change_form_template = 'admin/products_app/standard_sizes/change_form.html'
-    list_display = ('product', 'standard_sizes', 'width', 'height')
+    list_display = ('product', 'standard_sizes', 'width', 'height','unit')
     readonly_fields = ('product_details',)
 
     fieldsets = (
         (None, {
-            'fields': ('product', 'width', 'height', 'product_details')
+            'fields': ('product', 'width', 'height','unit', 'product_details')
         }),
     )
 
