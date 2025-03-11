@@ -1,6 +1,8 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from django.urls import reverse
+from django.utils.safestring import mark_safe
+
 from .models import (
     Customer, WarrantyRegistration, ClaimWarranty, Customer_Address,
     Cart, CartItem, Order,CustomerDesign, OTPRecord ,PasswordResetSession , Client_user
@@ -174,7 +176,7 @@ admin.site.register(PasswordResetSession)
 @admin.register(Client_user)
 class ClientUserAdmin(admin.ModelAdmin):
     # Fields to display in the list view
-    list_display = ('name', 'email', 'mobile', 'user', 'status')
+    list_display = ('name', 'email_link', 'mobile_link', 'user_username', 'status')
 
     # Fields to filter by in the right sidebar
     list_filter = ('status', 'user')
@@ -197,29 +199,24 @@ class ClientUserAdmin(admin.ModelAdmin):
         }),
     )
 
-    # Add a custom column for user's username (if linked)
+    # Custom method to display linked user's username
     def user_username(self, obj):
         return obj.user.username if obj.user else "No User Linked"
 
     user_username.short_description = 'Linked User'
 
-    # Add a custom column for email (with mailto link)
+    # Custom method to display email as a clickable link
     def email_link(self, obj):
         if obj.email:
-            return f'<a href="mailto:{obj.email}">{obj.email}</a>'
+            return mark_safe(f'<a href="mailto:{obj.email}">{obj.email}</a>')
         return "No Email"
 
     email_link.short_description = 'Email'
-    email_link.allow_tags = True
 
-    # Add a custom column for mobile (with click-to-call link)
+    # Custom method to display mobile as a clickable link
     def mobile_link(self, obj):
         if obj.mobile:
-            return f'<a href="tel:{obj.mobile}">{obj.mobile}</a>'
+            return mark_safe(f'<a href="tel:{obj.mobile}">{obj.mobile}</a>')
         return "No Mobile"
 
     mobile_link.short_description = 'Mobile'
-    mobile_link.allow_tags = True
-
-    # Override the default list_display to include custom columns
-    list_display = ('name', 'email_link', 'mobile_link', 'user_username', 'status')
