@@ -43,8 +43,8 @@ urlpatterns = [
     # Test
 
     path("process-text/", views.process_text, name="process_text"),
-
-    path('process-image/', views.process_image, name='process_image'),
+    #
+    # path('process-image/', views.process_image, name='process_image'),
 
     # Database Backup
     #path('backup/', views.backup_database, name='backup_database'),
