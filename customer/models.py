@@ -22,7 +22,7 @@ class Client_user(models.Model):
     name = models.CharField(max_length=200,null=True,blank=True)
     mobile = models.CharField(max_length=20,null=True,blank=True)
     email = models.EmailField(null=True,blank=True)
-    status = models.CharField(max_length=300,null=True,blank=True,choices=customer_status,default='lead')
+    status = models.CharField(max_length=300,null=True,blank=True,choices=customer_status,default='client')
 
     def __str__(self):
         return self.user.username if self.user else "Unknown Customer"
