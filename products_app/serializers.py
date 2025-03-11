@@ -54,7 +54,7 @@ class DetailedProductSerializer(serializers.ModelSerializer):
     installation = serializers.SerializerMethodField()  # Convert relative image URLs
     standard_sizes = StandardSizesSerializer(many=True, read_only=True)
     status = serializers.CharField(source="status.status", allow_null=True)  # Get status name
-
+    amazon_url = serializers.SerializerMethodField()
     class Meta:
         model = Product
         fields = [
@@ -73,9 +73,9 @@ class DetailedProductSerializer(serializers.ModelSerializer):
             "min_width",
             "min_height",
             "size",
+            "amazon_url",
             "standard_sizes",
             "price",
-            "amazon_url",
             "parent_category",
             "category",
             "status",
@@ -125,6 +125,8 @@ class DetailedProductSerializer(serializers.ModelSerializer):
                     "image": category.category_image
                 })
         return categories if categories else None
+    def get_amazon_url(self, obj):  # This method should exist
+        return obj.amazon_url if obj.amazon_url else ""
 
 
     
