@@ -1774,10 +1774,17 @@ import random
 import re
 import requests
 from urllib.parse import quote
+import os
+import easyocr
+from django.conf import settings
+from PIL import Image
 
 # Gemini AI API Key (replace with your actual key)
 GEMINI_API_KEY = settings.GEMINI_API_KEY
 
+
+# Initialize the EasyOCR reader
+reader = easyocr.Reader(['en'])
 
 # Helper Functions
 
@@ -2028,3 +2035,26 @@ def process_text(request):
         data['response'] = gemini_response
 
     return Response(data)
+
+
+
+@api_view(["POST"])
+def process_image(request):
+    if 'image' not in request.FILES:
+        return Response({"error": "No image file provided"}, status=status.HTTP_400_BAD_REQUEST)
+
+    image_file = request.FILES['image']
+    image_path = os.path.join(settings.MEDIA_ROOT, image_file.name)
+
+    # Save the image to the media folder
+    with open(image_path, 'wb+') as destination:
+        for chunk in image_file.chunks():
+            destination.write(chunk)
+
+    # Perform OCR on the image
+    try:
+        result = reader.readtext(image_path)
+        extracted_text = " ".join([text for (_, text, _) in result])
+        return Response({"response": extracted_text}, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

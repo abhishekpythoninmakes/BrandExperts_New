@@ -75,6 +75,7 @@ class DetailedProductSerializer(serializers.ModelSerializer):
             "size",
             "standard_sizes",
             "price",
+            "amazon_url",
             "parent_category",
             "category",
             "status",
