@@ -1784,7 +1784,7 @@ GEMINI_API_KEY = settings.GEMINI_API_KEY
 
 
 # Initialize the EasyOCR reader
-reader = easyocr.Reader(['en'])
+# reader = easyocr.Reader(['en'])
 
 # Helper Functions
 
