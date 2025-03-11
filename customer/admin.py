@@ -3,7 +3,7 @@ from django.utils.html import format_html
 from django.urls import reverse
 from .models import (
     Customer, WarrantyRegistration, ClaimWarranty, Customer_Address,
-    Cart, CartItem, Order,CustomerDesign, OTPRecord ,PasswordResetSession
+    Cart, CartItem, Order,CustomerDesign, OTPRecord ,PasswordResetSession , Client_user
 )
 from django.contrib.auth.models import Group
 
@@ -169,3 +169,57 @@ class CustomerDesignAdmin(admin.ModelAdmin):
 
 
 admin.site.register(PasswordResetSession)
+
+
+@admin.register(Client_user)
+class ClientUserAdmin(admin.ModelAdmin):
+    # Fields to display in the list view
+    list_display = ('name', 'email', 'mobile', 'user', 'status')
+
+    # Fields to filter by in the right sidebar
+    list_filter = ('status', 'user')
+
+    # Fields to search by in the search bar
+    search_fields = ('name', 'email', 'mobile', 'user__username')
+
+    # Fields to group in the edit form
+    fieldsets = (
+        ('Basic Information', {
+            'fields': ('name', 'email', 'mobile')
+        }),
+        ('User Information', {
+            'fields': ('user',),
+            'description': 'Link this client to an existing user (optional).'
+        }),
+        ('Status', {
+            'fields': ('status',),
+            'description': 'Set the status of the client.'
+        }),
+    )
+
+    # Add a custom column for user's username (if linked)
+    def user_username(self, obj):
+        return obj.user.username if obj.user else "No User Linked"
+
+    user_username.short_description = 'Linked User'
+
+    # Add a custom column for email (with mailto link)
+    def email_link(self, obj):
+        if obj.email:
+            return f'<a href="mailto:{obj.email}">{obj.email}</a>'
+        return "No Email"
+
+    email_link.short_description = 'Email'
+    email_link.allow_tags = True
+
+    # Add a custom column for mobile (with click-to-call link)
+    def mobile_link(self, obj):
+        if obj.mobile:
+            return f'<a href="tel:{obj.mobile}">{obj.mobile}</a>'
+        return "No Mobile"
+
+    mobile_link.short_description = 'Mobile'
+    mobile_link.allow_tags = True
+
+    # Override the default list_display to include custom columns
+    list_display = ('name', 'email_link', 'mobile_link', 'user_username', 'status')

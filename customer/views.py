@@ -1334,16 +1334,36 @@ from django.utils.timezone import now
 
 class RFQRequestView(APIView):
     permission_classes = [AllowAny]
+
     def post(self, request, *args, **kwargs):
         data = request.data
         email = data.get("email")
+        name = data.get("name")
+        mobile = data.get("mobile")
         cart_items = data.get("cart_items", [])
         subtotal = data.get("subtotal", 0)
         site_visit = data.get("site_visit", False)
         site_visit_fee = data.get("site_visit_fee", 0)
         total = data.get("total", 0)
 
-        # Render the email template
+        # Check for existing user with this email
+        user = None
+        if email:
+            try:
+                user = CustomUser.objects.get(email=email)
+            except CustomUser.DoesNotExist:
+                pass  # No user found with this email
+
+        # Create Client_user object
+        Client_user.objects.create(
+            user=user,
+            name=name,
+            mobile=mobile,
+            email=email,
+            status='lead'
+        )
+
+        # Render and send email
         context = {
             "company_name": "BrandExperts",
             "company_email": "hello@brandexperts.ae",
@@ -1355,21 +1375,23 @@ class RFQRequestView(APIView):
             "site_visit_fee": site_visit_fee,
             "total": total
         }
+
         html_content = render_to_string("rfq_email.html", context)
         text_content = strip_tags(html_content)
 
-        subject = "Request for Quotation (RFQ) - BrandExperts"
-        from_email = "hello@brandexperts.ae"
-        to_email = [email]
-
-        # Send the email
-        msg = EmailMultiAlternatives(subject, text_content, from_email, to_email)
+        msg = EmailMultiAlternatives(
+            subject="Request for Quotation (RFQ) - BrandExperts",
+            body=text_content,
+            from_email="hello@brandexperts.ae",
+            to=[email]
+        )
         msg.attach_alternative(html_content, "text/html")
         msg.send()
 
-        return Response({"message": "RFQ email sent successfully."}, status=status.HTTP_200_OK)
-
-
+        return Response(
+            {"message": "RFQ email sent successfully."},
+            status=status.HTTP_200_OK
+        )
 
 
 # SAVE DESIGNER DETAILS
