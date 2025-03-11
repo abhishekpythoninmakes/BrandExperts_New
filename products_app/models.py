@@ -82,6 +82,7 @@ class Standard_sizes(models.Model):
     standard_sizes = models.CharField(max_length=200, null=True, blank=True,editable=False)
     width = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
     height = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
+    unit = models.CharField(max_length=100, choices=sizes_available, default='cm', help_text="🛠 Select the measurement unit")
 
     def save(self, *args, **kwargs):
         if self.width is not None and self.height is not None:

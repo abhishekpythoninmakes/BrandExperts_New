@@ -15,7 +15,7 @@ class CategorySerializer(serializers.ModelSerializer):
 class StandardSizesSerializer(serializers.ModelSerializer):
     class Meta:
         model = Standard_sizes
-        fields = ['standard_sizes', 'width', 'height']
+        fields = ['standard_sizes', 'width', 'height','unit']
 
 # Product Serializer
 from django.conf import settings
