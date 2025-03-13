@@ -115,6 +115,7 @@ CORS_ALLOWED_ORIGINS = [
     "https://www.brandexperts.ae",
     "https://dash.brandexperts.ae",
     "http://localhost:5174",
+    "http://localhost:3000",
     "https://designer.brandexperts.ae",
     "http://designer.brandexperts.ae",
 ]
@@ -131,6 +132,7 @@ CSRF_TRUSTED_ORIGINS = [
     "https://www.brandexperts.ae",
     "http://localhost:5173",
     "http://localhost:5174",
+    "http://localhost:3000",
     "https://designer.brandexperts.ae",
     "http://designer.brandexperts.ae",
 ]
