@@ -67,6 +67,9 @@ class Product(models.Model):
     price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     status = models.ForeignKey(Product_status, on_delete=models.CASCADE, null=True, blank=True)
     amazon_url = models.URLField(null=True, blank=True)
+    # New Checkbox Field
+    allow_direct_add_to_cart = models.BooleanField(
+        default=False,null=True,blank=True,help_text="Allow Direct Add to Cart (Without Customization)")
     def __str__(self):
         return self.name if self.name else "Unnamed Product"
 

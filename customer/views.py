@@ -1797,9 +1797,9 @@ import re
 import requests
 from urllib.parse import quote
 import os
-# import easyocr
+import pytesseract
+from PIL import Image
 from django.conf import settings
-# from PIL import Image
 
 # Gemini AI API Key (replace with your actual key)
 GEMINI_API_KEY = settings.GEMINI_API_KEY
@@ -1965,6 +1965,31 @@ def process_text(request):
         "response_urls": []  # New field for YouTube or Wikipedia URLs
     }
 
+    # Check for image upload
+    if 'image' in request.FILES:
+        image_file = request.FILES['image']
+        image_path = os.path.join(settings.MEDIA_ROOT, image_file.name)
+
+        # Save image to media folder
+        with open(image_path, 'wb+') as destination:
+            for chunk in image_file.chunks():
+                destination.write(chunk)
+
+        # Extract text using Tesseract
+        try:
+            image = Image.open(image_path)
+            extracted_text = pytesseract.image_to_string(image).strip()
+
+            if extracted_text:
+                data['response'] = extracted_text
+            else:
+                data['response'] = "No text detected. Please provide a clearer image with good lighting."
+
+        except Exception as e:
+            data['response'] = f"OCR Error: {str(e)}"
+
+        return Response(data, status=status.HTTP_200_OK)
+
     text = request.data.get("text", "").lower()
 
     # Camera detection
@@ -2058,25 +2083,3 @@ def process_text(request):
 
     return Response(data)
 
-
-#
-# @api_view(["POST"])
-# def process_image(request):
-#     if 'image' not in request.FILES:
-#         return Response({"error": "No image file provided"}, status=status.HTTP_400_BAD_REQUEST)
-#
-#     image_file = request.FILES['image']
-#     image_path = os.path.join(settings.MEDIA_ROOT, image_file.name)
-#
-#     # Save the image to the media folder
-#     with open(image_path, 'wb+') as destination:
-#         for chunk in image_file.chunks():
-#             destination.write(chunk)
-#
-#     # Perform OCR on the image
-#     try:
-#         result = reader.readtext(image_path)
-#         extracted_text = " ".join([text for (_, text, _) in result])
-#         return Response({"response": extracted_text}, status=status.HTTP_200_OK)
-#     except Exception as e:
-#         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
