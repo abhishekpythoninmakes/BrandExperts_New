@@ -116,6 +116,7 @@ CORS_ALLOWED_ORIGINS = [
     "https://dash.brandexperts.ae",
     "http://localhost:5174",
     "http://localhost:3000",
+    "https://be-editor-one.vercel.app",
     "https://designer.brandexperts.ae",
     "http://designer.brandexperts.ae",
 ]
@@ -133,6 +134,7 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173",
     "http://localhost:5174",
     "http://localhost:3000",
+    "https://be-editor-one.vercel.app",
     "https://designer.brandexperts.ae",
     "http://designer.brandexperts.ae",
 ]

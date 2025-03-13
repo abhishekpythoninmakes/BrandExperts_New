@@ -1915,6 +1915,45 @@ GEMINI_API_KEY = settings.GEMINI_API_KEY
 
 # Helper Functions
 
+def extract_text_with_ocrspace(image_file):
+    API_KEY = 'K82218497288957'  # Your API key here
+    API_URL = 'https://api.ocr.space/parse/image'
+
+    try:
+        # Read image file content
+        image_bytes = image_file.read()
+
+        response = requests.post(
+            API_URL,
+            files={'image': (image_file.name, image_bytes)},
+            data={
+                'apikey': API_KEY,
+                'language': 'eng',
+                'isOverlayRequired': False,
+                'OCREngine': 2  # Better accuracy engine
+            }
+        )
+
+        response.raise_for_status()
+        result = response.json()
+
+        if result.get('IsErroredOnProcessing', False):
+            error_message = result.get('ErrorMessage', 'Unknown OCR error')
+            return None, error_message
+
+        parsed_results = result.get('ParsedResults', [])
+        if not parsed_results:
+            return None, 'No text found in image'
+
+        extracted_text = ' '.join([res.get('ParsedText', '') for res in parsed_results]).strip()
+        return extracted_text, None
+
+    except Exception as e:
+        return None, str(e)
+
+
+
+
 def get_address_from_coords(lat, lng):
     try:
         url = f"https://nominatim.openstreetmap.org/reverse?format=json&lat={lat}&lon={lng}"
@@ -2072,28 +2111,35 @@ def process_text(request):
 
     # Check for image upload
     if 'image' in request.FILES:
-        image_file = request.FILES['image']
-        image_path = os.path.join(settings.MEDIA_ROOT, image_file.name)
-
-        # Save image to media folder
-        with open(image_path, 'wb+') as destination:
-            for chunk in image_file.chunks():
-                destination.write(chunk)
-
-        # Extract text using Tesseract
         try:
-            image = Image.open(image_path)
-            extracted_text = pytesseract.image_to_string(image).strip()
+            print("Image found..!")
+            image_file = request.FILES['image']
+            print(f"Received file: {image_file.name}, Size: {image_file.size} bytes")
+
+            # Validate file size (max 5MB)
+            if image_file.size > 5 * 1024 * 1024:
+                data['response'] = "Image too large (max 5MB)"
+                return Response(data, status=status.HTTP_400_BAD_REQUEST)
+
+            # Extract text using OCR.space
+            extracted_text, error = extract_text_with_ocrspace(image_file)
+            print(f"OCR Response - Text: {extracted_text}, Error: {error}")
+
+            if error:
+                data['response'] = f"OCR Error: {error}"
+                return Response(data, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
             if extracted_text:
                 data['response'] = extracted_text
             else:
-                data['response'] = "No text detected. Please provide a clearer image with good lighting."
+                data['response'] = "No text detected. Please ensure clear image with visible text."
+
+            return Response(data, status=status.HTTP_200_OK)
 
         except Exception as e:
-            data['response'] = f"OCR Error: {str(e)}"
-
-        return Response(data, status=status.HTTP_200_OK)
+            print(f"Image processing error: {str(e)}")
+            data['response'] = f"Processing Error: {str(e)}"
+            return Response(data, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     text = request.data.get("text", "").lower()
 
