@@ -551,8 +551,9 @@ def validate_warranty_number(request):
         if timezone.now() < cooling_period_end:
             return Response({
                 "is_valid": False,
-                "message": "Sorry, you need to wait 30 days (cooling period) to claim warranty"
-            }, status=400)
+                "message": "Sorry, you need to wait 30 days (cooling period) to claim warranty",
+                "cooling_period_end": cooling_period_end.strftime("%Y-%m-%d")
+            }, status=200)
 
         # Check if warranty plan has expired
         warranty_plan = warranty.invoice_value
