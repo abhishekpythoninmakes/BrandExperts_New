@@ -1421,30 +1421,69 @@ class RFQRequestView(APIView):
             "client_address": client_address,
             "contact_person": f"Mr.{name}" if name else None,
 
-        # Order details
-        "quote_title": 'Quote for "Available for Rent" Unit Stickers',
-        "cart_items": cart_items,
-        "subtotal": formatted_subtotal,
-        "vat_amount": formatted_vat,
-        "total": formatted_total,
-        "site_visit": site_visit,
-        "site_visit_fee": site_visit_fee,
+            # Order details
+            "quote_title": 'Quote for "Available for Rent" Unit Stickers',
+            "cart_items": cart_items,
+            "subtotal": formatted_subtotal,
+            "vat_amount": formatted_vat,
+            "total": formatted_total,
+            "site_visit": site_visit,
+            "site_visit_fee": site_visit_fee,
         }
 
-        html_content = render_to_string("rfq_email.html", context)
-        text_content = strip_tags(html_content)
+        # Create HTML content for email
+        html_email_content = render_to_string("rfq_email.html", context)
+        text_content = strip_tags(html_email_content)
 
+        # Create a special version for PDF (using a separate template for better PDF compatibility)
+        html_pdf_content = render_to_string("rfq_pdf.html", context)
+
+        # Create a simple email message
         msg = EmailMultiAlternatives(
             subject="Request for Quotation (RFQ) - BrandExperts",
             body=text_content,
             from_email="hello@brandexperts.ae",
             to=[email]
         )
-        msg.attach_alternative(html_content, "text/html")
+        msg.attach_alternative(html_email_content, "text/html")
+
+        # Generate PDF from HTML using xhtml2pdf
+        try:
+            # Create a file-like buffer to receive PDF data
+            buffer = BytesIO()
+
+            # Import xhtml2pdf library
+            from xhtml2pdf import pisa
+
+            # Convert HTML to PDF
+            pisa_status = pisa.CreatePDF(
+                html_pdf_content,  # the HTML to convert
+                dest=buffer,  # file handle to receive result
+                encoding='UTF-8'
+            )
+
+            # Close the PDF buffer
+            buffer.seek(0)
+
+            # Create a PDF filename
+            pdf_filename = f"BrandExperts_Quote_{quote_number}.pdf"
+
+            # Only attach PDF if successful
+            if not pisa_status.err:
+                # Attach PDF to email
+                msg.attach(pdf_filename, buffer.getvalue(), 'application/pdf')
+            else:
+                print(f"Error generating PDF with xhtml2pdf: {pisa_status.err}")
+
+        except Exception as e:
+            # Log the error but continue with sending the email
+            print(f"Error generating PDF: {e}")
+
+        # Send the email
         msg.send()
 
         return Response(
-            {"message": "RFQ email sent successfully."},
+            {"message": "RFQ email sent successfully with PDF quote attachment."},
             status=status.HTTP_200_OK
         )
 

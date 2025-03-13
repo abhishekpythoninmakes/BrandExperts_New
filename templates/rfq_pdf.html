@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Request for Quotation</title>
+    <style>
+        @page {
+            size: a4 portrait;
+            margin: 1cm;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            font-size: 12px;
+        }
+        .container {
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .header-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        .header-table td {
+            border: none;
+            padding: 3px;
+            vertical-align: top;
+        }
+        .logo-cell {
+            width: 300px;
+        }
+        .logo img {
+            max-width: 200px;
+        }
+        .quote-info {
+            text-align: right;
+        }
+        .quote-number, .client-label {
+            color: #a0c4ff;
+            font-size: 11px;
+            margin-bottom: 5px;
+        }
+        .quote-number-value {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .ref-number {
+            margin-bottom: 20px;
+        }
+        .client-info {
+            text-align: right;
+            margin-bottom: 20px;
+        }
+        .client-name {
+            font-weight: bold;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+        .company-info {
+            text-align: left;
+            margin-bottom: 30px;
+        }
+        .company-name {
+            font-weight: bold;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+        .amount-section {
+            text-align: right;
+            margin-bottom: 20px;
+        }
+        .amount-label {
+            color: #a0c4ff;
+            font-size: 11px;
+            margin-bottom: 5px;
+        }
+        .amount-value {
+            font-size: 20px;
+            font-weight: bold;
+        }
+        .valid-until {
+            color: #a0c4ff;
+            font-size: 11px;
+            margin-bottom: 5px;
+            text-align: right;
+        }
+        .valid-until-date {
+            text-align: right;
+            margin-bottom: 30px;
+        }
+        .overview {
+            margin-bottom: 10px;
+            color: #666;
+        }
+        .quote-title {
+            margin-bottom: 20px;
+        }
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        .items-table th, .items-table td {
+            border-top: 1px solid #ddd;
+            border-bottom: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        .items-table th {
+            background-color: #ffffff;
+            color: #666;
+            font-weight: normal;
+        }
+        .line-total {
+            text-align: right;
+        }
+        .subtotal-section {
+            text-align: right;
+            padding: 10px 0;
+        }
+        .vat-section {
+            text-align: right;
+            padding: 5px 0;
+            border-bottom: 1px solid #ddd;
+        }
+        .total-section {
+            text-align: right;
+            padding: 10px 0;
+            font-weight: bold;
+        }
+        .conditions {
+            margin-top: 30px;
+        }
+        .conditions h3 {
+            color: #666;
+        }
+        .conditions ol {
+            color: #666;
+        }
+        .spacer {
+            width: 50px;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <table class="header-table">
+            <tr>
+                <td class="logo-cell">
+                    <div class="logo">
+                        <img src="https://www.brandexperts.ae/assets/br_logo-JUO0DtaB.png" alt="BrandExperts Logo">
+                    </div>
+                </td>
+                <td>
+                    <div class="quote-info">
+                        <div class="quote-number">QUOTE NUMBER</div>
+                        <div class="quote-number-value">BE-{{ quote_number }}</div>
+                        <div class="ref-number">SPR-{{ ref_number }}</div>
+
+                        <div class="client-label">CLIENT</div>
+                        <div class="client-name">{{ client_name }}</div>
+                        {% if contact_person %}
+                        <div>{{ contact_person }}</div>
+                        {% endif %}
+                        {% if client_address %}
+                        <div>{{ client_address.address_line1 }}</div>
+                        {% if client_address.address_line2 %}
+                        <div>{{ client_address.address_line2 }}</div>
+                        {% endif %}
+                        <div>{{ client_address.city }}</div>
+                        {% if client_address.state %}
+                        <div>{{ client_address.state }}</div>
+                        {% endif %}
+                        <div>{{ client_address.zip_code }}</div>
+                        <div>{{ client_address.country }}</div>
+                        {% if client_address.ext %}
+                        <div>{{ client_address.ext }}</div>
+                        {% endif %}
+                        {% endif %}
+                        {% if client_mobile %}
+                        <div>{{ client_mobile }}</div>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+        </table>
+
+        <div class="company-info">
+            <div class="company-name">{{ company_name }}</div>
+            <div>{{ company_address }}</div>
+            <div>{{ company_city }}, {{ company_country }}.</div>
+            <div>{{ company_po_box }}</div>
+            <div>{{ company_phone }}</div>
+        </div>
+
+        <div class="amount-section">
+            <div class="amount-label">AMOUNT (AED)</div>
+            <div class="amount-value">AED{{ total }}</div>
+        </div>
+
+        <div class="valid-until">VALID UNTIL</div>
+        <div class="valid-until-date">{{ valid_until }}</div>
+
+        <div class="overview">OVERVIEW</div>
+        <div class="quote-title">{{ quote_title }}</div>
+
+        <table class="items-table">
+            <tr>
+                <th style="width: 5%;">#</th>
+                <th style="width: 40%;">NAME AND DESCRIPTION</th>
+                <th style="width: 10%;">UNIT</th>
+                <th style="width: 10%;">QTY</th>
+                <th style="width: 15%;">PRICE/RATE</th>
+                <th style="width: 20%; text-align: right;">LINE TOTAL</th>
+            </tr>
+            {% for item in cart_items %}
+            <tr>
+                <td>{{ forloop.counter }}</td>
+                <td>{{ item.name }}</td>
+                <td>{{ item.unit }}</td>
+                <td>{{ item.quantity }}</td>
+                <td>AED{{ item.unit_price }}</td>
+                <td style="text-align: right;">AED{{ item.total }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+
+        <div class="subtotal-section">Subtotal <span class="spacer"></span> AED{{ subtotal }}</div>
+        <div class="vat-section">VAT (5%) <span class="spacer"></span> AED{{ vat_amount }}</div>
+        <div class="total-section">TOTAL (AED) <span class="spacer"></span> AED{{ total }}</div>
+
+        <div class="conditions">
+            <h3>Terms and Conditions</h3>
+            <ol>
+                <li>Order to be confirmed by LPO</li>
+                <li>Payment: 100% on work completion</li>
+                <li>Delivery: Within 3 to 5 working days after receipt of LPO,artwork files</li>
+            </ol>
+        </div>
+    </div>
+</body>
+</html>
