@@ -35,37 +35,90 @@ class ProductAdminForm(forms.ModelForm):
     product_overview = forms.CharField(widget=CKEditorUploadingWidget(), required=False)
     product_specifications = forms.CharField(widget=CKEditorUploadingWidget(), required=False)
     installation = forms.CharField(widget=CKEditorUploadingWidget(), required=False)
-    description = forms.CharField(widget=forms.Textarea(attrs={'rows': 4, 'cols': 60}), required=False)  # Normal text field
+    description = forms.CharField(widget=forms.Textarea(attrs={'rows': 4, 'cols': 60}), required=False)
 
     class Meta:
         model = Product
         fields = "__all__"
 
+# Inline for Standard Sizes
+class StandardSizesInline(admin.TabularInline):
+    model = Standard_sizes
+    extra = 1  # Number of empty forms to display
+    fields = ('width', 'height', 'unit', 'standard_sizes')
+    readonly_fields = ('standard_sizes',)  # Auto-generated field
+    verbose_name_plural = "Standard Sizes"
+
 # Custom Product Admin
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ('name', 'image1_preview', 'price', 'status', 'get_categories', 'get_parent_categories', 'size')
-    search_fields = ('name', 'categories__category_name', 'categories__parent_categories__name', 'size', 'description')
-    list_filter = ('status', 'categories')  # Filter by status and categories
-    ordering = ('-id',) # Order by newest first
-    list_per_page = 12  # Enable pagination with 20 products per page
     form = ProductAdminForm
+    inlines = [StandardSizesInline]  # Add inline for standard sizes
+    list_display = (
+        'name',
+        'image1_preview',
+        'price',
+        'status',
+        'get_categories',
+        'get_parent_categories',
+        'size',
+        'allow_direct_add_to_cart'
+    )
+    list_filter = ('status', 'categories', 'size', 'allow_direct_add_to_cart')  # Enhanced filters
+    search_fields = ('name', 'categories__category_name', 'categories__parent_categories__name', 'size', 'description')
+    ordering = ('-id',)  # Order by newest first
+    list_per_page = 20  # Pagination
+    readonly_fields = ('image1_preview', 'image2_preview', 'image3_preview', 'image4_preview')  # Image previews
+    fieldsets = (
+        ('Basic Information', {
+            'fields': ('name', 'description', 'categories', 'status', 'price', 'size', 'allow_direct_add_to_cart')
+        }),
+        ('Dimensions', {
+            'fields': ('min_width', 'max_width', 'min_height', 'max_height')
+        }),
+        ('Product Details', {
+            'fields': ('product_overview', 'product_specifications', 'installation')
+        }),
+        ('Images', {
+            'fields': ('image1', 'image1_preview', 'image2', 'image2_preview', 'image3', 'image3_preview', 'image4', 'image4_preview')
+        }),
+        ('External Links', {
+            'fields': ('amazon_url',)
+        }),
+    )
 
-    class Media:
-        js = ('admin/js/product_admin.js',)  # Add custom JavaScript for lazy loading images
-
+    # Image Previews
     def image1_preview(self, obj):
-        if obj.image1:  # Show only image1 preview if available
-            return format_html('<img data-src="{}" width="80" height="50" style="border-radius: 5px; object-fit: cover;" class="lazy-load" />',
-                               obj.image1)
+        if obj.image1:
+            return format_html('<img src="{}" width="80" height="50" style="border-radius: 5px; object-fit: cover;" />', obj.image1)
         return "No Image"
 
-    image1_preview.short_description = "Image Preview"  # Column header in admin panel
+    def image2_preview(self, obj):
+        if obj.image2:
+            return format_html('<img src="{}" width="80" height="50" style="border-radius: 5px; object-fit: cover;" />', obj.image2)
+        return "No Image"
 
+    def image3_preview(self, obj):
+        if obj.image3:
+            return format_html('<img src="{}" width="80" height="50" style="border-radius: 5px; object-fit: cover;" />', obj.image3)
+        return "No Image"
+
+    def image4_preview(self, obj):
+        if obj.image4:
+            return format_html('<img src="{}" width="80" height="50" style="border-radius: 5px; object-fit: cover;" />', obj.image4)
+        return "No Image"
+
+    image1_preview.short_description = "Image 1 Preview"
+    image2_preview.short_description = "Image 2 Preview"
+    image3_preview.short_description = "Image 3 Preview"
+    image4_preview.short_description = "Image 4 Preview"
+
+    # Get Categories
     def get_categories(self, obj):
         return ", ".join([category.category_name for category in obj.categories.all()])
 
     get_categories.short_description = 'Categories'
 
+    # Get Parent Categories
     def get_parent_categories(self, obj):
         parent_categories = set()
         for category in obj.categories.all():
@@ -73,6 +126,9 @@ class ProductAdmin(admin.ModelAdmin):
         return ", ".join([parent.name for parent in parent_categories])
 
     get_parent_categories.short_description = 'Parent Categories'
+
+    class Media:
+        js = ('admin/js/product_admin.js',)  # Add custom JavaScript for lazy loading images
 
 # Register the model with the customized admin class
 admin.site.register(Product, ProductAdmin)
