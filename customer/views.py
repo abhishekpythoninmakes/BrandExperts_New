@@ -1346,16 +1346,41 @@ class RFQRequestView(APIView):
         site_visit_fee = data.get("site_visit_fee", 0)
         total = data.get("total", 0)
 
+        # Set up current date and valid until date (20 days from now)
+        current_date = now()
+        valid_until = (current_date + timedelta(days=20)).strftime('%d %b %Y')
+
+        # Generate quote number (year + 4 digit sequence)
+        year = current_date.strftime('%Y')
+        # Get last quote number and increment
+        last_quote = 1000  # Default starting number
+        # You might want to store and retrieve this from a database
+        quote_number = f"{last_quote + 1}"
+
+        # Generate reference number
+        ref_number = f"{year}-{str(random.randint(10000, 99999))}"
+
         # Check for existing user with this email
         user = None
+        client_address = None
+
         if email:
             try:
                 user = CustomUser.objects.get(email=email)
+                # Try to get customer for this user
+                try:
+                    customer = Customer.objects.get(user=user)
+                    # Check if customer has any addresses
+                    addresses = Customer_Address.objects.filter(customer=customer).order_by('-id')
+                    if addresses.exists():
+                        client_address = addresses.first()
+                except Customer.DoesNotExist:
+                    pass
             except CustomUser.DoesNotExist:
                 pass  # No user found with this email
 
         # Create Client_user object
-        Client_user.objects.create(
+        client_user = Client_user.objects.create(
             user=user,
             name=name,
             mobile=mobile,
@@ -1363,17 +1388,47 @@ class RFQRequestView(APIView):
             status='lead'
         )
 
+        # Calculate VAT amount (5%)
+        vat_amount = float(total) * 0.05
+        subtotal_without_vat = float(total) - vat_amount
+
+        # Format currency values
+        formatted_total = "{:,.2f}".format(float(total))
+        formatted_subtotal = "{:,.2f}".format(subtotal_without_vat)
+        formatted_vat = "{:,.2f}".format(vat_amount)
+
         # Render and send email
         context = {
-            "company_name": "BrandExperts",
+            # Company info
+            "company_name": "Brand Experts Advertising LLC",
+            "company_address": "Industrial Area 17, Sharjah Kalba Ring Road",
+            "company_city": "Sharjah",
+            "company_country": "United Arab Emirates",
+            "company_po_box": "PO Box 23943",
+            "company_phone": "+971 6 531 4088",
             "company_email": "hello@brandexperts.ae",
-            "company_phone": "+971-123-4567",
-            "current_datetime": now().strftime('%Y-%m-%d %H:%M:%S'),
-            "cart_items": cart_items,
-            "subtotal": subtotal,
-            "site_visit": site_visit,
-            "site_visit_fee": site_visit_fee,
-            "total": total
+
+            # Quote info
+            "quote_number": quote_number,
+            "ref_number": ref_number,
+            "current_datetime": current_date.strftime('%Y-%m-%d'),
+            "valid_until": valid_until,
+
+            # Client info
+            "client_name": name,
+            "client_email": email,
+            "client_mobile": mobile,
+            "client_address": client_address,
+            "contact_person": f"Mr.{name}" if name else None,
+
+        # Order details
+        "quote_title": 'Quote for "Available for Rent" Unit Stickers',
+        "cart_items": cart_items,
+        "subtotal": formatted_subtotal,
+        "vat_amount": formatted_vat,
+        "total": formatted_total,
+        "site_visit": site_visit,
+        "site_visit_fee": site_visit_fee,
         }
 
         html_content = render_to_string("rfq_email.html", context)
