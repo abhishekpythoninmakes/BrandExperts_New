@@ -407,15 +407,16 @@ def confirm_payment_warranty(request):
                 warranty = WarrantyRegistration.objects.get(id=warranty_id)
                 subject = "Warranty Registration & Payment Confirmation"
                 message = f"""Dear {warranty.full_name},
-Your payment was successful! 
-🔑 Login Credentials:
-Username: {warranty.email}
-Password: {dummy_password}
-📌 Warranty Details:
-- Number: {warranty.warranty_number}
-- Invoice Number: {warranty.invoice_number}
-- Amount Paid: AED {warranty.warranty_plan_amount}
-Thank you for choosing us!"""
+                Your payment was successful! 
+                🔑 Login Credentials:
+                Username: {warranty.email}
+                Password: {dummy_password}
+                📌 Warranty Details:
+                - Number: {warranty.warranty_number}
+                - Invoice Number: {warranty.invoice_number}
+                - Amount Paid: AED {warranty.warranty_plan_amount},
+                🔔 Your warranty will be active after a 30-day cooling-off period.
+                Thank you for choosing us!"""
                 send_mail(
                     subject,
                     message,
@@ -545,6 +546,14 @@ def validate_warranty_number(request):
         except WarrantyRegistration.DoesNotExist:
             return Response({"is_valid": False, "message": "Invalid or inactive warranty number"}, status=404)
 
+        # Check 30-day cooling period
+        cooling_period_end = warranty.created_at + timedelta(days=30)
+        if timezone.now() < cooling_period_end:
+            return Response({
+                "is_valid": False,
+                "message": "Sorry, you need to wait 30 days (cooling period) to claim warranty"
+            }, status=400)
+
         # Check if warranty plan has expired
         warranty_plan = warranty.invoice_value
         if not warranty_plan:
@@ -573,16 +582,17 @@ def validate_warranty_number(request):
             "phone": warranty.phone,
             "invoice_number": warranty.invoice_number,
             "invoice_date": warranty.invoice_date.strftime("%Y-%m-%d"),
-            "invoice_file": warranty.invoice_file,
+            "invoice_file": warranty.invoice_file.url if warranty.invoice_file else None,
             "warranty_plan_amount": str(warranty.warranty_plan_amount),
             "warranty_number": warranty.warranty_number,
             "created_at": warranty.created_at.strftime("%Y-%m-%d %H:%M:%S"),
             "warranty_plan": {
                 "price_range": warranty_plan.price_range,
                 "duration_years": warranty_duration,
-                "plan_amount": str(getattr(warranty_plan, f'year{warranty_duration}'))
+                "plan_amount": str(getattr(warranty_plan, f'year{warranty_duration}', '0.00'))
             },
-            "expiration_date": expiration_date.strftime("%Y-%m-%d")
+            "expiration_date": expiration_date.strftime("%Y-%m-%d"),
+            "cooling_period_end": cooling_period_end.strftime("%Y-%m-%d")
         }
 
         return Response({
