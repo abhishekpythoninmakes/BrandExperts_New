@@ -40,6 +40,8 @@ urlpatterns = [
     # Confirm Payment
     path('confirm-payment/', views.confirm_payment, name='confirm_payment'),
 
+
+
     # Test
 
     path("process-text/", views.process_text, name="process_text"),
@@ -76,6 +78,9 @@ urlpatterns = [
     path('verify-otp2/', views.verify_otp2, name='verify_otp'),
 
     path('reset-password/', views.reset_password, name='reset_password'),
+
+    # Image store
+    # path('image/upload/', views.upload_image, name='upload_image'),
 
 
 ]

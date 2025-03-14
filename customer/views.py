@@ -1769,7 +1769,7 @@ def generate_design_image(request, uid):
         "canvas_height": canvas_height,
         "product_id": str(product.id) if product else None,
         "quantity": design.quantity,
-        "total_price": total_price
+        "total_price": product.price
     })
 
 
@@ -1887,6 +1887,41 @@ def reset_password(request):
     return JsonResponse({"message": "Password reset successfully"}, status=200)
 
 
+# @api_view(['POST'])
+# def upload_image(request):
+#     if 'image' not in request.FILES:
+#         return Response({'error': 'No image provided'}, status=status.HTTP_400_BAD_REQUEST)
+#
+#     image = request.FILES['image']
+#
+#     # Validate file size (5MB limit)
+#     if image.size > 5 * 1024 * 1024:
+#         return Response({'error': 'File size exceeds 5MB limit'}, status=status.HTTP_400_BAD_REQUEST)
+#
+#     # Validate file type
+#     allowed_types = ['image/jpeg', 'image/png', 'image/gif']
+#     if image.content_type not in allowed_types:
+#         return Response({'error': 'Invalid file type. Allowed: JPEG, PNG, GIF'},
+#                         status=status.HTTP_400_BAD_REQUEST)
+#
+#     try:
+#         # Generate unique filename
+#         ext = image.name.split('.')[-1]
+#         filename = f"{uuid.uuid4().hex}.{ext}"
+#         filepath = os.path.join(settings.MEDIA_ROOT, filename)
+#
+#         # Save file
+#         with open(filepath, 'wb+') as destination:
+#             for chunk in image.chunks():
+#                 destination.write(chunk)
+#
+#         # Build URL
+#         image_url = request.build_absolute_uri(settings.MEDIA_URL + filename)
+#
+#         return Response({'url': image_url}, status=status.HTTP_201_CREATED)
+#
+#     except Exception as e:
+#         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 
