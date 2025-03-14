@@ -43,6 +43,8 @@ class ProductSerializer(serializers.ModelSerializer):
             "min_height",
             "standard_sizes",
             "price",
+            "allow_direct_add_to_cart",
+            "amazon_url",
         ]
 
 
