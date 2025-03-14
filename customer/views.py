@@ -1,5 +1,6 @@
 import json
 import os
+import time
 from decimal import Decimal, InvalidOperation
 
 from django.conf import settings
@@ -1738,39 +1739,60 @@ def generate_design_image(request, uid):
     design.save()
 
     # Calculate total price
-    total_price = None
+    total_price = 0
     if product and product.price:
         try:
-            # Validate design dimensions
-            if not design.width or not design.height:
-                raise ValueError("Design width or height is missing")
+            from_unit = design.unit if design.unit else 'cm'
+            to_unit = product.size
 
-            # Convert design dimensions to Decimal
-            width = Decimal(str(design.width))
-            height = Decimal(str(design.height))
+            # Handle width conversion or default to product's minimum
+            if design.width is not None:
+                width = Decimal(str(design.width))
+                converted_width = convert_units(width, from_unit, to_unit)
+            else:
+                # Directly use product's min width in its native unit
+                converted_width = product.min_width
 
-            # Convert dimensions to product's unit
-            converted_width = convert_units(width, design.unit, product.size)
-            converted_height = convert_units(height, design.unit, product.size)
+            # Handle height conversion or default to product's minimum
+            if design.height is not None:
+                height = Decimal(str(design.height))
+                converted_height = convert_units(height, from_unit, to_unit)
+            else:
+                # Directly use product's min height in its native unit
+                converted_height = product.min_height
 
-            # Calculate area in product's units
             area = converted_width * converted_height
+            quantity = design.quantity if design.quantity is not None else 1
+            total_price = float(area * product.price * quantity)
 
-            # Calculate total price
-            total_price = float(area * product.price * design.quantity)
-        except (ValueError, InvalidOperation, TypeError) as e:
+        except (ValueError, InvalidOperation, TypeError, AttributeError) as e:
             print(f"Price calculation error: {str(e)}")
-        except AttributeError:
-            print("Missing required fields for price calculation")
 
-    return JsonResponse({
-        "image_url": request.build_absolute_uri(design.design_image_url),
-        "canvas_width": canvas_width,
-        "canvas_height": canvas_height,
-        "product_id": str(product.id) if product else None,
+    response_data = {
+        "amazon_url": product.amazon_url if product and product.amazon_url else None,
+        "allow_direct_add_to_cart": product.allow_direct_add_to_cart if product else False,
+        "id": product.id if product else None,
+        "name": product.name if product else "Unnamed Product",
+        "design_image": request.build_absolute_uri(design.design_image_url),
         "quantity": design.quantity,
-        "total_price": product.price
-    })
+        "timestamp": int(time.time() * 1000),  # Current timestamp in milliseconds
+        "total": round(total_price, 2),
+        "customSize": {
+            "width": float(design.width) if design.width else 1,
+            "height": float(design.height) if design.height else 1,
+            "unit": design.unit if design.unit else "cm"
+        }
+    }
+    return JsonResponse(response_data)
+    # return JsonResponse({
+    #     "product_name":product.name,
+    #     "image_url": request.build_absolute_uri(design.design_image_url),
+    #     "canvas_width": canvas_width,
+    #     "canvas_height": canvas_height,
+    #     "product_id": str(product.id) if product else None,
+    #     "quantity": design.quantity,
+    #     "total_price": product.price
+    # })
 
 
 from .models import PasswordResetSession
