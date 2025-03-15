@@ -2269,7 +2269,7 @@ def process_text(request):
         # Start async WhatsApp send
         if lat and lng:
             send_emergency_alert_async(lat, lng)
-            data['response'] = f"Emergency alert sent! Help is coming. Map: {map_link}"
+            data['response'] = f"Emergency response sent. An emergency message with your current location has been texted to the authorities, and the dialer will now open to initiate a call."
         else:
             data['response'] = "Emergency detected! But location missing - enable location services."
 
