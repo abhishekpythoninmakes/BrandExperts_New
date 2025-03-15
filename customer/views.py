@@ -1,5 +1,6 @@
 import json
 import os
+import tempfile
 import time
 from decimal import Decimal, InvalidOperation
 
@@ -2010,12 +2011,23 @@ def send_emergency_alert_async(lat, lng):
 
     threading.Thread(target=async_task, daemon=True).start()
 
+from paddleocr import PaddleOCR
+import time
+
+# Initialize PaddleOCR (lazy load to save resources)
+_paddle_ocr = None
+
+def get_paddle_ocr():
+    """Lazy load PaddleOCR to avoid initialization overhead"""
+    global _paddle_ocr
+    if _paddle_ocr is None:
+        _paddle_ocr = PaddleOCR(use_angle_cls=True, lang='en')  # Initialize only once
+    return _paddle_ocr
 
 
-
-def extract_text_with_ocrspace(image_file):
+def extract_text_with_ocrspace(image_file,fallback_to_paddle=True):
     API_KEY = 'K82218497288957'  # Your API key here
-    API_URL = 'https://api.ocr.space/parse/image'
+    API_URL = 'https://api.ocr.spacef/parse/image'
 
     try:
         # Read image file content
@@ -2029,7 +2041,8 @@ def extract_text_with_ocrspace(image_file):
                 'language': 'eng',
                 'isOverlayRequired': False,
                 'OCREngine': 2  # Better accuracy engine
-            }
+            },
+            timeout=10
         )
 
         response.raise_for_status()
@@ -2037,18 +2050,44 @@ def extract_text_with_ocrspace(image_file):
 
         if result.get('IsErroredOnProcessing', False):
             error_message = result.get('ErrorMessage', 'Unknown OCR error')
-            return None, error_message
+            raise Exception(error_message)
 
         parsed_results = result.get('ParsedResults', [])
         if not parsed_results:
-            return None, 'No text found in image'
+            raise Exception('No text found in image')
 
         extracted_text = ' '.join([res.get('ParsedText', '') for res in parsed_results]).strip()
         extracted_text = extracted_text.replace('\n', '   ')  # 3 spaces for slight pause
         return extracted_text, None
 
-    except Exception as e:
-        return None, str(e)
+    except Exception as ocr_space_error:
+        if not fallback_to_paddle:
+            return None, str(ocr_space_error)
+
+        # Fallback to PaddleOCR
+        try:
+            print("OCR.space failed, falling back to PaddleOCR...")
+            paddle_ocr = get_paddle_ocr()
+
+            # Save image to temp file (PaddleOCR requires file path)
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as temp_file:
+                temp_file.write(image_bytes)
+                temp_file_path = temp_file.name
+
+            # Perform OCR
+            print("perform padle ocr......!")
+            result = paddle_ocr.ocr(temp_file_path, cls=True)
+            os.unlink(temp_file_path)  # Clean up temp file
+
+            # Extract text from PaddleOCR result
+            if result and result[0]:
+                extracted_text = ' '.join([line[1][0] for line in result[0]])
+                return extracted_text, None
+            else:
+                return None, "No text found in image (PaddleOCR)"
+
+        except Exception as paddle_error:
+            return None, f"OCR.space failed: {ocr_space_error}, PaddleOCR failed: {paddle_error}"
 
 
 
