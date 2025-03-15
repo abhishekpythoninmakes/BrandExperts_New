@@ -1979,30 +1979,6 @@ CONTENT_SID = settings.CONTENT_SID
 import random
 
 
-
-def extract_amenity_and_context(text):
-    """
-    Extract the amenity type and location context from the user's query.
-    Returns: (amenity, context)
-    """
-    # Location context keywords
-    location_contexts = r'\b(nearest|closest|nearby|around me|close to me|in my area)\b'
-
-    # Extract location context
-    context_match = re.search(location_contexts, text, re.IGNORECASE)
-    context = context_match.group(0) if context_match else "nearby"
-
-    # Extract amenity type
-    amenity = None
-    for word in text.split():
-        if word.lower() not in location_contexts and word.lower() not in ["find", "locate", "search"]:
-            amenity = word.lower()
-            break
-
-    return amenity, context
-
-
-
 def handle_creator_questions(text):
     """Handle questions about the bot's creator/developer"""
     creator_keywords = [
@@ -2065,21 +2041,12 @@ def send_emergency_alert_async(lat, lng):
 
     threading.Thread(target=async_task, daemon=True).start()
 
-from paddleocr import PaddleOCR
+
 import time
 
-# Initialize PaddleOCR (lazy load to save resources)
-_paddle_ocr = None
-
-def get_paddle_ocr():
-    """Lazy load PaddleOCR to avoid initialization overhead"""
-    global _paddle_ocr
-    if _paddle_ocr is None:
-        _paddle_ocr = PaddleOCR(use_angle_cls=True, lang='en')  # Initialize only once
-    return _paddle_ocr
 
 
-def extract_text_with_ocrspace(image_file,fallback_to_paddle=True):
+def extract_text_with_ocrspace(image_file):
     API_KEY = 'K82218497288957'  # Your API key here
     API_URL = 'https://api.ocr.space/parse/image'
 
@@ -2095,8 +2062,7 @@ def extract_text_with_ocrspace(image_file,fallback_to_paddle=True):
                 'language': 'eng',
                 'isOverlayRequired': False,
                 'OCREngine': 2  # Better accuracy engine
-            },
-            timeout=5
+            }
         )
 
         response.raise_for_status()
@@ -2104,79 +2070,78 @@ def extract_text_with_ocrspace(image_file,fallback_to_paddle=True):
 
         if result.get('IsErroredOnProcessing', False):
             error_message = result.get('ErrorMessage', 'Unknown OCR error')
-            raise Exception(error_message)
+            return None, error_message
 
         parsed_results = result.get('ParsedResults', [])
         if not parsed_results:
-            raise Exception('No text found in image')
+            return None, 'No text found in image'
 
         extracted_text = ' '.join([res.get('ParsedText', '') for res in parsed_results]).strip()
         extracted_text = extracted_text.replace('\n', '   ')  # 3 spaces for slight pause
         return extracted_text, None
 
-    except Exception as ocr_space_error:
-        if not fallback_to_paddle:
-            return None, str(ocr_space_error)
+    except Exception as e:
+        return None, str(e)
 
-        # Fallback to PaddleOCR
-        try:
-            print("OCR.space failed, falling back to PaddleOCR...")
-            paddle_ocr = get_paddle_ocr()
 
-            # Save image to temp file (PaddleOCR requires file path)
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as temp_file:
-                temp_file.write(image_bytes)
-                temp_file_path = temp_file.name
 
-            # Perform OCR
-            print("perform padle ocr......!")
-            result = paddle_ocr.ocr(temp_file_path, cls=True)
-            os.unlink(temp_file_path)  # Clean up temp file
-
-            # Extract text from PaddleOCR result
-            if result and result[0]:
-                extracted_text = ' '.join([line[1][0] for line in result[0]])
-                return extracted_text, None
-            else:
-                return None, "No text found in image (PaddleOCR)"
-
-        except Exception as paddle_error:
-            return None, f"OCR.space failed: {ocr_space_error}, PaddleOCR failed: {paddle_error}"
 
 
 def get_address_from_coords(lat, lng):
-    """
-    Fetch detailed address (road, city, town, etc.) from coordinates.
-    """
     try:
         url = f"https://nominatim.openstreetmap.org/reverse?format=json&lat={lat}&lon={lng}"
         headers = {'User-Agent': 'YourAppName/1.0 (contact@yourapp.com)'}  # Required for Nominatim
         response = requests.get(url, headers=headers).json()
         address = response.get('address', {})
-
-        # Extract relevant address components
-        road = address.get('road', '')
-        city = address.get('city', '')
-        town = address.get('town', '')
-        village = address.get('village', '')
-        state = address.get('state', '')
-        country = address.get('country', '')
-
-        # Build address string
-        address_parts = [road, city or town or village, state, country]
-        address_parts = [part for part in address_parts if part]  # Remove empty parts
-        return ", ".join(address_parts)
-    except Exception as e:
-        print(f"Error fetching address: {e}")
-        return None
+        return f"{address.get('road', '')} {address.get('city', '')} {address.get('country', '')}".strip()
+    except:
+        return "Location details not available"
 
 
-def get_nearby_places(lat, lng, amenity):
-    """
-    Fetch nearby places using OpenStreetMap Overpass API.
-    If no results are found, use Gemini AI with location details.
-    """
+def get_nearby_places(lat, lng, query):
     try:
+        # Map query to OpenStreetMap amenity tags
+        amenity_mapping = {
+            "restaurant": "restaurant",
+            "hospital": "hospital",
+            "park": "park",
+            "hotel": "hotel",
+            "bus_station": "bus_station",
+            "cinema": "cinema",
+            "mall":"mall",
+            "police": "police",
+            "fire_station": "fire_station",
+            "pharmacy": "pharmacy",
+            "parking": "parking",
+            "school": "school",
+            "university": "university",
+            "library": "library",
+            "museum": "museum",
+            "zoo": "zoo",
+            "gym": "gym",
+            "bank": "bank",
+            "atm": "atm",
+            "post_office": "post_office",
+            "supermarket": "supermarket",
+            "bakery": "bakery",
+            "cafe": "cafe",
+            "bar": "bar",
+            "pub": "pub",
+            "nightclub": "nightclub",
+            "airport": "airport",
+            "railway_station": "railway_station",
+            "train_station": "train_station",
+            "train": "train",
+            "automobile": "automobile",
+            "auto stand": "auto stand",
+            "medical college": "medical college",
+            "medical store": "medical store",
+
+        }
+
+        # Get the correct OpenStreetMap tag
+        amenity = amenity_mapping.get(query, query)
+
         # Overpass API query
         overpass_query = f"""
         [out:json];
@@ -2192,29 +2157,16 @@ def get_nearby_places(lat, lng, amenity):
         # Parse the response
         places = response.json().get('elements', [])
         if not places:
-            # If no places found, use Gemini AI with location details
-            address = get_address_from_coords(lat, lng)
-            prompt = f"Find {amenity} near {address or 'this location'}. Provide specific details."
-            return ask_gemini_ai(prompt, f"{lat},{lng}")
+            return None  # No places found
 
-        # Extract place names and addresses
-        results = []
-        for place in places:
-            name = place['tags'].get('name', 'Unnamed place')
-            address = place['tags'].get('addr:street', '')
-            if address:
-                results.append(f"{name} on {address}")
-            else:
-                results.append(name)
-
-        return results[:3]  # Return up to 3 results
-
+        # Extract place names
+        return [place['tags'].get('name', 'Unnamed place')
+                for place in places
+                if 'tags' in place][:3]
     except Exception as e:
         print(f"Error fetching nearby places: {e}")
-        # Fallback to Gemini AI with location details
-        address = get_address_from_coords(lat, lng)
-        prompt = f"Find {amenity} near {address or 'this location'}. Provide specific details."
-        return ask_gemini_ai(prompt, f"{lat},{lng}")
+        return None
+
 
 def get_wikipedia_summary(query):
     try:
@@ -2290,8 +2242,8 @@ def ask_gemini_ai(query, location=None):
 
             # Step 3: Split into sentences and truncate to 4 sentences
             sentences = re.split(r'(?<=[.!?])\s+', cleaned_response)  # Split by punctuation
-            truncated_response = ' '.join(sentences[:4])  # Join first 4 sentences
-            if len(sentences) > 4:
+            truncated_response = ' '.join(sentences[:3])  # Join first 4 sentences
+            if len(sentences) > 3:
                 truncated_response += '.'  # Add a period if the response was truncated
 
             return truncated_response
@@ -2408,32 +2360,50 @@ def process_text(request):
         return Response(data)
 
     # 3. Location-based priority handling
-    def handle_location_requests(text, data):
-        """
-        Handle location-based queries dynamically.
-        Returns True if a location-based response was generated.
-        """
-        # Extract amenity and context from the query
-        amenity, context = extract_amenity_and_context(text)
-
-        if not amenity:
-            data['response'] = "Please specify what you're looking for (e.g., 'nearest restaurant')."
+    def handle_location_requests():
+        # A. Current location request
+        if re.search(r'\b(current location|where am i)\b', text):
+            if data['latitude'] and data['longitude']:
+                address = get_address_from_coords(data['latitude'], data['longitude'])
+                data[
+                    'response'] = f"Your approximate location: {address}" if address else "Location found but address unavailable"
+            else:
+                data['response'] = "Location coordinates not provided"
             return True
 
-        if not (data['latitude'] and data['longitude']):
-            data['response'] = "Location access required to find nearby places."
-            return True
+        # B. Nearby places lookup
+        place_mapping = {
+            'bus_station': {'keywords': ['bus stop', 'bus stand', 'bus station'],
+                            'query': 'public transit stop'},
+            'restaurant': {'keywords': ['restaurant', 'dine', 'eat']},
+            'hospital': {'keywords': ['hospital', 'clinic']},
+            'park': {'keywords': ['park', 'garden']},
+            'hotel': {'keywords': ['hotel', 'lodging']},
+            'cinema': {'keywords': ['theater', 'theatre', 'cinema']}
+        }
 
-        # Fetch nearby places
-        places = get_nearby_places(data['latitude'], data['longitude'], amenity)
+        for place_type, config in place_mapping.items():
+            if contains_word(text, config['keywords']):
+                if not (data['latitude'] and data['longitude']):
+                    data['response'] = "Location access required to find nearby places."
+                    return True
 
-        if isinstance(places, list):  # Overpass API result
-            data['response'] = f"{context.capitalize()} {amenity}s:\n" + "\n".join(places)
-        else:  # Gemini AI result
-            data['response'] = places
-        return True
+                places = get_nearby_places(
+                    data['latitude'],
+                    data['longitude'],
+                    config.get('query', place_type)
+                )
 
-    if handle_location_requests(text, data):
+                if places:
+                    data['response'] = f"Nearby {place_type.replace('_', ' ')}s: {', '.join(places[:3])}"
+                else:
+                    address = get_address_from_coords(data['latitude'], data['longitude'])
+                    prompt = f"Are there any {config.get('query', place_type)}s near {address or 'this location'}?"
+                    data['response'] = ask_gemini_ai(prompt, f"{data['latitude']},{data['longitude']}")
+                return True
+        return False
+
+    if handle_location_requests():
         return Response(data)
 
     # 4. Enhanced location-aware Gemini integration
