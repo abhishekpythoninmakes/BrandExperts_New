@@ -1979,6 +1979,9 @@ CONTENT_SID = settings.CONTENT_SID
 import random
 
 
+
+
+
 def handle_creator_questions(text):
     """Handle questions about the bot's creator/developer"""
     creator_keywords = [
@@ -2083,25 +2086,26 @@ def extract_text_with_ocrspace(image_file):
     except Exception as e:
         return None, str(e)
 
-
-
-
-
 def get_address_from_coords(lat, lng):
     try:
         url = f"https://nominatim.openstreetmap.org/reverse?format=json&lat={lat}&lon={lng}"
-        headers = {'User-Agent': 'YourAppName/1.0 (contact@yourapp.com)'}  # Required for Nominatim
+        headers = {'User-Agent': 'YourAppName/1.0 (contact@yourapp.com)'}
         response = requests.get(url, headers=headers).json()
         address = response.get('address', {})
-        return f"{address.get('road', '')} {address.get('city', '')} {address.get('country', '')}".strip()
-    except:
-        return "Location details not available"
+        parts = [address.get(key, '') for key in ['road', 'city', 'town', 'village', 'state', 'country']]
+        return ", ".join([part for part in parts if part])
+    except Exception as e:
+        print(f"Error fetching address: {e}")
+        return None
+
+
+
 
 
 def get_nearby_places(lat, lng, query):
     try:
         # Map query to OpenStreetMap amenity tags
-        amenity_mapping = {
+        place_mapping = {
             "restaurant": "restaurant",
             "hospital": "hospital",
             "park": "park",
@@ -2140,33 +2144,39 @@ def get_nearby_places(lat, lng, query):
         }
 
         # Get the correct OpenStreetMap tag
-        amenity = amenity_mapping.get(query, query)
+        tag_type = place_mapping.get(query, "amenity")
+        tag_value = query
 
-        # Overpass API query
         overpass_query = f"""
-        [out:json];
-        node(around:1000,{lat},{lng})["amenity"="{amenity}"];
-        out;
-        """
-
-        # Make the request
+                [out:json];
+                node(around:1000,{lat},{lng})["{tag_type}"="{tag_value}"];
+                out;
+                """
         url = "https://overpass-api.de/api/interpreter"
         response = requests.post(url, data=overpass_query)
-        response.raise_for_status()  # Raise an error for bad status codes
-
-        # Parse the response
+        response.raise_for_status()
         places = response.json().get('elements', [])
-        if not places:
-            return None  # No places found
 
-        # Extract place names
-        return [place['tags'].get('name', 'Unnamed place')
-                for place in places
-                if 'tags' in place][:3]
+        results = []
+        if places:
+            for place in places:
+                name = place['tags'].get('name', 'Unnamed place')
+                address = place['tags'].get('addr:street', '')
+                results.append(f"{name} on {address}" if address else name)
+        else:
+            address = get_address_from_coords(lat, lng)
+            prompt = f"Find {query} near {address or 'this location'}. List 5 names only, separated by commas."
+            gemini_response = ask_gemini_ai(prompt, f"{lat},{lng}")
+            # Parse Gemini response into a list
+            results = [place.strip() for place in gemini_response.split(',') if place.strip()]
+
+        return results[:5]  # Always return a list
     except Exception as e:
         print(f"Error fetching nearby places: {e}")
-        return None
-
+        address = get_address_from_coords(lat, lng)
+        prompt = f"Find {query} near {address or 'this location'}. List 5 names only, separated by commas."
+        gemini_response = ask_gemini_ai(prompt, f"{lat},{lng}")
+        return [place.strip() for place in gemini_response.split(',') if place.strip()]
 
 def get_wikipedia_summary(query):
     try:
