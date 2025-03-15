@@ -1975,6 +1975,36 @@ TWILIO_AUTH_TOKEN = settings.TWILIO_AUTH_TOKEN
 TWILIO_WHATSAPP_NUMBER = settings.TWILIO_WHATSAPP_NUMBER # Twilio sandbox number
 EMERGENCY_CONTACT = settings.EMERGENCY_CONTACT
 CONTENT_SID = settings.CONTENT_SID
+
+import random
+
+
+def handle_creator_questions(text):
+    """Handle questions about the bot's creator/developer"""
+    creator_keywords = [
+        'creator', 'developer', 'made you', 'created you',
+        'who are you', 'your maker', 'your parent', 'your boss'
+    ]
+
+    responses = [
+        "I am an AI assistant designed to empower individuals through advanced deep learning technologies. My development was guided by Revathy.",
+        "Crafted with precision and innovation, I am an AI assistant built to assist and enhance experiences. My creator, Revathy, envisioned me to make a difference.",
+        "Born from deep learning and innovation, I exist to assist and inspire. Revathy, my developer, has shaped me to bring AI-driven solutions to the world.",
+        "I am the product of AI ingenuity, designed to make the world more accessible and intelligent. My development was led by Revathy with a vision for innovation.",
+        "An AI assistant at your service, blending deep learning with human-centered design. Revathy is the mind behind my creation, guiding me to serve you better.",
+        "I am the bridge between artificial intelligence and human needs, built to assist and empower. Revathy, my creator, designed me with purpose and precision.",
+        "Created with the latest advancements in AI, I strive to assist and inspire. My developer, Revathy, brought me to life with a vision for intelligent assistance."
+    ]
+
+    if any(keyword in text.lower() for keyword in creator_keywords):
+        return random.choice(responses)
+
+    return None
+
+
+
+
+
 # Modified emergency handling section
 def send_emergency_alert_async(lat, lng):
     """Send WhatsApp alert using Twilio sandbox with template support"""
@@ -2027,7 +2057,7 @@ def get_paddle_ocr():
 
 def extract_text_with_ocrspace(image_file,fallback_to_paddle=True):
     API_KEY = 'K82218497288957'  # Your API key here
-    API_URL = 'https://api.ocr.spacef/parse/image'
+    API_URL = 'https://api.ocr.space/parse/image'
 
     try:
         # Read image file content
@@ -2042,7 +2072,7 @@ def extract_text_with_ocrspace(image_file,fallback_to_paddle=True):
                 'isOverlayRequired': False,
                 'OCREngine': 2  # Better accuracy engine
             },
-            timeout=10
+            timeout=5
         )
 
         response.raise_for_status()
@@ -2112,7 +2142,36 @@ def get_nearby_places(lat, lng, query):
             "park": "park",
             "hotel": "hotel",
             "bus_station": "bus_station",
-            "cinema": "cinema"
+            "cinema": "cinema",
+            "mall":"mall",
+            "police": "police",
+            "fire_station": "fire_station",
+            "pharmacy": "pharmacy",
+            "parking": "parking",
+            "school": "school",
+            "university": "university",
+            "library": "library",
+            "museum": "museum",
+            "zoo": "zoo",
+            "gym": "gym",
+            "bank": "bank",
+            "atm": "atm",
+            "post_office": "post_office",
+            "supermarket": "supermarket",
+            "bakery": "bakery",
+            "cafe": "cafe",
+            "bar": "bar",
+            "pub": "pub",
+            "nightclub": "nightclub",
+            "airport": "airport",
+            "railway_station": "railway_station",
+            "train_station": "train_station",
+            "train": "train",
+            "automobile": "automobile",
+            "auto stand": "auto stand",
+            "medical college": "medical college",
+            "medical store": "medical store",
+            "medical shop": "medical shop",
         }
 
         # Get the correct OpenStreetMap tag
@@ -2254,6 +2313,12 @@ def process_text(request):
     if re.search(exit_pattern, text, re.IGNORECASE):
         data['response'] = "Okay, closing the app. Goodbye!"
         data['app_exit'] = True
+        return Response(data)
+
+    # 2. Handle creator/developer questions
+    creator_response = handle_creator_questions(text)
+    if creator_response:
+        data['response'] = creator_response
         return Response(data)
 
     # Check for image upload
