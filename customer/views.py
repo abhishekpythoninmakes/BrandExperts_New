@@ -1965,12 +1965,53 @@ from django.conf import settings
 
 # Gemini AI API Key (replace with your actual key)
 GEMINI_API_KEY = settings.GEMINI_API_KEY
+import threading
+from twilio.rest import Client
+from twilio.base.exceptions import TwilioRestException
+# Twilio Configuration
+TWILIO_ACCOUNT_SID = settings.TWILIO_ACCOUNT_SID
+TWILIO_AUTH_TOKEN = settings.TWILIO_AUTH_TOKEN
+TWILIO_WHATSAPP_NUMBER = settings.TWILIO_WHATSAPP_NUMBER # Twilio sandbox number
+EMERGENCY_CONTACT = settings.EMERGENCY_CONTACT
+CONTENT_SID = settings.CONTENT_SID
+# Modified emergency handling section
+def send_emergency_alert_async(lat, lng):
+    """Send WhatsApp alert using Twilio sandbox with template support"""
+
+    def async_task():
+        try:
+            # Convert coordinates to floats first
+            lat_float = float(lat)
+            lng_float = float(lng)
+
+            client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+
+            # Create message with template
+            message = client.messages.create(
+                from_=TWILIO_WHATSAPP_NUMBER,
+                content_sid=CONTENT_SID,  # Your template SID
+                content_variables=json.dumps({
+                    "1": f"{lat_float:.6f}",
+                    "2": f"{lng_float:.6f}",
+                    "3": f"https://maps.google.com/?q={lat_float:.6f},{lng_float:.6f}"
+                }),
+                to=EMERGENCY_CONTACT
+            )
+
+            print(f"Alert sent: {message.sid}")
+            print(f"Message Status: {message.status}")
+
+        except ValueError as e:
+            print(f"Invalid coordinates: {lat}, {lng} - {str(e)}")
+        except TwilioRestException as e:
+            print(f"Twilio Error: {e.code} - {e.msg}")
+        except Exception as e:
+            print(f"General Error: {str(e)}")
+
+    threading.Thread(target=async_task, daemon=True).start()
 
 
-# Initialize the EasyOCR reader
-# reader = easyocr.Reader(['en'])
 
-# Helper Functions
 
 def extract_text_with_ocrspace(image_file):
     API_KEY = 'K82218497288957'  # Your API key here
@@ -2003,6 +2044,7 @@ def extract_text_with_ocrspace(image_file):
             return None, 'No text found in image'
 
         extracted_text = ' '.join([res.get('ParsedText', '') for res in parsed_results]).strip()
+        extracted_text = extracted_text.replace('\n', '   ')  # 3 spaces for slight pause
         return extracted_text, None
 
     except Exception as e:
@@ -2163,8 +2205,17 @@ def process_text(request):
         "longitude": request.data.get("longitude"),
         "latitude": request.data.get("latitude"),
         "map_link": "",
-        "response_urls": []  # New field for YouTube or Wikipedia URLs
+        "response_urls": [] , # New field for YouTube or Wikipedia URLs
+        "app_exit": False
     }
+    text = request.data.get("text", "").lower().strip()
+
+    # 1. Exit command handling
+    exit_pattern = r'\b(exit|close|bye|shutdown|quit|stop|goodbye)\b|(close|terminate)\s+(app|application)'
+    if re.search(exit_pattern, text, re.IGNORECASE):
+        data['response'] = "Okay, closing the app. Goodbye!"
+        data['app_exit'] = True
+        return Response(data)
 
     # Check for image upload
     if 'image' in request.FILES:
@@ -2198,7 +2249,7 @@ def process_text(request):
             data['response'] = f"Processing Error: {str(e)}"
             return Response(data, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    text = request.data.get("text", "").lower()
+
 
     # Camera detection
     camera_words = ['camera', 'open camera', 'scan', 'scanner']
@@ -2209,12 +2260,28 @@ def process_text(request):
                        'robbery']
     data['emergency'] = contains_word(text, emergency_words)
 
+    # 4. Emergency handling (async)
+    if data['emergency']:
+        lat = data['latitude']
+        lng = data['longitude']
+        map_link = f"https://www.openstreetmap.org/?mlat={lat}&mlon={lng}&zoom=16" if lat else ""
+
+        # Start async WhatsApp send
+        if lat and lng:
+            send_emergency_alert_async(lat, lng)
+            data['response'] = f"Emergency alert sent! Help is coming. Map: {map_link}"
+        else:
+            data['response'] = "Emergency detected! But location missing - enable location services."
+
+        data['map_link'] = map_link
+        return Response(data)
+
     # Generate map link (only for location-related responses)
     if data['latitude'] and data['longitude']:
         data['map_link'] = f"https://www.openstreetmap.org/?mlat={data['latitude']}&mlon={data['longitude']}&zoom=16"
 
     # Handle greetings
-    greeting_words = ['hi', 'hello', 'hey', 'hola', 'namaste']
+    greeting_words = ['hi', 'hello', 'hey', 'hola', 'namaste','hai']
     if contains_word(text, greeting_words):
         data['response'] = random.choice([
             "Hello! How can I assist you today?",
@@ -2223,71 +2290,103 @@ def process_text(request):
         ])
         return Response(data)
 
-    # Handle location requests
-    if 'current location' in text or 'where am i' in text:
+    # 3. Location-based priority handling
+    def handle_location_requests():
+        # A. Current location request
+        if re.search(r'\b(current location|where am i)\b', text):
+            if data['latitude'] and data['longitude']:
+                address = get_address_from_coords(data['latitude'], data['longitude'])
+                data[
+                    'response'] = f"Your approximate location: {address}" if address else "Location found but address unavailable"
+            else:
+                data['response'] = "Location coordinates not provided"
+            return True
+
+        # B. Nearby places lookup
+        place_mapping = {
+            'bus_station': {'keywords': ['bus stop', 'bus stand', 'bus station'],
+                            'query': 'public transit stop'},
+            'restaurant': {'keywords': ['restaurant', 'dine', 'eat']},
+            'hospital': {'keywords': ['hospital', 'clinic']},
+            'park': {'keywords': ['park', 'garden']},
+            'hotel': {'keywords': ['hotel', 'lodging']},
+            'cinema': {'keywords': ['theater', 'theatre', 'cinema']}
+        }
+
+        for place_type, config in place_mapping.items():
+            if contains_word(text, config['keywords']):
+                if not (data['latitude'] and data['longitude']):
+                    data['response'] = "Location access required to find nearby places."
+                    return True
+
+                places = get_nearby_places(
+                    data['latitude'],
+                    data['longitude'],
+                    config.get('query', place_type)
+                )
+
+                if places:
+                    data['response'] = f"Nearby {place_type.replace('_', ' ')}s: {', '.join(places[:3])}"
+                else:
+                    address = get_address_from_coords(data['latitude'], data['longitude'])
+                    prompt = f"Are there any {config.get('query', place_type)}s near {address or 'this location'}?"
+                    data['response'] = ask_gemini_ai(prompt, f"{data['latitude']},{data['longitude']}")
+                return True
+        return False
+
+    if handle_location_requests():
+        return Response(data)
+
+    # 4. Enhanced location-aware Gemini integration
+    location_triggers = r'\b(near( me)?|closest|close by|around|nearby|in my area)\b'
+    if re.search(location_triggers, text, re.IGNORECASE):
         if data['latitude'] and data['longitude']:
             address = get_address_from_coords(data['latitude'], data['longitude'])
-            data['response'] = f"Your approximate location: {address}"
+            prompt = f"{text} near {address}" if address else f"{text} at coordinates {data['latitude']}, {data['longitude']}"
+            data['response'] = ask_gemini_ai(prompt, f"{data['latitude']},{data['longitude']}")
         else:
-            data['response'] = "Location coordinates not provided"
+            data['response'] = "Please enable location services for this feature."
         return Response(data)
 
-    # Handle nearby places requests
-    place_mapping = {
-        'restaurant': ['restaurant', 'dine', 'eat'],
-        'hospital': ['hospital', 'clinic'],
-        'park': ['park', 'garden'],
-        'hotel': ['hotel', 'lodging'],
-        'bus_station': ['bus stand', 'bus station'],
-        'cinema': ['theater', 'theatre', 'cinema']
-    }
+    # 5. Core functionality handlers
+    handlers = [
+        {
+            'condition': lambda: contains_word(text, ['camera', 'scan']),
+            'response': "Camera access requested. When ready, point your camera at the subject.",
+            'field': 'camera'
+        },
+        {
+            'condition': lambda: contains_word(text, ['emergency', 'help']),
+            'response': "Emergency detected! Contact local authorities. Map link provided.",
+            'field': 'emergency'
+        },
+        {
+            'condition': lambda: 'play' in text,
+            'action': lambda: (get_youtube_link(text.replace('play', '').strip())),
+            'response': "Here's a YouTube link:",
+            'url_field': True
+        }
+    ]
 
-    for place_type, keywords in place_mapping.items():
-        if contains_word(text, keywords):
-            if data['latitude'] and data['longitude']:
-                places = get_nearby_places(data['latitude'], data['longitude'], place_type)
-                if places:
-                    data['response'] = f"Nearby {place_type}s: {', '.join(places)}"
-                else:
-                    data['response'] = f"No nearby {place_type}s found. Try expanding your search area."
-            else:
-                data['response'] = "Location coordinates needed to find nearby places"
+    for handler in handlers:
+        if handler['condition']():
+            if 'action' in handler:
+                result = handler['action']()
+                if result:
+                    data['response_urls'].append(result)
+            data['response'] = handler.get('response', '')
+            if 'field' in handler:
+                data[handler['field']] = True
             return Response(data)
 
-    # Handle emergency case
-    if data['emergency']:
-        data['response'] = "Emergency detected! Here's your map link for reference. Contact local authorities."
-        return Response(data)
-
-    # Handle camera case
-    if data['camera']:
-        data['response'] = "Camera access requested. When ready, point your camera at the subject."
-        return Response(data)
-
-    # Handle YouTube search for songs
-    if 'play' in text:
-        song_query = text.replace('play', '').strip()
-        youtube_link = get_youtube_link(song_query)
-        if youtube_link:
-            data['response'] = f"Here's a YouTube link for '{song_query}':"
-            data['response_urls'].append(youtube_link)
-        else:
-            data['response'] = f"Could not find a YouTube link for '{song_query}'."
-        return Response(data)
-
-    # Fallback to Wikipedia for general queries
+    # 6. Knowledge base fallback
     wikipedia_summary = get_wikipedia_summary(text)
-    if "No information found" not in wikipedia_summary and "Could not fetch" not in wikipedia_summary:
+    if "No information found" not in wikipedia_summary:
         data['response'] = wikipedia_summary
         data['response_urls'].append(f"https://en.wikipedia.org/wiki/{quote(text)}")
     else:
-        # If Wikipedia fails, ask Gemini AI
-        location = None
-        if data['latitude'] and data['longitude'] and any(
-                word in text for word in ["near me", "nearby", "close to me"]):
-            location = f"{data['latitude']},{data['longitude']}"
-        gemini_response = ask_gemini_ai(text, location)
-        data['response'] = gemini_response
+        data['response'] = ask_gemini_ai(text,
+                                         f"{data['latitude']},{data['longitude']}" if data['latitude'] else None
+                                         )
 
     return Response(data)
-

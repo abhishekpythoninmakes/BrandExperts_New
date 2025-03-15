@@ -242,11 +242,12 @@ SIMPLE_JWT = {
 
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.socketlabs.com'  # Use SocketLabs SMTP server
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'server34932'  # Your SocketLabs username
-EMAIL_HOST_PASSWORD = 'Tq62RrDt5f4MNe'  # Your SMTP password
+EMAIL_HOST = 'email-smtp.ap-south-1.amazonaws.com'  # AWS SES SMTP server
+EMAIL_PORT = 587  # Use STARTTLS
+EMAIL_USE_TLS = True  # Enable TLS
+EMAIL_USE_SSL = False  # Ensure SSL is disabled for STARTTLS
+EMAIL_HOST_USER = 'AKIA3C6FL5S2HPHYRYNN'  # AWS SES SMTP user name
+EMAIL_HOST_PASSWORD = 'BJ+TcRmykGY8TWMTkFrt9nG3c3NW1HTL2iRtXpTRKpx6'  # AWS SES SMTP password
 DEFAULT_FROM_EMAIL = 'hello@brandexperts.ae'  # Your official email
 
 CKEDITOR_CONFIGS = {
@@ -274,6 +275,13 @@ STRIPE_SECRET_KEY = config('STRIPE_SECRET_KEY')
 
 GEMINI_API_KEY = config('GEMINI_API_KEY')
 YOUTUBE_API_KEY = config('YOUTUBE_API_KEY')
+
+TWILIO_ACCOUNT_SID = config('TWILIO_ACCOUNT_SID')
+TWILIO_AUTH_TOKEN = config('TWILIO_AUTH_TOKEN')
+CONTENT_SID = config('CONTENT_SID')
+TWILIO_WHATSAPP_NUMBER = config('TWILIO_WHATSAPP_NUMBER')
+EMERGENCY_CONTACT = config('EMERGENCY_CONTACT')
+
 
 
 
