@@ -2179,8 +2179,8 @@ def ask_gemini_ai(query, location=None):
 
             # Step 3: Split into sentences and truncate to 4 sentences
             sentences = re.split(r'(?<=[.!?])\s+', cleaned_response)  # Split by punctuation
-            truncated_response = ' '.join(sentences[:4])  # Join first 4 sentences
-            if len(sentences) > 4:
+            truncated_response = ' '.join(sentences[:3])  # Join first 4 sentences
+            if len(sentences) > 3:
                 truncated_response += '.'  # Add a period if the response was truncated
 
             return truncated_response
