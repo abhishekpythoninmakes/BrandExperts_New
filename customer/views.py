@@ -35,6 +35,388 @@ def home(request):
     return render(request,'home.html')
 
 
+class AuthInitiateView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = AuthInitiateSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response({
+                "success": False,
+                "errors": serializer.errors,
+                "status_code": status.HTTP_400_BAD_REQUEST
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        identifier = serializer.validated_data['identifier']
+        id_type = identifier['type']
+        id_value = identifier['value']
+
+        # Parse mobile number to extract country code and local number
+        country_code = None
+        if id_type == 'mobile':
+            try:
+                country_code, local_number = self.parse_mobile_number(id_value)
+                id_value = local_number  # Save only the local number
+            except ValueError:
+                return Response({
+                    "success": False,
+                    "message": "Invalid mobile number format",
+                    "status_code": status.HTTP_400_BAD_REQUEST
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check if user exists
+        if id_type == 'email':
+            user_exists = CustomUser.objects.filter(email=id_value).exists()
+        else:
+            user_exists = Customer.objects.filter(mobile=id_value, country_code=country_code).exists()
+
+        # Generate and send OTP
+        otp = ''.join(random.choices('0123456789', k=6))
+
+        if id_type == 'email':
+            self.send_email_otp(id_value, otp)
+        else:
+            self.send_whatsapp_otp(f"{country_code}{id_value}", otp)
+
+        # Delete existing OTP records for the same identifier
+        OTPRecord.objects.filter(**{id_type: id_value}).delete()
+
+        # Save OTP record with additional fields
+        OTPRecord.objects.create(
+            **{id_type: id_value},
+            country_code=country_code if id_type == 'mobile' else None,
+            otp=otp
+        )
+
+        return Response({
+            "success": True,
+            "user_exists": user_exists,
+            "message": "OTP sent successfully",
+            "status_code": status.HTTP_200_OK
+        }, status=status.HTTP_200_OK)
+
+    def parse_mobile_number(self, full_mobile):
+        """
+        Parses a full mobile number into country code and local number.
+        Example: '+919876543210' -> ('+91', '9876543210')
+        """
+        match = re.match(r'^(\+\d{1,3})(\d{10})$', full_mobile)
+        if not match:
+            raise ValueError("Invalid mobile number format")
+        return match.group(1), match.group(2)
+
+    def send_email_otp(self, email, otp):
+        subject = 'Your OTP for Verification'
+        message = f'Your OTP code is: {otp}'
+        send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [email])
+
+    def send_whatsapp_otp(self, mobile, otp):
+        url = f"https://graph.facebook.com/v19.0/{settings.WHATSAPP_PHONE_NUMBER_ID}/messages"
+        headers = {
+            "Authorization": f"Bearer {settings.WHATSAPP_PERMANENT_TOKEN}",
+            "Content-Type": "application/json"
+        }
+        data = {
+            "messaging_product": "whatsapp",
+            "to": mobile,
+            "type": "template",
+            "template": {
+                "name": "be_auth",
+                "language": {"code": "en"},
+                "components": [
+                    {"type": "body", "parameters": [{"type": "text", "text": otp}]},
+                    {"type": "button", "sub_type": "url", "index": 0,
+                     "parameters": [{"type": "text", "text": otp}]}
+                ]
+            }
+        }
+        requests.post(url, headers=headers, json=data)
+
+
+class OTPVerificationView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = OTPVerificationSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response({
+                "success": False,
+                "errors": serializer.errors,
+                "status_code": status.HTTP_400_BAD_REQUEST
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        otp = serializer.validated_data['otp']
+
+        # Validate OTP
+        otp_record = OTPRecord.objects.filter(otp=otp).first()
+
+        if not otp_record:
+            return Response({
+                "success": False,
+                "message": "Invalid OTP",
+                "status_code": status.HTTP_400_BAD_REQUEST
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({
+            "success": True,
+            "message": "OTP verified successfully",
+            "status_code": status.HTTP_200_OK
+        }, status=status.HTTP_200_OK)
+
+
+class CompleteRegistrationView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = CompleteRegistrationSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response({
+                "success": False,
+                "errors": serializer.errors,
+                "status_code": status.HTTP_400_BAD_REQUEST
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        data = serializer.validated_data
+        otp = data['otp']
+
+        # Verify OTP again
+        otp_record = OTPRecord.objects.filter(otp=otp).first()
+        if not otp_record:
+            return Response({
+                "success": False,
+                "message": "Invalid or expired OTP",
+                "status_code": status.HTTP_400_BAD_REQUEST
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Determine username and additional fields based on identifier type
+        username = otp_record.email or otp_record.mobile
+        email = otp_record.email or data.get('email')  # Use existing email or new email
+        mobile = otp_record.mobile or data.get('mobile')  # Use existing mobile or new mobile
+        country_code = otp_record.country_code or data.get('country_code')  # Use existing country code or new one
+
+        try:
+            # Create user
+            user = CustomUser.objects.create(
+                username=username,
+                email=email,
+                first_name=data['first_name'],
+                last_name=data['last_name']
+            )
+            user.set_password(data['password'])
+            user.save()
+
+            # Create customer
+            customer = Customer.objects.create(
+                user=user,
+                mobile=mobile,
+                country_code=country_code,
+                verified_email=bool(otp_record.email),  # Mark email as verified if identifier is email
+                verified_mobile=bool(otp_record.mobile)
+            )
+
+        except IntegrityError as e:
+            otp_record.delete()
+            return Response({
+                "success": False,
+                "error": "User creation failed due to a conflict.",
+                "error_details": str(e),
+                "status_code": status.HTTP_409_CONFLICT
+            }, status=status.HTTP_409_CONFLICT)
+        except Exception as e:
+            otp_record.delete()
+            return Response({
+                "success": False,
+                "error": "An error occurred during user creation.",
+                "error_details": str(e),
+                "status_code": status.HTTP_500_INTERNAL_SERVER_ERROR
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        # Generate tokens for auto-login
+        refresh = RefreshToken.for_user(user)
+        access_token = str(refresh.access_token)
+
+        # Delete OTP record
+        otp_record.delete()
+
+        return Response({
+            "success": True,
+            "message": "Registration completed successfully and user logged in.",
+            "user_id": user.id,
+            "customer_id": customer.id,
+            "access_token": access_token,
+            "refresh_token": str(refresh),
+            "user_details": {
+                "username": user.username,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "email": user.email,
+                "mobile": customer.mobile,
+                "country_code": customer.country_code,
+                "verified_email": customer.verified_email,
+                "verified_mobile": customer.verified_mobile
+            },
+            "status_code": status.HTTP_201_CREATED
+        }, status=status.HTTP_201_CREATED)
+
+
+class EnableAlertView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = EnableAlertSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response({
+                "success": False,
+                "errors": serializer.errors,
+                "status_code": status.HTTP_400_BAD_REQUEST
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        data = serializer.validated_data
+        user_id = data['user_id']
+        alert_type = data['alert_type']
+
+        try:
+            user = CustomUser.objects.get(id=user_id)
+            customer = Customer.objects.get(user=user)
+        except (CustomUser.DoesNotExist, Customer.DoesNotExist):
+            return Response({
+                "success": False,
+                "message": "User not found.",
+                "status_code": status.HTTP_404_NOT_FOUND
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        # Check if the selected alert type is already verified
+        if alert_type == 'email' and customer.verified_email:
+            return Response({
+                "success": True,
+                "message": "Email alerts are already enabled.",
+                "status_code": status.HTTP_200_OK
+            }, status=status.HTTP_200_OK)
+
+        if alert_type == 'mobile' and customer.verified_mobile:
+            return Response({
+                "success": True,
+                "message": "WhatsApp alerts are already enabled.",
+                "status_code": status.HTTP_200_OK
+            }, status=status.HTTP_200_OK)
+
+        # Generate and send OTP
+        otp = ''.join(random.choices('0123456789', k=6))
+
+        if alert_type == 'email':
+            self.send_email_otp(user.email, otp)
+        elif alert_type == 'mobile':
+            self.send_whatsapp_otp(customer.mobile, otp)
+
+        # Save OTP record
+        OTPRecord.objects.create(
+            email=user.email if alert_type == 'email' else None,
+            mobile=customer.mobile if alert_type == 'mobile' else None,
+            otp=otp
+        )
+
+        return Response({
+            "success": True,
+            "message": f"OTP sent to your {alert_type}.",
+            "status_code": status.HTTP_200_OK
+        }, status=status.HTTP_200_OK)
+
+    def send_email_otp(self, email, otp):
+        subject = 'Your OTP for Email Verification'
+        message = f'Your OTP code is: {otp}'
+        send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [email])
+
+    def send_whatsapp_otp(self, mobile, otp):
+        url = f"https://graph.facebook.com/v19.0/{settings.WHATSAPP_PHONE_NUMBER_ID}/messages"
+        headers = {
+            "Authorization": f"Bearer {settings.WHATSAPP_PERMANENT_TOKEN}",
+            "Content-Type": "application/json"
+        }
+        data = {
+            "messaging_product": "whatsapp",
+            "to": mobile,
+            "type": "template",
+            "template": {
+                "name": "be_auth",
+                "language": {"code": "en"},
+                "components": [
+                    {"type": "body", "parameters": [{"type": "text", "text": otp}]},
+                    {"type": "button", "sub_type": "url", "index": 0,
+                     "parameters": [{"type": "text", "text": otp}]}
+                ]
+            }
+        }
+        requests.post(url, headers=headers, json=data)
+
+
+class VerifyAlertView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = VerifyAlertSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response({
+                "success": False,
+                "errors": serializer.errors,
+                "status_code": status.HTTP_400_BAD_REQUEST
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        data = serializer.validated_data
+        user_id = data['user_id']
+        alert_type = data['alert_type']
+        otp = data['otp']
+
+        try:
+            user = CustomUser.objects.get(id=user_id)
+            customer = Customer.objects.get(user=user)
+        except (CustomUser.DoesNotExist, Customer.DoesNotExist):
+            return Response({
+                "success": False,
+                "message": "User not found.",
+                "status_code": status.HTTP_404_NOT_FOUND
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        # Validate OTP
+        otp_record = OTPRecord.objects.filter(
+            otp=otp,
+            **{'email': user.email if alert_type == 'email' else None,
+               'mobile': customer.mobile if alert_type == 'mobile' else None}
+        ).first()
+
+        if not otp_record:
+            return Response({
+                "success": False,
+                "message": "Invalid OTP.",
+                "status_code": status.HTTP_400_BAD_REQUEST
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Update verification status
+        if alert_type == 'email':
+            customer.verified_email = True
+        elif alert_type == 'mobile':
+            customer.verified_mobile = True
+        customer.save()
+
+        # Delete OTP record
+        otp_record.delete()
+
+        return Response({
+            "success": True,
+            "message": f"{alert_type.capitalize()} verified successfully.",
+            "status_code": status.HTTP_200_OK
+        }, status=status.HTTP_200_OK)
+
+
+
+
+
+
+
+
+
+
+
+
 class CustomerRegistrationView(APIView):
     permission_classes = [AllowAny]
 
@@ -100,113 +482,113 @@ class CustomerRegistrationView(APIView):
 
 from django.utils import timezone
 # Verify OTP
-class OTPVerificationView(APIView):
-    permission_classes = [AllowAny]
-
-    def post(self, request, *args, **kwargs):
-        otp = request.data.get('otp')
-
-        if not otp:
-            return Response({
-                "success": False,
-                "error": "OTP is required.",
-                "status_code": status.HTTP_400_BAD_REQUEST
-            }, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            otp_record = OTPRecord.objects.get(otp=otp)
-        except OTPRecord.DoesNotExist:
-            return Response({
-                "success": False,
-                "error": "Invalid OTP.",
-                "status_code": status.HTTP_400_BAD_REQUEST
-            }, status=status.HTTP_400_BAD_REQUEST)
-
-        # Check OTP expiration (10 minutes)
-        current_time = timezone.now()
-        time_difference = current_time - otp_record.created_at
-        if time_difference.total_seconds() > 600:
-            otp_record.delete()
-            return Response({
-                "success": False,
-                "error": "OTP has expired.",
-                "status_code": status.HTTP_400_BAD_REQUEST
-            }, status=status.HTTP_400_BAD_REQUEST)
-
-        # Check for existing user (race condition)
-        if CustomUser.objects.filter(username=otp_record.email).exists():
-            otp_record.delete()
-            return Response({
-                "success": False,
-                "error": "A user with this email already exists.",
-                "status_code": status.HTTP_409_CONFLICT
-            }, status=status.HTTP_409_CONFLICT)
-
-        # Check for existing mobile (race condition)
-        if Customer.objects.filter(mobile=otp_record.mobile).exists():
-            otp_record.delete()
-            return Response({
-                "success": False,
-                "error": "A user with this mobile number already exists.",
-                "status_code": status.HTTP_409_CONFLICT
-            }, status=status.HTTP_409_CONFLICT)
-
-        try:
-            # Create user
-            user = CustomUser.objects.create(
-                username=otp_record.email,
-                email=otp_record.email,
-                first_name=otp_record.first_name,
-                last_name=otp_record.last_name
-            )
-            user.set_password(otp_record.password)
-            user.save()
-
-            # Create customer
-            customer = Customer.objects.create(
-                user=user,
-                mobile=otp_record.mobile
-            )
-        except IntegrityError as e:
-            otp_record.delete()
-            return Response({
-                "success": False,
-                "error": "User creation failed due to a conflict.",
-                "error_details": str(e),
-                "status_code": status.HTTP_409_CONFLICT
-            }, status=status.HTTP_409_CONFLICT)
-        except Exception as e:
-            otp_record.delete()
-            return Response({
-                "success": False,
-                "error": "An error occurred during user creation.",
-                "error_details": str(e),
-                "status_code": status.HTTP_500_INTERNAL_SERVER_ERROR
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-        # Generate tokens
-        refresh = RefreshToken.for_user(user)
-        access_token = str(refresh.access_token)
-
-        # Delete OTP record
-        otp_record.delete()
-
-        return Response({
-            "success": True,
-            "message": "User registered and logged in successfully.",
-            "user_id": user.id,
-            "customer_id": customer.id,
-            "access_token": access_token,
-            "refresh_token": str(refresh),
-            "user_details": {
-                "username": user.username,
-                "first_name": user.first_name,
-                "last_name": user.last_name,
-                "email": user.email,
-                "mobile": customer.mobile,
-            },
-            "status_code": status.HTTP_200_OK
-        }, status=status.HTTP_200_OK)
+# class OTPVerificationView(APIView):
+#     permission_classes = [AllowAny]
+#
+#     def post(self, request, *args, **kwargs):
+#         otp = request.data.get('otp')
+#
+#         if not otp:
+#             return Response({
+#                 "success": False,
+#                 "error": "OTP is required.",
+#                 "status_code": status.HTTP_400_BAD_REQUEST
+#             }, status=status.HTTP_400_BAD_REQUEST)
+#
+#         try:
+#             otp_record = OTPRecord.objects.get(otp=otp)
+#         except OTPRecord.DoesNotExist:
+#             return Response({
+#                 "success": False,
+#                 "error": "Invalid OTP.",
+#                 "status_code": status.HTTP_400_BAD_REQUEST
+#             }, status=status.HTTP_400_BAD_REQUEST)
+#
+#         # Check OTP expiration (10 minutes)
+#         current_time = timezone.now()
+#         time_difference = current_time - otp_record.created_at
+#         if time_difference.total_seconds() > 600:
+#             otp_record.delete()
+#             return Response({
+#                 "success": False,
+#                 "error": "OTP has expired.",
+#                 "status_code": status.HTTP_400_BAD_REQUEST
+#             }, status=status.HTTP_400_BAD_REQUEST)
+#
+#         # Check for existing user (race condition)
+#         if CustomUser.objects.filter(username=otp_record.email).exists():
+#             otp_record.delete()
+#             return Response({
+#                 "success": False,
+#                 "error": "A user with this email already exists.",
+#                 "status_code": status.HTTP_409_CONFLICT
+#             }, status=status.HTTP_409_CONFLICT)
+#
+#         # Check for existing mobile (race condition)
+#         if Customer.objects.filter(mobile=otp_record.mobile).exists():
+#             otp_record.delete()
+#             return Response({
+#                 "success": False,
+#                 "error": "A user with this mobile number already exists.",
+#                 "status_code": status.HTTP_409_CONFLICT
+#             }, status=status.HTTP_409_CONFLICT)
+#
+#         try:
+#             # Create user
+#             user = CustomUser.objects.create(
+#                 username=otp_record.email,
+#                 email=otp_record.email,
+#                 first_name=otp_record.first_name,
+#                 last_name=otp_record.last_name
+#             )
+#             user.set_password(otp_record.password)
+#             user.save()
+#
+#             # Create customer
+#             customer = Customer.objects.create(
+#                 user=user,
+#                 mobile=otp_record.mobile
+#             )
+#         except IntegrityError as e:
+#             otp_record.delete()
+#             return Response({
+#                 "success": False,
+#                 "error": "User creation failed due to a conflict.",
+#                 "error_details": str(e),
+#                 "status_code": status.HTTP_409_CONFLICT
+#             }, status=status.HTTP_409_CONFLICT)
+#         except Exception as e:
+#             otp_record.delete()
+#             return Response({
+#                 "success": False,
+#                 "error": "An error occurred during user creation.",
+#                 "error_details": str(e),
+#                 "status_code": status.HTTP_500_INTERNAL_SERVER_ERROR
+#             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+#
+#         # Generate tokens
+#         refresh = RefreshToken.for_user(user)
+#         access_token = str(refresh.access_token)
+#
+#         # Delete OTP record
+#         otp_record.delete()
+#
+#         return Response({
+#             "success": True,
+#             "message": "User registered and logged in successfully.",
+#             "user_id": user.id,
+#             "customer_id": customer.id,
+#             "access_token": access_token,
+#             "refresh_token": str(refresh),
+#             "user_details": {
+#                 "username": user.username,
+#                 "first_name": user.first_name,
+#                 "last_name": user.last_name,
+#                 "email": user.email,
+#                 "mobile": customer.mobile,
+#             },
+#             "status_code": status.HTTP_200_OK
+#         }, status=status.HTTP_200_OK)
 
 
 

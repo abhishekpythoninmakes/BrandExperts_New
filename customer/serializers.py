@@ -3,6 +3,53 @@ import json
 from rest_framework import serializers
 from django.contrib.auth.hashers import make_password
 from .models import *
+import re
+
+class AuthInitiateSerializer(serializers.Serializer):
+    identifier = serializers.CharField()
+
+    def validate_identifier(self, value):
+        email_regex = r'^[\w\.-]+@[\w\.-]+\.\w+$'
+        mobile_regex = r'^\+\d{1,3}\d{10}$'  # E.164 format with country code
+
+        if '@' in value:
+            if not re.match(email_regex, value):
+                raise serializers.ValidationError("Invalid email format")
+            return {'type': 'email', 'value': value}
+        else:
+            if not re.match(mobile_regex, value):
+                raise serializers.ValidationError("Invalid mobile number format (must include country code)")
+            return {'type': 'mobile', 'value': value}
+
+
+class OTPVerificationSerializer(serializers.Serializer):
+    otp = serializers.CharField(max_length=6)
+
+
+class CompleteRegistrationSerializer(serializers.Serializer):
+    otp = serializers.CharField(max_length=6)
+    first_name = serializers.CharField(max_length=150)
+    last_name = serializers.CharField(max_length=150)
+    password = serializers.CharField(write_only=True)
+    email = serializers.EmailField(required=False)  # Required only if identifier is mobile
+    mobile = serializers.CharField(max_length=20, required=False)  # Required only if identifier is email
+    country_code = serializers.CharField(max_length=5, required=False)
+
+    def validate(self, data):
+        otp_record = OTPRecord.objects.filter(otp=data['otp']).first()
+        if not otp_record:
+            raise serializers.ValidationError("Invalid or expired OTP")
+
+        # Determine missing fields based on identifier type
+        if otp_record.email:  # Identifier was an email
+            if 'mobile' not in data or not data['mobile']:
+                raise serializers.ValidationError("Mobile number is required")
+        elif otp_record.mobile:  # Identifier was a mobile number
+            if 'email' not in data or not data['email']:
+                raise serializers.ValidationError("Email is required")
+
+        return data
+
 
 
 class CustomerRegistrationSerializer(serializers.Serializer):
@@ -182,3 +229,14 @@ class CustomerDesignSerializer(serializers.ModelSerializer):
             except ValueError:
                 raise serializers.ValidationError({"anonymous_uuid": "Invalid UUID format"})
         return super().to_internal_value(data)
+
+
+class EnableAlertSerializer(serializers.Serializer):
+    user_id = serializers.IntegerField()
+    alert_type = serializers.ChoiceField(choices=['email', 'mobile'])
+    country_code = serializers.CharField(max_length=5, required=False)
+
+class VerifyAlertSerializer(serializers.Serializer):
+    user_id = serializers.IntegerField()
+    alert_type = serializers.ChoiceField(choices=['email', 'mobile'])
+    otp = serializers.CharField(max_length=6)

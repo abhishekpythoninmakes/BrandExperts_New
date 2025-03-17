@@ -4,8 +4,11 @@ from rest_framework_simplejwt.views import TokenRefreshView
 urlpatterns = [
 
     path('',views.home,name='home'),
-    path('register/', views.CustomerRegistrationView.as_view(), name='customer-registration'),
-    path('verify-otp/', views.OTPVerificationView.as_view(), name='verify-otp'),
+    path('auth/initiate/', views.AuthInitiateView.as_view(), name='auth-initiate'),
+    path('auth/verify-otp/', views.OTPVerificationView.as_view(), name='verify-otp'),
+    path('auth/complete-registration/', views.CompleteRegistrationView.as_view(), name='complete-registration'),
+    path('alerts/enable/',views.EnableAlertView.as_view(),name='enable_alert_view'),
+    path('alerts/verify/',views.VerifyAlertView.as_view(),name='verify_alert_view'),
     path('login/', views.LoginAPIView.as_view(), name='login'),
     path('token/refresh/',TokenRefreshView.as_view(), name='token_refresh'),
 

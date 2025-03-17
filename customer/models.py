@@ -9,8 +9,11 @@ customer_status = (('lead','LEAD'),('client','CLIENT'))
 # Customer Registration
 
 class Customer(models.Model):
-    user = models.ForeignKey(CustomUser,on_delete=models.CASCADE,null=True,blank=True)
+    user = models.OneToOneField(CustomUser,on_delete=models.CASCADE,null=True,blank=True)
     mobile = models.CharField(max_length=20,null=True,blank=True)
+    country_code = models.CharField(max_length=5, null=True, blank=True)
+    verified_email = models.BooleanField(default=False)
+    verified_mobile = models.BooleanField(default=False)
     status = models.CharField(max_length=300,null=True,blank=True,choices=customer_status,default='lead')
 
     def __str__(self):
@@ -199,16 +202,17 @@ class Order(models.Model):
 
 # OTP RECORDS
 class OTPRecord(models.Model):
-    email = models.EmailField(unique=True)
-    otp = models.CharField(max_length=4)
+    email = models.EmailField(null=True, blank=True, unique=True)  # Ensure unique emails
+    mobile = models.CharField(max_length=20, null=True, blank=True, unique=True)  # Ensure unique mobiles
+    otp = models.CharField(max_length=6)
+    first_name = models.CharField(max_length=150, null=True, blank=True)
+    last_name = models.CharField(max_length=150, null=True, blank=True)
+    country_code = models.CharField(max_length=5, null=True, blank=True)
+    password = models.CharField(max_length=128, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    first_name = models.CharField(max_length=150)
-    last_name = models.CharField(max_length=150)
-    mobile = models.CharField(max_length=20)
-    password = models.CharField(max_length=128)
 
     def __str__(self):
-        return f"OTP for {self.email}"
+        return f"OTP for {self.id}"
 
 
 import uuid
