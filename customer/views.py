@@ -306,7 +306,7 @@ class EnableAlertView(APIView):
         if alert_type == 'email':
             self.send_email_otp(user.email, otp)
         elif alert_type == 'mobile':
-            self.send_whatsapp_otp(customer.mobile, otp)
+            self.send_whatsapp_otp(customer.country_code,customer.mobile, otp)
 
         # Save OTP record
         OTPRecord.objects.create(
@@ -326,27 +326,29 @@ class EnableAlertView(APIView):
         message = f'Your OTP code is: {otp}'
         send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [email])
 
-    # def send_whatsapp_otp(self, mobile, otp):
-    #     url = f"https://graph.facebook.com/v19.0/{settings.WHATSAPP_PHONE_NUMBER_ID}/messages"
-    #     headers = {
-    #         "Authorization": f"Bearer {settings.WHATSAPP_PERMANENT_TOKEN}",
-    #         "Content-Type": "application/json"
-    #     }
-    #     data = {
-    #         "messaging_product": "whatsapp",
-    #         "to": mobile,
-    #         "type": "template",
-    #         "template": {
-    #             "name": "be_auth",
-    #             "language": {"code": "en"},
-    #             "components": [
-    #                 {"type": "body", "parameters": [{"type": "text", "text": otp}]},
-    #                 {"type": "button", "sub_type": "url", "index": 0,
-    #                  "parameters": [{"type": "text", "text": otp}]}
-    #             ]
-    #         }
-    #     }
-    #     requests.post(url, headers=headers, json=data)
+    def send_whatsapp_otp(self, country_code,mobile, otp):
+        print("function called")
+        full_mobile_number = f"{country_code}{mobile}"
+        url = f"https://graph.facebook.com/v19.0/{settings.WHATSAPP_PHONE_NUMBER_ID}/messages"
+        headers = {
+            "Authorization": f"Bearer {settings.WHATSAPP_PERMANENT_TOKEN}",
+            "Content-Type": "application/json"
+        }
+        data = {
+            "messaging_product": "whatsapp",
+            "to": full_mobile_number,
+            "type": "template",
+            "template": {
+                "name": "be_auth",
+                "language": {"code": "en"},
+                "components": [
+                    {"type": "body", "parameters": [{"type": "text", "text": otp}]},
+                    {"type": "button", "sub_type": "url", "index": 0,
+                     "parameters": [{"type": "text", "text": otp}]}
+                ]
+            }
+        }
+        requests.post(url, headers=headers, json=data)
 
 
 class VerifyAlertView(APIView):
