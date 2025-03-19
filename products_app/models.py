@@ -8,6 +8,7 @@ from django.core.exceptions import ValidationError
 class CustomUser(AbstractUser):
     email = models.EmailField(unique=True,null=True,blank=True)
     is_admin = models.BooleanField(default=False)
+    is_partner = models.BooleanField(default=False)
     otp = models.CharField(max_length=6,null=True,blank=True)
 
     class Meta:

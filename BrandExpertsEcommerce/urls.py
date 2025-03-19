@@ -43,6 +43,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('',include('customer.urls')),
     path('dash/',include('products_app.urls')),
+    path('pep/',include('pep_app.urls')),
     path('ckeditor/', include('ckeditor_uploader.urls')),
 
     # Swagger and Redoc URLs

@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.contrib.auth.admin import UserAdmin
 from django.http import JsonResponse
 
 from .models import *
@@ -17,10 +18,10 @@ admin.site.index_title = "Welcome to BrandExperts Admin Dashboard"
 
 
 
-
-@admin.register(CustomUser)
-class CustomUserAdmin(admin.ModelAdmin):
-    search_fields = ['email', 'username', 'first_name', 'last_name']
+#
+# @admin.register(CustomUser)
+# class CustomUserAdmin(admin.ModelAdmin):
+#     search_fields = ['email', 'username', 'first_name', 'last_name']
 
 @admin.register(ParentCategory)
 class ParentCategoryAdmin(admin.ModelAdmin):
@@ -273,3 +274,29 @@ class SiteVisitAdmin(admin.ModelAdmin):
         return False
 
 admin.site.register(site_visit, SiteVisitAdmin)
+
+class CustomUserAdmin(UserAdmin):
+    model = CustomUser
+    list_display = ('username', 'email', 'first_name', 'last_name', 'is_staff', 'is_admin', 'is_partner')
+    list_filter = ('is_admin', 'is_partner', 'is_staff')
+    fieldsets = (
+        (None, {'fields': ('username', 'password')}),
+        ('Personal info', {'fields': ('first_name', 'last_name', 'email')}),
+        ('Permissions', {'fields': ('is_admin', 'is_partner', 'is_staff', 'is_active')}),
+    )
+    add_fieldsets = (
+        (None, {
+            'classes': ('wide',),
+            'fields': (
+                'username', 'email', 'password1', 'password2', 'is_admin', 'is_partner', 'is_staff', 'is_active'),
+        }),
+    )
+    search_fields = ('username', 'email', 'first_name', 'last_name')
+    ordering = ('-id',)
+
+
+# Admin class for Partners
+
+
+
+admin.site.register(CustomUser, CustomUserAdmin)

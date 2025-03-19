@@ -144,6 +144,7 @@ admin.site.register(CartItem)
 admin.site.register(Order, OrderAdmin)
 admin.site.register(OTPRecord)
 
+
 @admin.register(CustomerDesign)
 class CustomerDesignAdmin(admin.ModelAdmin):
     list_display = ('id', 'customer_id', 'product_name', 'product_max_width', 'product_max_height', 'quantity', 'created_at')
