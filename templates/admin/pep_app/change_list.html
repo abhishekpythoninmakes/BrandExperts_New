@@ -1,0 +1,11 @@
+{% extends "admin/change_list.html" %}
+{% load i18n %}
+
+{% block object-tools %}
+<div class="object-tools">
+    <a href="{% url 'admin:pep_app_contact_import' %}" class="btn btn-primary">
+        {% trans "Import Contacts" %}
+    </a>
+    {{ block.super }}
+</div>
+{% endblock %}

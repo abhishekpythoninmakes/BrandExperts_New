@@ -624,9 +624,13 @@ class LoginAPIView(APIView):
             customer = Customer.objects.get(user=user)
             customer_id = customer.id
             mobile = customer.mobile
+            customer_email_verified = customer.verified_email
+            customer_verified_mobile = customer.verified_mobile
         except Customer.DoesNotExist:
             customer_id = None
             mobile = None
+            customer_email_verified = None
+            customer_verified_mobile = None
 
         return Response({
             "user_id": user.id,
@@ -639,6 +643,8 @@ class LoginAPIView(APIView):
                 "last_name" : user.last_name,
                 "email": user.email,
                 "mobile": mobile,
+                "verified_email": customer_email_verified,
+                "verified_mobile": customer_verified_mobile
             }
         }, status=status.HTTP_200_OK)
 

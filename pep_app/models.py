@@ -32,16 +32,22 @@ class Contact(models.Model):
     name = models.CharField(max_length=255, null=True, blank=True)
     email = models.EmailField(null=True, blank=True)
     mobile = models.CharField(max_length=20, null=True, blank=True)
-    account = models.ForeignKey(Accounts, on_delete=models.SET_NULL, null=True, blank=True)
+    account = models.ManyToManyField(Accounts,blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='lead')
-    partner = models.ForeignKey(Partners, on_delete=models.CASCADE, related_name='contacts')
+    partner = models.ForeignKey(Partners, on_delete=models.CASCADE, related_name='contacts',null=True,blank=True)
     additional_data = models.JSONField(default=dict, blank=True)  # For storing extra columns from Excel
     created_at = models.DateTimeField(auto_now_add=True)
 
     def save(self, *args, **kwargs):
-        if self.account and not Accounts.objects.filter(name=self.account.name).exists():
-            self.account = Accounts.objects.create(name=self.account.name)
+        # Save the contact first to ensure it has an ID
         super().save(*args, **kwargs)
+
+        # Check if an account name is provided (assuming you want to use the contact's name)
+        if self.name:
+            # Get or create the account based on the contact's name
+            account, created = Accounts.objects.get_or_create(name=self.name)
+            # Add the account to the contact's many-to-many relationship
+            self.account.add(account)
 
     def __str__(self):
         return f"{self.name} - {self.email}"

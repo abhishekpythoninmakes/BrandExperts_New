@@ -1,0 +1,166 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block extrastyle %}
+{{ block.super }}
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>
+    body {
+        background: #f8f9fa;
+        padding: 20px;
+    }
+    .upload-container {
+        max-width: 600px;
+        margin: 50px auto;
+        background: white;
+        padding: 30px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        position: relative;
+    }
+    .instructions {
+        margin-top: 20px;
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 4px;
+    }
+
+    /* Loading overlay styles */
+    .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(255, 255, 255, 0.8);
+        z-index: 9999;
+        display: none;
+    }
+
+    .loading-spinner {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 10000;
+    }
+
+    .spinner-border {
+        width: 3rem;
+        height: 3rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Loading overlay -->
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-spinner">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <div class="mt-2">Processing your file, please wait...</div>
+    </div>
+</div>
+
+<div class="upload-container">
+    <h2 class="mb-4">{% trans "Import Contacts from Excel" %}</h2>
+
+    {% if messages %}
+    <div class="alert alert-info">
+        {% for message in messages %}
+        <div{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <form method="post" enctype="multipart/form-data" id="importForm">
+        {% csrf_token %}
+        <div class="mb-4">
+            <label class="form-label">{% trans "Select Excel file:" %}</label>
+            <input type="file" name="excel_file" class="form-control" accept=".xlsx, .xls" required>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center">
+            <button type="submit" class="btn btn-primary" id="submitButton">
+                {% trans "Upload and Import" %}
+            </button>
+            <a href="{% url 'admin:pep_app_contact_changelist' %}" class="btn btn-secondary">
+                {% trans "Cancel" %}
+            </a>
+        </div>
+    </form>
+
+    <div class="instructions mt-4">
+        <h5>{% trans "File Requirements:" %}</h5>
+        <ul class="mb-0">
+            <li>{% trans "File format: .xlsx or .xls" %}</li>
+            <li>{% trans "<strong>Required columns:</strong> Account, Email, Mobile" %}</li>
+            <li>{% trans "<strong>Optional columns:</strong> Marriage, Address (will be stored as additional data)" %}</li>
+            <li>{% trans "First row should contain headers" %}</li>
+            <li>{% trans "Maximum file size: 5MB" %}</li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
+
+{% block extrajs %}
+{{ block.super }}
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('importForm');
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const submitButton = document.getElementById('submitButton');
+
+    form.addEventListener('submit', function(e) {
+        e.preventDefault(); // Prevent the default form submission
+
+        // Show loading overlay
+        loadingOverlay.style.display = 'block';
+
+        // Disable submit button to prevent multiple submissions
+        submitButton.disabled = true;
+        submitButton.innerHTML = 'Processing... <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+
+        // Create FormData object to send the file
+        const formData = new FormData(form);
+
+        // Send the form data via AJAX
+        fetch("{% url 'admin:pep_app_contact_import' %}", {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}' // Include CSRF token for Django
+            }
+        })
+        .then(response => {
+            if (response.ok) {
+                return response.json(); // Parse JSON response
+            } else {
+                throw new Error('Error processing file');
+            }
+        })
+        .then(data => {
+            // Handle success response
+            if (data.success) {
+                alert(data.message);
+                window.location.href = "{% url 'admin:pep_app_contact_changelist' %}"; // Redirect to success page
+            } else {
+                throw new Error(data.message);
+            }
+        })
+        .catch(error => {
+            // Handle error response
+            alert(error.message || 'An error occurred while processing the file.');
+        })
+        .finally(() => {
+            // Hide loading overlay and re-enable the button
+            loadingOverlay.style.display = 'none';
+            submitButton.disabled = false;
+            submitButton.innerHTML = '{% trans "Upload and Import" %}';
+        });
+    });
+});
+</script>
+{% endblock %}
