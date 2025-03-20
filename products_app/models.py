@@ -78,6 +78,9 @@ class Product(models.Model):
     # New Checkbox Field
     allow_direct_add_to_cart = models.BooleanField(
         default=False,null=True,blank=True,help_text="Allow Direct Add to Cart (Without Customization)")
+
+    disable_customization = models.BooleanField(default=False,null=True,blank=True,help_text="Disable Customization")
+
     def __str__(self):
         return self.name if self.name else "Unnamed Product"
 

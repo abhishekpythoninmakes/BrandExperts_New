@@ -1,0 +1,29 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block content %}
+<div class="content">
+    <h1>{% blocktrans with name=contact_list.name %}Upload contacts to {{ name }}{% endblocktrans %}</h1>
+    <div class="instructions">
+        <p>{% trans "Upload an Excel file with the following columns:" %}</p>
+        <ul>
+            <li>{% trans "<strong>account</strong> (required)" %}</li>
+            <li>{% trans "<strong>email</strong> (required)" %}</li>
+            <li>{% trans "<strong>mobile</strong> (required)" %}</li>
+            <li>{% trans "<strong>partner</strong> (optional - partner's email)" %}</li>
+        </ul>
+    </div>
+
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="form-row">
+            <label for="excel_file">{% trans "Excel File:" %}</label>
+            <input type="file" name="excel_file" accept=".xlsx, .xls" required>
+        </div>
+        <div class="submit-row">
+            <input type="submit" value="{% trans 'Start Bulk Import' %}" class="default">
+            <a href="{% url 'admin:pep_app_contactlist_change' contact_list.id %}" class="button">{% trans "Cancel" %}</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

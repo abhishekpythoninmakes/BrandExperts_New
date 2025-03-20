@@ -1,4 +1,6 @@
 # admin_forms.py
+from decimal import Decimal
+
 from django import forms
 from django.contrib.auth.hashers import make_password
 from .models import CustomUser, Partners
@@ -61,6 +63,10 @@ class PartnerAdminForm(forms.ModelForm):
             raise forms.ValidationError("This email is already in use.")
         return email
 
+    def clean_commission(self):
+        commission = self.cleaned_data.get('commission')
+        return commission if commission is not None else Decimal('0.00')
+
     def save(self, commit=True):
         email = self.cleaned_data['email']
         password = self.cleaned_data.get('password') or 'Temp@1234'
@@ -90,7 +96,8 @@ class PartnerAdminForm(forms.ModelForm):
                 password=password,
                 first_name=user_data['first_name'],
                 last_name=user_data['last_name'],
-                is_partner=True
+                is_partner=True,
+                is_staff=True
             )
 
         # Save partner instance

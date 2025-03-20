@@ -84,6 +84,7 @@ urlpatterns = [
 
     # Image store
     # path('image/upload/', views.upload_image, name='upload_image'),
+    # path('check-wovlene/', views.check_wovlene, name='check_wovlene'),
 
 
 ]

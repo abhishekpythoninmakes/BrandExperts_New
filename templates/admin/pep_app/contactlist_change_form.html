@@ -1,0 +1,102 @@
+{% extends "admin/change_form.html" %}
+{% load i18n admin_urls static %}
+
+{% block extrahead %}
+{{ block.super }}
+<script src="{% static 'admin/js/vendor/jquery/jquery.js' %}"></script>
+<script>
+$(document).ready(function() {
+    // Add import button
+    $('.field-excel_file').append(
+        '<div class="import-section" style="margin-top: 20px;">' +
+        '<button type="button" id="import-contacts-btn" class="button">Import Contacts from Excel</button>' +
+        '<div id="import-status" style="margin-top: 10px;"></div>' +
+        '</div>'
+    );
+
+    // Handle import button click
+    $('#import-contacts-btn').click(function() {
+        var fileInput = $('#id_excel_file')[0];
+        if (!fileInput.files.length) {
+            alert('Please select an Excel file first.');
+            return;
+        }
+
+        var formData = new FormData();
+        formData.append('excel_file', fileInput.files[0]);
+        formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+        $('#import-status').html('<p>Importing contacts... <span class="loading"></span></p>');
+
+        $.ajax({
+            url: '{% url "admin:import_contacts" %}',
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                if (response.success) {
+                    $('#import-status').html(
+                        '<p style="color: green;">' + response.message + '</p>' +
+                        '<p>Reloading page to show new contacts...</p>'
+                    );
+                    setTimeout(function() {
+                        window.location.reload();
+                    }, 2000);
+                } else {
+                    $('#import-status').html(
+                        '<p style="color: red;">Error: ' + response.message + '</p>'
+                    );
+                }
+            },
+            error: function(xhr) {
+                $('#import-status').html(
+                    '<p style="color: red;">Error: ' + xhr.responseJSON.message + '</p>'
+                );
+            }
+        });
+    });
+});
+</script>
+<style>
+.loading {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid #ccc;
+    border-top-color: #333;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.import-section {
+    padding: 15px;
+    background: #f8f8f8;
+    border: 1px solid #ddd;
+    margin-top: 20px;
+}
+
+#import-contacts-btn {
+    margin-bottom: 10px;
+}
+</style>
+{% endblock %}
+
+{% block field_sets %}
+{{ block.super }}
+<div class="instructions" style="margin: 20px 0; padding: 15px; background: #f8f8f8; border: 1px solid #ddd;">
+    <h3>Excel Import Instructions</h3>
+    <p>Your Excel file must contain the following columns:</p>
+    <ul>
+        <li><strong>account</strong> (required)</li>
+        <li><strong>email</strong> (required)</li>
+        <li><strong>mobile</strong> (required)</li>
+        <li><strong>partner</strong> (optional)</li>
+    </ul>
+    <p>Additional columns will be stored in the contact's additional_data field.</p>
+</div>
+{% endblock %}

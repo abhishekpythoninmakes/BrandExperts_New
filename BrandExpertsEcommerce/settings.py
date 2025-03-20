@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     'django_json_widget',
     'customer',
     'products_app',
+    'django_celery_results',
     'rest_framework',
     'rest_framework_simplejwt',
     'drf_yasg',
@@ -347,4 +348,44 @@ JAZZMIN_SETTINGS = {
     # Footer
     "copyright": "Copyright © 2025 BrandExperts. All rights reserved.",
     "show_version": False,
+}
+
+
+# Celery settings
+# CELERY_BROKER_URL = 'amqp://your_user:your_password@35.174.174.152//'
+# CELERY_ACCEPT_CONTENT = ['json']
+# ACCEPT_CONTENT = ['json']
+# CELERY_TASK_SERIALIZER = 'json'
+# TASK_SERIALIZER = 'json'
+# CELERY_RESULT_SERIALIZER = 'json'
+# RESULT_SERIALIZER = 'json'
+# TIMEZONE = 'UTC'
+# CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+# CELERY_RESULT_BACKEND = 'django-db'
+
+
+
+# Celery settings for local RabbitMQ
+CELERY_BROKER_URL = 'amqp://guest:guest@localhost:5672//'
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_BACKEND = 'django-db'  # Store results in Django DB
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+TIMEZONE = 'UTC'
+
+
+
+CELERY_TASK_ALWAYS_EAGER = True  # Temporary - tasks run synchronously
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'DEBUG',
+    },
 }

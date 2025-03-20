@@ -2859,3 +2859,90 @@ def process_text(request):
                                          )
 
     return Response(data)
+
+#
+# from django.views.decorators.http import require_GET
+# from .models import Product
+#
+# from bs4 import BeautifulSoup
+# @require_GET
+# def check_wovlene(request):
+#     keyword = "wovlene.com"
+#     results = []
+#     products = Product.objects.all()
+#
+#     # Helper function to check a rich text field for the keyword.
+#     def check_rich_text(html_content):
+#         matches = False
+#         found_sources = set()
+#         # Check in the raw HTML (in case keyword is in plain text)
+#         if keyword in html_content.lower():
+#             matches = True
+#             found_sources.add("raw_html")
+#
+#         # Parse HTML to inspect attributes and button texts.
+#         soup = BeautifulSoup(html_content, "html.parser")
+#         # Check all anchor tags for keyword in href or text.
+#         for a in soup.find_all("a"):
+#             href = a.get("href", "")
+#             if keyword in href.lower():
+#                 matches = True
+#                 found_sources.add("anchor[href]")
+#             if a.get_text() and keyword in a.get_text().lower():
+#                 matches = True
+#                 found_sources.add("anchor[text]")
+#         # Check all image tags for keyword in src.
+#         for img in soup.find_all("img"):
+#             src = img.get("src", "")
+#             if keyword in src.lower():
+#                 matches = True
+#                 found_sources.add("image[src]")
+#         # Check for any button elements (or input type=button)
+#         for btn in soup.find_all(["button", "input"]):
+#             # Check for button text or value attribute if it's an input button.
+#             text = btn.get_text() if btn.name == "button" else btn.get("value", "")
+#             if text and keyword in text.lower():
+#                 matches = True
+#                 found_sources.add("button")
+#
+#         return matches, list(found_sources)
+#
+#     for product in products:
+#         found_fields = {}
+#
+#         # Check plain text field: description
+#         if product.description and keyword in product.description.lower():
+#             found_fields["description"] = ["plain_text"]
+#
+#         # Check rich text fields with HTML content
+#         rich_fields = {
+#             "product_overview": product.product_overview,
+#             "product_specifications": product.product_specifications,
+#             "installation": product.installation,
+#         }
+#         for field_name, html in rich_fields.items():
+#             if html:
+#                 match, sources = check_rich_text(html)
+#                 if match:
+#                     found_fields[field_name] = sources
+#
+#         # Check image URL fields (plain URLs)
+#         image_fields = {
+#             "image1": product.image1,
+#             "image2": product.image2,
+#             "image3": product.image3,
+#             "image4": product.image4,
+#         }
+#         for field_name, url in image_fields.items():
+#             if url and keyword in url.lower():
+#                 found_fields.setdefault(field_name, []).append("url")
+#
+#         # If any field matched, record the product details
+#         if found_fields:
+#             results.append({
+#                 "product_id": product.id,
+#                 "product_name": product.name,
+#                 "found_in": found_fields
+#             })
+#
+#     return JsonResponse({"results": results})

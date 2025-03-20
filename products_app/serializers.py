@@ -44,6 +44,7 @@ class ProductSerializer(serializers.ModelSerializer):
             "standard_sizes",
             "price",
             "allow_direct_add_to_cart",
+            "disable_customization",
             "amazon_url",
         ]
 
@@ -58,6 +59,7 @@ class DetailedProductSerializer(serializers.ModelSerializer):
     status = serializers.CharField(source="status.status", allow_null=True)  # Get status name
     amazon_url = serializers.SerializerMethodField()
     allow_direct_add_to_cart = serializers.BooleanField()
+    disable_customization = serializers.BooleanField()
     class Meta:
         model = Product
         fields = [
@@ -83,6 +85,7 @@ class DetailedProductSerializer(serializers.ModelSerializer):
             "category",
             "status",
             "allow_direct_add_to_cart",
+            "disable_customization",
         ]
 
     def get_absolute_html(self, content):

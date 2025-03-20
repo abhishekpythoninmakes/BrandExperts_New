@@ -10,7 +10,7 @@ from .models import (
 from django.contrib.auth.models import Group
 
 # Unregister the default Group model
-admin.site.unregister(Group)
+
 
 class OrderAdmin(admin.ModelAdmin):
     list_display = (
