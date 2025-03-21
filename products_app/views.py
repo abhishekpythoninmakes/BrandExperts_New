@@ -441,11 +441,13 @@ class ProductPriceView(APIView):
             'mm': Decimal('0.1')
         }
 
+        product_unit = product.size
+
         # Validate dimensions against product's min/max (converted to user's unit)
-        product_min_width_in_unit = product.min_width * (unit_conversion[product.size] / unit_conversion[unit])
-        product_max_width_in_unit = product.max_width * (unit_conversion[product.size] / unit_conversion[unit])
-        product_min_height_in_unit = product.min_height * (unit_conversion[product.size] / unit_conversion[unit])
-        product_max_height_in_unit = product.max_height * (unit_conversion[product.size] / unit_conversion[unit])
+        product_min_width_in_unit = product.min_width * (unit_conversion[product_unit] / unit_conversion[unit])
+        product_max_width_in_unit = product.max_width * (unit_conversion[product_unit] / unit_conversion[unit])
+        product_min_height_in_unit = product.min_height * (unit_conversion[product_unit] / unit_conversion[unit])
+        product_max_height_in_unit = product.max_height * (unit_conversion[product_unit] / unit_conversion[unit])
 
         if width < product_min_width_in_unit:
             error_msg = f"Width is below the minimum allowed value. Minimum width is {product_min_width_in_unit:.2f} {unit}."
@@ -460,13 +462,13 @@ class ProductPriceView(APIView):
             error_msg = f"Height exceeds the maximum allowed value. Maximum height is {product_max_height_in_unit:.2f} {unit}."
             return Response({"error": error_msg}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Convert dimensions to centimeters for pricing calculation
-        width_in_cm = width * unit_conversion[unit]
-        height_in_cm = height * unit_conversion[unit]
-        area_in_cm_sq = width_in_cm * height_in_cm
+        # Convert dimensions to product's unit for pricing calculation
+        width_in_product_unit = width * (unit_conversion[unit] / unit_conversion[product_unit])
+        height_in_product_unit = height * (unit_conversion[unit] / unit_conversion[product_unit])
+        area_in_product_unit_sq = width_in_product_unit * height_in_product_unit
 
-        # Calculate total price based on cm²
-        total_price_per_item = area_in_cm_sq * product.price
+        # Calculate total price based on product's unit squared
+        total_price_per_item = area_in_product_unit_sq * product.price
         total_price = total_price_per_item * quantity
 
         print(f"Total price: {total_price:.2f}")
@@ -478,7 +480,6 @@ class ProductPriceView(APIView):
             "quantity": quantity,
             "total_price": round(total_price, 2)
         })
-
 
 class ProductBasicDetailView(APIView):
     def get(self, request, *args, **kwargs):

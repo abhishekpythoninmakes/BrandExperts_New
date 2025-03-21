@@ -646,3 +646,20 @@ class ContactListAdmin(admin.ModelAdmin):
             return super().response_change(request, obj)
 
 admin.site.register(ContactList, ContactListAdmin)
+
+
+
+class EmailTemplateCategoryAdmin(admin.ModelAdmin):
+    list_display = ['name', 'created_at', 'created_by']
+    search_fields = ['name', 'created_by__username']
+    ordering = ['-created_at']
+    list_filter = ['created_by']
+    exclude = ('created_by',)  # Exclude this field from the admin form
+
+    def save_model(self, request, obj, form, change):
+        # Set the created_by field to the current logged-in user on creation.
+        if not change:
+            obj.created_by = request.user
+        obj.save()
+
+admin.site.register(EmailTemplateCategory, EmailTemplateCategoryAdmin)
