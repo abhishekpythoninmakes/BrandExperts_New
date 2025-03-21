@@ -444,6 +444,39 @@ admin.site.unregister(Group)
 admin.site.register(Group, CustomGroupAdmin)
 
 
+
+class ContactListForm(forms.ModelForm):
+    class Meta:
+        model = ContactList
+        fields = '__all__'
+
+    def __init__(self, *args, **kwargs):
+        # Get the current user from the request
+        self.user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+
+        # Set the created_by field to the current user
+        if self.user and self.user.is_authenticated:
+            self.initial['created_by'] = self.user
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        excel_file = self.cleaned_data.get('excel_file')
+        user = self.cleaned_data.get('created_by')
+
+        if excel_file:
+            try:
+                contacts = process_excel(excel_file, user)
+                instance.save()
+                instance.contacts_new.set(contacts)
+            except Exception as e:
+                # Log the error or handle it as needed
+                raise ValidationError(f"Error processing Excel file: {e}")
+
+        if commit:
+            instance.save()
+        return instance
+
 def process_excel(excel_file, user):
     print("Process excel file")
     try:
@@ -516,6 +549,22 @@ def process_excel(excel_file, user):
     except Exception as e:
         raise e
 
+class ContactListAdmin(admin.ModelAdmin):
+    form = ContactListForm
 
+    # Exclude the created_by field from the admin form
+    exclude = ('created_by',)
 
-admin.site.register(ContactList)
+    def save_model(self, request, obj, form, change):
+        # Automatically set the created_by field to the current user
+        if not obj.created_by:
+            obj.created_by = request.user
+        super().save_model(request, obj, form, change)
+
+    def get_form(self, request, obj=None, **kwargs):
+        # Pass the current user to the form
+        form = super().get_form(request, obj, **kwargs)
+        form.user = request.user
+        return form
+
+admin.site.register(ContactList, ContactListAdmin)

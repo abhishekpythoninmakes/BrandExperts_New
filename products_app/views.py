@@ -441,46 +441,32 @@ class ProductPriceView(APIView):
             'mm': Decimal('0.1')
         }
 
-        # Convert product dimensions to the user's provided unit for validation
+        # Validate dimensions against product's min/max (converted to user's unit)
         product_min_width_in_unit = product.min_width * (unit_conversion[product.size] / unit_conversion[unit])
         product_max_width_in_unit = product.max_width * (unit_conversion[product.size] / unit_conversion[unit])
         product_min_height_in_unit = product.min_height * (unit_conversion[product.size] / unit_conversion[unit])
         product_max_height_in_unit = product.max_height * (unit_conversion[product.size] / unit_conversion[unit])
 
-        # Validate dimensions
         if width < product_min_width_in_unit:
             error_msg = f"Width is below the minimum allowed value. Minimum width is {product_min_width_in_unit:.2f} {unit}."
-            print(error_msg)
             return Response({"error": error_msg}, status=status.HTTP_400_BAD_REQUEST)
         if width > product_max_width_in_unit:
             error_msg = f"Width exceeds the maximum allowed value. Maximum width is {product_max_width_in_unit:.2f} {unit}."
-            print(error_msg)
             return Response({"error": error_msg}, status=status.HTTP_400_BAD_REQUEST)
         if height < product_min_height_in_unit:
             error_msg = f"Height is below the minimum allowed value. Minimum height is {product_min_height_in_unit:.2f} {unit}."
-            print(error_msg)
             return Response({"error": error_msg}, status=status.HTTP_400_BAD_REQUEST)
         if height > product_max_height_in_unit:
             error_msg = f"Height exceeds the maximum allowed value. Maximum height is {product_max_height_in_unit:.2f} {unit}."
-            print(error_msg)
             return Response({"error": error_msg}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Calculate area in the provided unit
-        area_in_provided_unit = width * height
+        # Convert dimensions to centimeters for pricing calculation
+        width_in_cm = width * unit_conversion[unit]
+        height_in_cm = height * unit_conversion[unit]
+        area_in_cm_sq = width_in_cm * height_in_cm
 
-        # Convert area to product's unit (square centimeters)
-        if unit == 'inches':
-            # Convert square inches to square centimeters
-            area_in_product_unit = area_in_provided_unit * Decimal('6.4516')
-        else:
-            # Convert other units to centimeters first, then calculate area
-            conversion_factor = unit_conversion[unit] / unit_conversion[product.size]
-            width_in_product_unit = width * conversion_factor
-            height_in_product_unit = height * conversion_factor
-            area_in_product_unit = width_in_product_unit * height_in_product_unit
-
-        # Calculate total price
-        total_price_per_item = area_in_product_unit * product.price
+        # Calculate total price based on cm²
+        total_price_per_item = area_in_cm_sq * product.price
         total_price = total_price_per_item * quantity
 
         print(f"Total price: {total_price:.2f}")
