@@ -371,11 +371,18 @@ JAZZMIN_SETTINGS = {
 
 
 
-# Celery settings for local RabbitMQ
-CELERY_BROKER_URL = 'amqp://guest:guest@localhost:5672//'
+# # Celery settings for local RabbitMQ
+# CELERY_BROKER_URL = 'amqp://guest:guest@localhost:5672//'
+# CELERY_ACCEPT_CONTENT = ['json']
+# CELERY_TASK_SERIALIZER = 'json'
+# CELERY_RESULT_BACKEND = 'django-db'  # Store results in Django DB
+# CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+# TIMEZONE = 'UTC'
+
+CELERY_BROKER_URL = 'amqp://your_user:your_password@65.1.248.191:5672//'
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
-CELERY_RESULT_BACKEND = 'django-db'  # Store results in Django DB
+CELERY_RESULT_BACKEND = 'django-db'
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 TIMEZONE = 'UTC'
 
