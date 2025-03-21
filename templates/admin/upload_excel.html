@@ -1,0 +1,28 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<div class="content-main">
+    <h1>Upload Excel for {{ contact_list.name }}</h1>
+    <div class="upload-form">
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="form-row">
+                <label>Select Excel File:</label>
+                <input type="file" name="excel_file" accept=".xlsx, .xls" required>
+            </div>
+            <div class="submit-row">
+                <button type="submit" class="button">Upload and Process</button>
+                <a href="{% url 'admin:pep_app_contactlist_change' contact_list.id %}" class="button cancel-link">
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+    {% if messages %}
+    <ul class="messagelist">
+        {% for message in messages %}
+        <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+</div>
+{% endblock %}

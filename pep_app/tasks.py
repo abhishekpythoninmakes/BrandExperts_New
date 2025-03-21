@@ -10,6 +10,7 @@ from django.conf import settings
 from .models import Contact, Partners, Tasks , ContactList , Accounts
 import pandas as pd
 from products_app.models import CustomUser
+from django.core.exceptions import ObjectDoesNotExist
 
 @shared_task
 def evaluate_partner_tasks(contact_id):
@@ -91,3 +92,25 @@ Remaining: {remaining}''',
                     fail_silently=False,
                 )
 
+
+@shared_task
+def add_contacts_to_contactlist(contactlist_id, contact_ids):
+    """
+    Celery task to add contacts to the ContactList's many-to-many field.
+    """
+    try:
+        # Fetch the ContactList instance
+        contactlist = ContactList.objects.get(id=contactlist_id)
+
+        # Fetch all Contact instances
+        contacts = Contact.objects.filter(id__in=contact_ids)
+
+        # Add contacts to the many-to-many field
+        contactlist.contacts_new.add(*contacts)
+
+        # Debug: Print success message
+        print(f"Added {len(contacts)} contacts to ContactList {contactlist.name}")
+    except ObjectDoesNotExist as e:
+        print(f"Error: {str(e)}")
+    except Exception as e:
+        print(f"Unexpected error: {str(e)}")

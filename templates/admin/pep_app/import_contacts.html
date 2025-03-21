@@ -144,7 +144,7 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(data => {
             // Handle success response
             if (data.success) {
-                alert(data.message);
+<!--                alert(data.message);-->
                 window.location.href = "{% url 'admin:pep_app_contact_changelist' %}"; // Redirect to success page
             } else {
                 throw new Error(data.message);

@@ -445,126 +445,204 @@ admin.site.register(Group, CustomGroupAdmin)
 
 
 
-class ContactListForm(forms.ModelForm):
+
+# Custom admin form for ContactList
+class ContactListAdminForm(forms.ModelForm):
+    IMPORT_OR_MANUAL_CHOICES = (
+        ('import', 'Import Contacts'),
+        ('manual', 'Manually Add Contacts'),
+    )
+    # Extra field to determine which input to show
+    import_or_manual = forms.ChoiceField(
+        choices=IMPORT_OR_MANUAL_CHOICES,
+        widget=forms.RadioSelect,
+        label="Contact Addition Method",
+        initial='manual'
+    )
+
     class Meta:
         model = ContactList
-        fields = '__all__'
+        # Include our extra field along with the model fields.
+        fields = ['name', 'import_or_manual', 'excel_file', 'contacts_new']
 
     def __init__(self, *args, **kwargs):
-        # Get the current user from the request
-        self.user = kwargs.pop('user', None)
-        super().__init__(*args, **kwargs)
+        super(ContactListAdminForm, self).__init__(*args, **kwargs)
+        # Make both excel_file and contacts_new optional here;
+        # we'll enforce required validation based on the chosen method.
+        self.fields['excel_file'].required = False
+        self.fields['contacts_new'].required = False
 
-        # Set the created_by field to the current user
-        if self.user and self.user.is_authenticated:
-            self.initial['created_by'] = self.user
-
-    def save(self, commit=True):
-        instance = super().save(commit=False)
-        excel_file = self.cleaned_data.get('excel_file')
-        user = self.cleaned_data.get('created_by')
-
-        if excel_file:
-            try:
-                contacts = process_excel(excel_file, user)
-                instance.save()
-                instance.contacts_new.set(contacts)
-            except Exception as e:
-                # Log the error or handle it as needed
-                raise ValidationError(f"Error processing Excel file: {e}")
-
-        if commit:
-            instance.save()
-        return instance
-
-def process_excel(excel_file, user):
-    print("Process excel file")
-    try:
-        df = pd.read_excel(excel_file)
-        df.columns = [str(col).strip().lower() for col in df.columns]
-
-        required_columns = {'account', 'email', 'mobile'}
-        if not required_columns.issubset(df.columns):
-            missing = required_columns - set(df.columns)
-            raise ValueError(f"Missing required columns: {', '.join(missing)}")
-
-        partner_instance = None
-        if user.is_authenticated and user.is_partner:
-            try:
-                partner_instance = Partners.objects.get(user=user)
-            except Partners.DoesNotExist:
-                pass
-
-        contacts = []
-        for _, row in df.iterrows():
-            account_name = str(row.get('account', '')).strip()
-            email = str(row.get('email', '')).strip()
-            mobile = str(row.get('mobile', '')).strip()
-
-            if not account_name or not email:
-                continue
-
-            additional_data = {}
-            optional_columns = {'marriage', 'address'}
-            for col in optional_columns:
-                if col in df.columns and pd.notna(row.get(col)):
-                    additional_data[col] = str(row.get(col)).strip()
-
-            # Get or create Account
-            account, _ = Accounts.objects.get_or_create(name=account_name)
-
-            # Determine partner
-            partner = None
-            if 'partner' in df.columns:
-                partner_email = str(row.get('partner', '')).strip()
-                if partner_email:
-                    try:
-                        partner = Partners.objects.get(user__email=partner_email)
-                    except Partners.DoesNotExist:
-                        pass
-            else:
-                partner = partner_instance
-
-            # Create/update contact
-            contact, created = Contact.objects.update_or_create(
-                email=email,
-                defaults={
-                    'name': email.split('@')[0] if '@' in email else email,
-                    'mobile': mobile,
-                    'additional_data': additional_data,
-                    'partner': partner,
-                    'created_by': user,
-                    'status': 'data',
-                }
-            )
-
-            # Add account to contact if not present
-            if account not in contact.account.all():
-                contact.account.add(account)
-
-            contacts.append(contact)
-
-        return contacts
-
-    except Exception as e:
-        raise e
+    def clean(self):
+        cleaned_data = super().clean()
+        method = cleaned_data.get('import_or_manual')
+        excel_file = cleaned_data.get('excel_file')
+        contacts = cleaned_data.get('contacts_new')
+        if method == 'import':
+            if not excel_file:
+                self.add_error('excel_file', "Please upload an Excel file.")
+        elif method == 'manual':
+            if not contacts:
+                self.add_error('contacts_new', "Please select at least one contact.")
+        return cleaned_data
 
 class ContactListAdmin(admin.ModelAdmin):
-    form = ContactListForm
+    form = ContactListAdminForm
+    list_display = ['id', 'name', 'created_at', 'total_contacts', 'custom_actions']  # Renamed to custom_actions
+    list_display_links = ['id', 'name']
+    search_fields = ['name']
+    list_filter = ['created_at']
+    readonly_fields = ['total_contacts']
 
-    # Exclude the created_by field from the admin form
-    exclude = ('created_by',)
+    class Media:
+        js = ('admin/js/contact_list_admin.js',)
+
+    def total_contacts(self, obj):
+        """Display the total number of contacts in the ContactList."""
+        return obj.contacts_new.count()
+
+    total_contacts.short_description = 'Total Contacts'
+
+    def custom_actions(self, obj):  # Renamed to custom_actions
+        """Custom action buttons for the ContactList."""
+        return format_html(
+            '<a class="button" href="{}">View Contacts</a>&nbsp;'
+            '<a class="button" href="{}">Edit</a>',
+            f'/admin/pep_app/contactlist/{obj.id}/change/',
+            f'/admin/pep_app/contactlist/{obj.id}/change/',
+        )
+
+    custom_actions.short_description = 'Actions'
+    custom_actions.allow_tags = True
 
     def save_model(self, request, obj, form, change):
-        # Automatically set the created_by field to the current user
-        if not obj.created_by:
-            obj.created_by = request.user
-        super().save_model(request, obj, form, change)
+        """
+        Save the ContactList instance. Then, if the import method was chosen,
+        process the uploaded Excel file, create or update Contacts, and pass
+        the ContactList ID and Contact IDs to a Celery task for adding to the M2M field.
+        """
+        # Save the ContactList instance first (basic fields only)
+        obj.name = form.cleaned_data['name']
+        obj.save()  # Save manually to avoid form.save() clearing M2M
 
-    def get_form(self, request, obj=None, **kwargs):
-        # Pass the current user to the form
-        form = super().get_form(request, obj, **kwargs)
-        form.user = request.user
-        return form
+        # If "Import Contacts" was selected and an Excel file is present, process it.
+        if form.cleaned_data.get('import_or_manual') == 'import' and form.cleaned_data.get('excel_file'):
+            excel_file = form.cleaned_data.get('excel_file')
+            try:
+                df = pd.read_excel(excel_file)
+                df.columns = [str(col).strip().lower() for col in df.columns]
+
+                # Define required and optional columns
+                required_columns = {'account', 'email', 'mobile'}
+                optional_columns = {'marriage', 'address'}
+
+                # Validate required columns
+                if not required_columns.issubset(df.columns):
+                    missing = required_columns - set(df.columns)
+                    messages.error(request, f"Missing required columns: {', '.join(missing)}")
+                    return
+
+                # Determine partner instance if available from the request user.
+                partner_instance = None
+                if request.user.is_authenticated and hasattr(request.user, 'is_partner') and request.user.is_partner:
+                    try:
+                        partner_instance = Partners.objects.get(user=request.user)
+                    except Partners.DoesNotExist:
+                        partner_instance = None
+
+                created_count = 0
+                contact_ids = []  # List to hold contact IDs for Celery task
+
+                for _, row in df.iterrows():
+                    account_name = str(row.get('account', '')).strip()
+                    email = str(row.get('email', '')).strip()
+                    mobile = str(row.get('mobile', '')).strip()
+                    if not account_name or not email:
+                        continue
+
+                    # Prepare additional data from optional columns.
+                    additional_data = {}
+                    for col in optional_columns:
+                        if col in df.columns:
+                            value = row.get(col)
+                            if pd.notna(value):
+                                additional_data[col] = str(value).strip()
+
+                    # Get or create the account.
+                    account, _ = Accounts.objects.get_or_create(name=account_name)
+
+                    # Determine partner for the contact.
+                    if 'partner' in df.columns:
+                        partner_email = str(row.get('partner', '')).strip()
+                        if partner_email:
+                            try:
+                                partner_inst = Partners.objects.get(user__email=partner_email)
+                            except Partners.DoesNotExist:
+                                partner_inst = None
+                        else:
+                            partner_inst = None
+                    else:
+                        partner_inst = partner_instance
+
+                    # Create or update the contact.
+                    contact, created = Contact.objects.update_or_create(
+                        email=email,
+                        defaults={
+                            'name': email.split('@')[0] if '@' in email else email,
+                            'mobile': mobile,
+                            'additional_data': additional_data,
+                            'partner': partner_inst,
+                            'status': 'data',
+                            'created_by': request.user if request.user.is_authenticated else None,
+                        }
+                    )
+
+                    # Ensure the account relationship exists.
+                    if account not in contact.account.all():
+                        contact.account.add(account)
+
+                    # Add the contact ID to the list for the Celery task
+                    contact_ids.append(contact.id)
+                    if created:
+                        created_count += 1
+
+                # Debug: Print contacts to be added
+                print("Contacts to add:", contact_ids)
+
+                # Pass the ContactList ID and Contact IDs to the Celery task
+                add_contacts_to_contactlist.delay(obj.id, contact_ids)
+
+                messages.success(request, f"Successfully imported {created_count} new contacts! Contacts will be added to the list shortly.")
+            except Exception as e:
+                messages.error(request, f"Error importing contacts: {str(e)}")
+
+    def response_add(self, request, obj, post_url_continue=None):
+        """
+        Override the response after adding a ContactList instance.
+        """
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            # Return a JSON response for AJAX requests
+            return JsonResponse({
+                'success': True,
+                'message': 'ContactList created successfully!',
+                'redirect_url': '/admin/pep_app/contactlist/'  # Redirect to the contact list page
+            })
+        else:
+            # Default behavior for non-AJAX requests
+            return super().response_add(request, obj, post_url_continue)
+
+    def response_change(self, request, obj):
+        """
+        Override the response after changing a ContactList instance.
+        """
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            # Return a JSON response for AJAX requests
+            return JsonResponse({
+                'success': True,
+                'message': 'ContactList updated successfully!',
+                'redirect_url': '/admin/pep_app/contactlist/'  # Redirect to the contact list page
+            })
+        else:
+            # Default behavior for non-AJAX requests
+            return super().response_change(request, obj)
 
 admin.site.register(ContactList, ContactListAdmin)
