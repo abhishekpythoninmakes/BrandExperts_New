@@ -306,9 +306,15 @@ class EnableAlertView(APIView):
         if alert_type == 'email':
             self.send_email_otp(user.email, otp)
         elif alert_type == 'mobile':
-            self.send_whatsapp_otp(customer.country_code,customer.mobile, otp)
+            self.send_whatsapp_otp(customer.country_code, customer.mobile, otp)
 
-        # Save OTP record
+        # Delete existing OTP records for this alert type
+        if alert_type == 'email':
+            OTPRecord.objects.filter(email=user.email).delete()
+        elif alert_type == 'mobile':
+            OTPRecord.objects.filter(mobile=customer.mobile).delete()
+
+        # Save new OTP record
         OTPRecord.objects.create(
             email=user.email if alert_type == 'email' else None,
             mobile=customer.mobile if alert_type == 'mobile' else None,

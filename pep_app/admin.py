@@ -445,6 +445,7 @@ admin.site.register(Group, CustomGroupAdmin)
 
 
 def process_excel(excel_file, user):
+    print("Process excel file")
     try:
         df = pd.read_excel(excel_file)
         df.columns = [str(col).strip().lower() for col in df.columns]
