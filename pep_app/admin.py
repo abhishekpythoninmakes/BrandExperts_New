@@ -9,7 +9,7 @@ from django.contrib import messages
 from django.forms.widgets import DateInput
 from django.utils.html import format_html
 from django.core.mail import send_mail
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponseForbidden, HttpResponseRedirect
 from django.db import transaction
 from django.contrib.auth.models import  Group, Permission
 import pandas as pd
@@ -663,3 +663,138 @@ class EmailTemplateCategoryAdmin(admin.ModelAdmin):
         obj.save()
 
 admin.site.register(EmailTemplateCategory, EmailTemplateCategoryAdmin)
+
+
+
+class EmailTemplateAdmin(admin.ModelAdmin):
+    list_display = ['name', 'category', 'created_at', 'created_by']
+    search_fields = ['name', 'category__name', 'created_by__username']
+    list_filter = ['category', 'created_by']
+    ordering = ['-created_at']
+    exclude = ('created_by',)  # Auto-set created_by in save_model
+
+    def save_model(self, request, obj, form, change):
+        # On creation, assign the current logged-in user to created_by.
+        if not change:
+            obj.created_by = request.user
+        obj.save()
+
+admin.site.register(EmailTemplate, EmailTemplateAdmin)
+
+
+admin.site.register(Placeholder)
+
+
+class EmailCampaignAdmin(admin.ModelAdmin):
+    list_display = ('name', 'status_badge', 'created_at', 'campaign_actions')
+    list_filter = ('status', 'created_by')
+    search_fields = ('name', 'subject', 'sender_name')
+    readonly_fields = ('created_at', 'created_by')
+    filter_horizontal = ('contact_lists',)
+    ordering = ('-created_at',)
+
+    fieldsets = (
+        ('Basic Information', {
+            'fields': ('name', 'sender_name', 'status')
+        }),
+        ('Campaign Content', {
+            'fields': ('subject', 'template', 'custom_content'),
+            'classes': ('wide', 'collapse')
+        }),
+        ('Recipients', {
+            'fields': ('contact_lists',),
+            'classes': ('collapse',)
+        }),
+        ('Metadata', {
+            'fields': ('created_at', 'created_by'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def campaign_actions(self, obj):
+        """Generate action buttons for the changelist based on campaign status."""
+        if obj.status == 'draft':
+            return format_html(
+                '<a class="button" href="{}" style="background: #4CAF50; color: white;">Send Now</a>',
+                reverse('admin:pep_app_emailcampaign_send', args=[obj.id])  # Updated URL name
+            )
+        elif obj.status == 'sent':
+            return format_html(
+                '<button class="button" style="background: #9E9E9E; color: white; padding: 5px 10px; cursor: not-allowed;" disabled>Sent</button>'
+            )
+        elif obj.status == 'pending':
+            return format_html(
+                '<button class="button" style="background: #FF9800; color: white; padding: 5px 10px; cursor: not-allowed;" disabled>Pending</button>'
+            )
+        elif obj.status == 'cancelled':
+            return format_html(
+                '<button class="button" style="background: #F44336; color: white; padding: 5px 10px; cursor: not-allowed;" disabled>Cancelled</button>'
+            )
+        return ''
+
+    campaign_actions.short_description = 'Actions'
+    campaign_actions.allow_tags = True
+
+    def status_badge(self, obj):
+        """Display the campaign status with a colored badge."""
+        status_colors = {
+            'draft': 'gray',
+            'pending': 'orange',
+            'sent': 'green',
+            'cancelled': 'red'
+        }
+        return format_html(
+            '<span style="background: {}; color: white; padding: 3px 8px; border-radius: 4px;">{}</span>',
+            status_colors.get(obj.status, 'gray'),
+            obj.get_status_display()
+        )
+
+    status_badge.short_description = 'Status'
+
+    def get_urls(self):
+        """Add custom URLs for the admin interface."""
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                '<int:object_id>/send/',
+                self.admin_site.admin_view(self.send_campaign),
+                name='pep_app_emailcampaign_send'  # Updated to follow convention
+            ),
+        ]
+        return custom_urls + urls
+
+    def send_campaign(self, request, object_id):
+        """Handle the 'Send Now' action by triggering a Celery task."""
+        try:
+            campaign = EmailCampaign.objects.get(id=object_id)
+            if campaign.status != 'draft':
+                messages.error(request, 'Only draft campaigns can be sent.')
+                return HttpResponseRedirect("../")
+
+            # Trigger the Celery task
+            send_email_campaign.delay(campaign.id)
+            campaign.status = 'pending'
+            campaign.save()
+
+            messages.success(request, 'Campaign is being sent in the background.')
+            return HttpResponseRedirect("../")
+        except EmailCampaign.DoesNotExist:
+            messages.error(request, 'Campaign not found.')
+            return HttpResponseRedirect("../")
+
+    def save_model(self, request, obj, form, change):
+        """Set the created_by field when creating a new campaign."""
+        if not obj.pk:
+            obj.created_by = request.user
+        super().save_model(request, obj, form, change)
+
+    class Media:
+        css = {
+            'all': ('admin/css/custom.css',)
+        }
+
+admin.site.register(EmailCampaign, EmailCampaignAdmin)
+
+
+
+admin.site.register(EmailRecipient)

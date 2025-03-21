@@ -1,7 +1,9 @@
 from django.db import models
 from ckeditor_uploader.fields import RichTextUploadingField
 from products_app.models import CustomUser
-
+from django.urls import reverse
+from django.conf import settings
+import uuid
 from django.core.validators import MinValueValidator, MaxValueValidator
 
 STATUS_CHOICES = [
@@ -137,37 +139,89 @@ class EmailTemplateCategory(models.Model):
 class EmailTemplate(models.Model):
     name = models.CharField(max_length=255)
     category = models.ForeignKey(EmailTemplateCategory, on_delete=models.CASCADE,null=True,blank=True)
+    subject = models.CharField(max_length=255,null=True,blank=True)
     content = RichTextUploadingField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey(CustomUser, on_delete=models.CASCADE,null=True,blank=True)
+    sent_at = models.DateTimeField(null=True, blank=True)
+    total_recipients = models.PositiveIntegerField(default=0)
 
+    def get_email_content(self):
+        if self.custom_content:
+            content = self.custom_content
+        elif self.template:
+            content = self.template.content
+        else:
+            content = ""
+        return content
+
+    def get_email_subject(self):
+        return self.subject or (self.template.subject if self.template else "No Subject")
     def __str__(self):
         return self.name
 
 
+
+class Placeholder(models.Model):
+    key = models.CharField(max_length=255, unique=True)
+    value = models.CharField(max_length=255)
+
+    def __str__(self):
+        return self.key
+
+
+
+
+
 class EmailCampaign(models.Model):
     STATUS_CHOICES = [
+        ('draft', 'Draft'),
         ('sent', 'Sent'),
         ('pending', 'Pending'),
         ('cancelled', 'Cancelled'),
     ]
 
     name = models.CharField(max_length=255)
+    sender_name = models.CharField(max_length=255,null=True,blank=True)
     contact_lists = models.ManyToManyField(ContactList)
     template = models.ForeignKey(EmailTemplate, on_delete=models.SET_NULL, null=True, blank=True)
     custom_content = RichTextUploadingField(null=True, blank=True)
     subject = models.CharField(max_length=255,null=True,blank=True,default="No Subject")
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
     created_at = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey(CustomUser, on_delete=models.CASCADE,null=True,blank=True)
 
-    @property
-    def total_contacts(self):
-        return sum(cl.contact_count for cl in self.contact_lists.all())
+    def get_email_content(self):
+        if self.custom_content:
+            content = self.custom_content
+        elif self.template:
+            content = self.template.content
+        else:
+            content = ""
+        return content
 
-    @property
-    def total_contact_lists(self):
-        return self.contact_lists.count()
+
+    def get_email_subject(self):
+        return self.subject or (self.template.subject if self.template else "No Subject")
 
     def __str__(self):
         return self.name
+
+
+class EmailRecipient(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('sent', 'Sent'),
+        ('opened', 'Opened'),
+        ('failed', 'Failed'),
+    ]
+
+    campaign = models.ForeignKey(EmailCampaign, on_delete=models.CASCADE)
+    contact = models.ForeignKey(Contact, on_delete=models.CASCADE)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    tracking_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    opened_at = models.DateTimeField(null=True, blank=True)
+    sent_at = models.DateTimeField(null=True, blank=True)
+
+    def tracking_pixel_url(self):
+        return settings.DOMAIN + reverse('track_email_open', args=[str(self.tracking_id)])

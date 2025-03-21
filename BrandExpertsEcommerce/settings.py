@@ -242,7 +242,7 @@ SIMPLE_JWT = {
     'BLACKLIST_AFTER_ROTATION': True,
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
-
+DOMAIN = 'https://dash.brandexperts.ae/'
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'email-smtp.ap-south-1.amazonaws.com'  # AWS SES SMTP server
@@ -252,6 +252,12 @@ EMAIL_USE_SSL = False  # Ensure SSL is disabled for STARTTLS
 EMAIL_HOST_USER = 'AKIA3C6FL5S2HPHYRYNN'  # AWS SES SMTP user name
 EMAIL_HOST_PASSWORD = 'BJ+TcRmykGY8TWMTkFrt9nG3c3NW1HTL2iRtXpTRKpx6'  # AWS SES SMTP password
 DEFAULT_FROM_EMAIL = 'hello@brandexperts.ae'  # Your official email
+
+import os
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+
 
 CKEDITOR_CONFIGS = {
     'default': {

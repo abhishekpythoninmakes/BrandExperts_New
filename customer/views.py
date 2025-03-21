@@ -3,7 +3,7 @@ import os
 import tempfile
 import time
 from decimal import Decimal, InvalidOperation
-
+from pep_app .tasks import link_contact_and_update_status
 from django.conf import settings
 from django.core.cache import cache
 from django.core.mail import send_mail
@@ -800,7 +800,7 @@ def confirm_payment_warranty(request):
                 # Update customer status to "lead"
                 customer.status = 'client'
                 customer.save()
-
+                link_contact_and_update_status.delay(customer.user.email)
                 # Send email with warranty and login details
                 warranty = WarrantyRegistration.objects.get(id=warranty_id)
                 subject = "Warranty Registration & Payment Confirmation"
@@ -1603,6 +1603,7 @@ def confirm_payment(request):
                 product_price = total_price
                 # Add site_visit amount if site_visit is True
                 site_visit_fee = Decimal('0.00')
+                link_contact_and_update_status.delay(customer.user.email)
                 if cart.site_visit:
                     # Fetch the first site_visit amount from the database
                     site_visit_obj = site_visit.objects.first()

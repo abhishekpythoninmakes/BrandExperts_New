@@ -1,0 +1,12 @@
+/* Add this to your admin CSS */
+.object-tools a.btn-primary {
+    background-color: #417690;
+    color: white;
+    padding: 8px 15px;
+    border-radius: 4px;
+    font-weight: normal;
+}
+
+.object-tools a.btn-primary:hover {
+    background-color: #205067;
+}
