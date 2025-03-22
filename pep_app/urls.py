@@ -9,4 +9,5 @@ urlpatterns = [
 
     path('track-email/<uuid:tracking_id>/', views.track_email_open, name='track_email_open'),
 
+
 ]

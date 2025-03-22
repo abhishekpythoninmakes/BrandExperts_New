@@ -44,6 +44,7 @@ urlpatterns = [
     path('',include('customer.urls')),
     path('dash/',include('products_app.urls')),
     path('pep/',include('pep_app.urls')),
+    path('partner/',include('partner_app.urls')),
     path('ckeditor/', include('ckeditor_uploader.urls')),
 
     # Swagger and Redoc URLs

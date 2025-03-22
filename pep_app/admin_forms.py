@@ -1,9 +1,9 @@
-# admin_forms.py
 from decimal import Decimal
 
 from django import forms
 from django.contrib.auth.hashers import make_password
 from .models import CustomUser, Partners
+
 
 class PartnerAdminForm(forms.ModelForm):
     first_name = forms.CharField(
@@ -55,13 +55,8 @@ class PartnerAdminForm(forms.ModelForm):
                 'placeholder': 'Leave blank to keep current password'
             })
 
-    def clean_email(self):
-        email = self.cleaned_data['email']
-        if CustomUser.objects.filter(email=email).exclude(
-            pk=self.instance.user.pk if self.instance.user else None
-        ).exists():
-            raise forms.ValidationError("This email is already in use.")
-        return email
+    # Remove the clean_email method that was raising validation errors
+    # We'll handle existing users in the save method instead
 
     def clean_commission(self):
         commission = self.cleaned_data.get('commission')
@@ -80,18 +75,31 @@ class PartnerAdminForm(forms.ModelForm):
             'is_partner': True
         }
 
-        if self.instance.pk:
-            # Update existing user
-            user = self.instance.user
+        # Check if we're updating an existing partner or creating a new one
+        is_new_partner = not self.instance.pk
+
+        # Find existing user by email
+        existing_user = CustomUser.objects.filter(email=email).first()
+
+        if existing_user:
+            # If user exists, update their details
             for field, value in user_data.items():
-                setattr(user, field, value)
-            if password != 'Temp@1234':  # Only update password if changed
-                user.set_password(password)
-            user.save()
+                setattr(existing_user, field, value)
+
+            # Only set password if explicitly provided and this is not an update
+            if self.cleaned_data.get('password') and is_new_partner:
+                existing_user.set_password(password)
+
+            # Ensure they have partner permissions
+            existing_user.is_partner = True
+            existing_user.is_staff = True
+            existing_user.save()
+
+            user = existing_user
         else:
-            # Create new user
+            # Create a new user
             user = CustomUser.objects.create_user(
-                username=email,  # Username is set to email
+                username=email,
                 email=email,
                 password=password,
                 first_name=user_data['first_name'],
@@ -108,8 +116,9 @@ class PartnerAdminForm(forms.ModelForm):
         if commit:
             partner.save()
 
-        # Store credentials for email notification
+        # Store credentials if this is a new partner record
         self.new_user_email = email
-        self.new_user_password = password if not self.instance.pk else None
+        # Only store password for new users we created (not existing ones)
+        self.new_user_password = password if not existing_user else None
 
         return partner

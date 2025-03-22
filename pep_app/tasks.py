@@ -351,14 +351,14 @@ def link_contact_and_update_status(customer_email):
 
             # Update contact with customer's user
             contact.user = customer.user
-            contact.status = 'lead'
+            contact.status = 'client'
             contact.save()
 
             # Update related accounts using bulk_update for efficiency
             accounts = contact.account.all()
             if accounts.exists():
                 for account in accounts:
-                    account.status = 'lead'
+                    account.status = 'client'
                 Accounts.objects.bulk_update(accounts, ['status'])
 
             logger.info(f"Updated contact {contact.id} and associated accounts")

@@ -285,19 +285,12 @@ class PasswordResetSession(models.Model):
 
 # Test Model
 
-# class TestModel(models.Model):
-#     text = models.TextField(null=True,blank=True)
-#     response = models.TextField(null=True, blank=True)
-#     image = models.URLField(null=True,blank=True)
-#     download_image = models.ImageField(upload_to='test_images',null=True,blank=True)
-#     camera = models.BooleanField(default=False)
-#     created_at = models.DateTimeField(auto_now_add=True)
-#     longitude = models.CharField(max_length=100,null=True,blank=True)
-#     lattitude = models.CharField(max_length=100,null=True,blank=True)
-#     created_at = models.DateTimeField(auto_now_add=True)
-#
-#     def __str__(self):
-#         return self.text
+class TestModel(models.Model):
+    response = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.response
 
 
 

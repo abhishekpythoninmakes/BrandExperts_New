@@ -253,7 +253,8 @@ class CompleteRegistrationView(APIView):
                 "mobile": customer.mobile,
                 "country_code": customer.country_code,
                 "verified_email": customer.verified_email,
-                "verified_mobile": customer.verified_mobile
+                "verified_mobile": customer.verified_mobile,
+                "is_partner": user.is_partner,
             },
             "status_code": status.HTTP_201_CREATED
         }, status=status.HTTP_201_CREATED)
@@ -650,7 +651,8 @@ class LoginAPIView(APIView):
                 "email": user.email,
                 "mobile": mobile,
                 "verified_email": customer_email_verified,
-                "verified_mobile": customer_verified_mobile
+                "verified_mobile": customer_verified_mobile,
+                "is_partner": user.is_partner,
             }
         }, status=status.HTTP_200_OK)
 
@@ -2383,7 +2385,7 @@ def handle_creator_questions(text):
     """Handle questions about the bot's creator/developer"""
     creator_keywords = [
         'creator', 'developer', 'made you', 'created you',
-        'who are you', 'your maker', 'your parent', 'your boss'
+        'who are you', 'your maker', 'your parent', 'your boss','who is','who is your','you are'
     ]
 
     responses = [
@@ -2693,6 +2695,20 @@ def process_text(request):
         data['response'] = creator_response
         return Response(data)
 
+    # 3. Handle summarization requests
+    summarize_keywords = ['summarize', 'summarise', 'summary', 'brief']
+    if any(keyword in text.lower() for keyword in summarize_keywords):
+        # Fetch the latest TestModel instance
+        test_model = TestModel.objects.first()
+        if test_model and test_model.response:
+            # Use Gemini to summarize
+            prompt = f"Please summarize the following text: {test_model.response}"
+            summary = ask_gemini_ai(prompt, None)  # Pass None or location if needed
+            data['response'] = summary
+        else:
+            data['response'] = "No text available to summarize. Please extract text from an image first."
+        return Response(data)
+
     # Check for image upload
     if 'image' in request.FILES:
         try:
@@ -2714,6 +2730,12 @@ def process_text(request):
                 return Response(data, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
             if extracted_text:
+                test_model_instance = TestModel.objects.first()
+                if test_model_instance:
+                    test_model_instance.response = extracted_text
+                    test_model_instance.save()
+                else:
+                    TestModel.objects.create(response=extracted_text)
                 data['response'] = extracted_text
             else:
                 data['response'] = "No text detected. Please ensure clear image with visible text."
