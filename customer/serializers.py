@@ -30,9 +30,7 @@ class CompleteRegistrationSerializer(serializers.Serializer):
     otp = serializers.CharField(max_length=6)
     first_name = serializers.CharField(max_length=150)
     last_name = serializers.CharField(max_length=150)
-    password = serializers.CharField(write_only=True)
-    email = serializers.EmailField(required=False)  # Required only if identifier is mobile
-    mobile = serializers.CharField(max_length=20, required=False)  # Required only if identifier is email
+    password = serializers.CharField(write_only=True)# Required only if identifier is email
     country_code = serializers.CharField(max_length=5, required=False)
 
     def validate(self, data):
@@ -40,13 +38,6 @@ class CompleteRegistrationSerializer(serializers.Serializer):
         if not otp_record:
             raise serializers.ValidationError("Invalid or expired OTP")
 
-        # Determine missing fields based on identifier type
-        if otp_record.email:  # Identifier was an email
-            if 'mobile' not in data or not data['mobile']:
-                raise serializers.ValidationError("Mobile number is required")
-        elif otp_record.mobile:  # Identifier was a mobile number
-            if 'email' not in data or not data['email']:
-                raise serializers.ValidationError("Email is required")
 
         return data
 

@@ -204,6 +204,8 @@ class Order(models.Model):
 class OTPRecord(models.Model):
     email = models.EmailField(null=True, blank=True, unique=True)  # Ensure unique emails
     mobile = models.CharField(max_length=20, null=True, blank=True, unique=True)  # Ensure unique mobiles
+    mobile_verified = models.BooleanField(default=False)
+    email_verified = models.BooleanField(default=False)
     otp = models.CharField(max_length=6)
     first_name = models.CharField(max_length=150, null=True, blank=True)
     last_name = models.CharField(max_length=150, null=True, blank=True)

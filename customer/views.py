@@ -64,27 +64,49 @@ class AuthInitiateView(APIView):
                     "status_code": status.HTTP_400_BAD_REQUEST
                 }, status=status.HTTP_400_BAD_REQUEST)
 
-        # Check if CustomUser exists with the identifier as username
-        user_exists = CustomUser.objects.filter(username=identifier['value']).exists()
+        # Check for existing user with matching identifier
+        existing_user = None
+        customer = None
 
-        # If user exists, check if they are verified
-        if user_exists:
-            custom_user = CustomUser.objects.get(username=identifier['value'])
-            customer = Customer.objects.filter(user=custom_user).first()
+        # First check by username (identifier value)
+        try:
+            existing_user = CustomUser.objects.get(username=id_value)
+            customer = Customer.objects.filter(user=existing_user).first()
+        except CustomUser.DoesNotExist:
+            pass
 
-            if id_type == 'email' and customer and customer.verified_email:
+        # If not found by username, check by email (if identifier is email)
+        if not existing_user and id_type == 'email':
+            try:
+                existing_user = CustomUser.objects.get(email=id_value)
+                customer = Customer.objects.filter(user=existing_user).first()
+            except CustomUser.DoesNotExist:
+                pass
+
+        # If not found yet, check by mobile in Customer model (if identifier is mobile)
+        if not existing_user and id_type == 'mobile' and country_code:
+            try:
+                customer = Customer.objects.get(mobile=id_value, country_code=country_code)
+                existing_user = customer.user
+            except Customer.DoesNotExist:
+                pass
+
+        # If user exists, check verification status for the specific identifier type
+        if existing_user and customer:
+            if id_type == 'email' and customer.verified_email:
                 return Response({
                     "success": True,
                     "identifier": id_value,
                     "get_password": True,
-                    "message": "User is verified, no OTP needed",
+                    "message": "Email is verified, no OTP needed",
                     "status_code": status.HTTP_200_OK
                 }, status=status.HTTP_200_OK)
-            elif id_type == 'mobile' and customer and customer.verified_mobile:
+            elif id_type == 'mobile' and customer.verified_mobile:
                 return Response({
                     "success": True,
+                    "identifier": id_value,
                     "get_password": True,
-                    "message": "User is verified, no OTP needed",
+                    "message": "Mobile is verified, no OTP needed",
                     "status_code": status.HTTP_200_OK
                 }, status=status.HTTP_200_OK)
 
@@ -108,12 +130,13 @@ class AuthInitiateView(APIView):
 
         return Response({
             "success": True,
-            "identifier":id_value,
+            "identifier": id_value,
             "get_password": False,
             "message": "OTP sent successfully",
             "status_code": status.HTTP_200_OK
         }, status=status.HTTP_200_OK)
 
+    # Rest of the methods remain the same...
     def parse_mobile_number(self, full_mobile):
         """
         Parses a full mobile number into country code and local number.
@@ -216,7 +239,7 @@ class OTPLoginAPIView(APIView):
         OTPRecord.objects.create(
             email=custom_user.email if verified_email else None,
             mobile=id_value if verified_mobile else None,
-            otp=otp
+            otp=otp,country_code=country_code
         )
 
         return Response({
@@ -363,16 +386,180 @@ class OTPVerificationView(APIView):
         # Determine identifier type and add response flags
         response_data = {
             "success": True,
+            "otp": otp,
             "message": "OTP verified successfully",
             "status_code": status.HTTP_200_OK
         }
 
         if otp_record.email:  # Identifier is email
             response_data["whatsapp_required"] = True
+            otp_record.email_verified = True
         elif otp_record.mobile:  # Identifier is mobile
+            otp_record.mobile_verified = True
             response_data["email_required"] = True
-
+        otp_record.save()
         return Response(response_data, status=status.HTTP_200_OK)
+
+# RESEND OTP VIEW
+
+class ResendOTPView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        # Extract request data
+        new_identifier = request.data.get('identifier')
+        country_code = request.data.get('country_code', '')
+        old_otp = request.data.get('otp')
+
+        # Validate required fields
+        if not new_identifier or not old_otp:
+            return Response({
+                "success": False,
+                "message": "Identifier and OTP are required",
+                "status_code": status.HTTP_400_BAD_REQUEST
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Determine identifier type
+        is_email = '@' in new_identifier
+        is_mobile = not is_email
+
+        # Validate mobile number format if needed
+        if is_mobile and not country_code:
+            return Response({
+                "success": False,
+                "message": "Country code required for mobile numbers",
+                "status_code": status.HTTP_400_BAD_REQUEST
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Find OTP record by OTP only
+        otp_record = OTPRecord.objects.filter(otp=old_otp).first()
+        if not otp_record:
+            return Response({
+                "success": False,
+                "message": "Invalid OTP",
+                "status_code": status.HTTP_404_NOT_FOUND
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        # Generate new OTP
+        new_otp = ''.join(random.choices('0123456789', k=6))
+
+        # Update OTP record with new identifier and OTP
+        if is_email:
+            otp_record.email = new_identifier
+        else:
+            otp_record.mobile = new_identifier
+
+
+        otp_record.otp = new_otp
+        if country_code:
+            otp_record.country_code = country_code
+        otp_record.save()
+
+        # Send new OTP
+        if is_email:
+            self.send_email_otp(new_identifier, new_otp)
+        else:
+            self.send_whatsapp_otp(f"{country_code}{new_identifier}", new_otp)
+
+        return Response({
+            "success": True,
+            "message": "New OTP sent to the provided identifier",
+            "identifier": new_identifier,
+            "status_code": status.HTTP_200_OK
+        }, status=status.HTTP_200_OK)
+
+    def send_email_otp(self, email, otp):
+        subject = 'Your New Verification Code'
+        message = f'Your new OTP is: {otp}'
+        send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [email])
+
+    def send_whatsapp_otp(self, mobile, otp):
+        url = f"https://graph.facebook.com/v19.0/{settings.WHATSAPP_PHONE_NUMBER_ID}/messages"
+        headers = {
+            "Authorization": f"Bearer {settings.WHATSAPP_PERMANENT_TOKEN}",
+            "Content-Type": "application/json"
+        }
+        data = {
+            "messaging_product": "whatsapp",
+            "to": mobile,
+            "type": "template",
+            "template": {
+                "name": "be_auth",
+                "language": {"code": "en"},
+                "components": [
+                    {"type": "body", "parameters": [{"type": "text", "text": otp}]},
+                    {"type": "button", "sub_type": "url", "index": 0,
+                     "parameters": [{"type": "text", "text": otp}]}
+                ]
+            }
+        }
+        requests.post(url, headers=headers, json=data)
+
+
+class VerifyOTPView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        # Extract OTP from request
+        otp_to_verify = request.data.get('otp')
+
+        if not otp_to_verify:
+            return Response({
+                "success": False,
+                "message": "OTP is required",
+                "status_code": status.HTTP_400_BAD_REQUEST
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Find OTP record
+        try:
+            otp_record = OTPRecord.objects.get(otp=otp_to_verify)
+        except OTPRecord.DoesNotExist:
+            return Response({
+                "success": False,
+                "message": "Invalid OTP",
+                "status_code": status.HTTP_404_NOT_FOUND
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        # Verify OTP and update the appropriate verification flag
+        if otp_record.otp == otp_to_verify:
+            if otp_record.email and not otp_record.email_verified:
+                otp_record.email_verified = True
+                identifier_type = 'email'
+            elif otp_record.mobile and not otp_record.mobile_verified:
+                otp_record.mobile_verified = True
+                identifier_type = 'mobile'
+            else:
+                return Response({
+                    "success": False,
+                    "message": "No unverified identifier found",
+                    "status_code": status.HTTP_400_BAD_REQUEST
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            otp_record.save()
+
+            return Response({
+                "success": True,
+                "message": "OTP verified successfully",
+                "verified_identifier": identifier_type,
+                "status_code": status.HTTP_200_OK
+            })
+        else:
+            return Response({
+                "success": False,
+                "new_otp":otp_to_verify,
+                "message": "Invalid OTP",
+                "status_code": status.HTTP_400_BAD_REQUEST
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+
+
+
+
+
+
+
 
 
 class CompleteRegistrationView(APIView):
@@ -401,9 +588,9 @@ class CompleteRegistrationView(APIView):
 
         # Determine username and additional fields based on identifier type
         username = otp_record.email or otp_record.mobile
-        email = otp_record.email or data.get('email')  # Use existing email or new email
-        mobile = otp_record.mobile or data.get('mobile')  # Use existing mobile or new mobile
-        country_code = otp_record.country_code or data.get('country_code')  # Use existing country code or new one
+        email = otp_record.email  # Use existing email or new email
+        mobile = otp_record.mobile   # Use existing mobile or new mobile
+        country_code = otp_record.country_code or  data['country_code']  # Use existing country code or new one
 
         try:
             # Create user
@@ -415,14 +602,14 @@ class CompleteRegistrationView(APIView):
             )
             user.set_password(data['password'])
             user.save()
-
+            print("COuntry code",country_code)
             # Create customer
             customer = Customer.objects.create(
                 user=user,
                 mobile=mobile,
                 country_code=country_code,
-                verified_email=bool(otp_record.email),  # Mark email as verified if identifier is email
-                verified_mobile=bool(otp_record.mobile)
+                verified_email=otp_record.email_verified,  # Mark email as verified if identifier is email
+                verified_mobile=otp_record.mobile_verified
             )
 
         except IntegrityError as e:
