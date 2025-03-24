@@ -202,6 +202,7 @@ class Order(models.Model):
 
 # OTP RECORDS
 class OTPRecord(models.Model):
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, null=True, blank=True)
     email = models.EmailField(null=True, blank=True, unique=True)  # Ensure unique emails
     mobile = models.CharField(max_length=20, null=True, blank=True, unique=True)  # Ensure unique mobiles
     mobile_verified = models.BooleanField(default=False)

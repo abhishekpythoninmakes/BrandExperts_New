@@ -5,7 +5,7 @@ urlpatterns = [
 
     path('',views.home,name='home'),
     path('auth/initiate/', views.AuthInitiateView.as_view(), name='auth-initiate'),
-    path('auth/otp-login/', views.OTPLoginAPIView.as_view(), name='otp-login'),
+    path('auth/login-with-otp/', views.OTPLoginAPIView.as_view(), name='login-with-otp'),
     path('auth/otp-verify/', views.OTPVerifyAPIView.as_view(), name='otp-verify'),
     path('auth/verify-otp/', views.OTPVerificationView.as_view(), name='verify-otp'),
     path('auth/resend-otp/', views.ResendOTPView.as_view(), name='resend-otp'),
