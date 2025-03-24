@@ -70,7 +70,8 @@ class AuthInitiateView(APIView):
         # Check for existing user with matching identifier
         existing_user = None
         customer = None
-
+        get_mobile = False
+        get_email = False
         # First check by username (identifier value)
         try:
             existing_user = CustomUser.objects.get(username=id_value)
@@ -117,8 +118,12 @@ class AuthInitiateView(APIView):
         otp = ''.join(random.choices('0123456789', k=6))
 
         if id_type == 'email':
+            get_mobile = True
+            get_email = False
             self.send_email_otp(id_value, otp)
         else:
+            get_mobile = False
+            get_email = True
             self.send_whatsapp_otp(f"{country_code}{id_value}", otp)
 
         # Delete existing OTP records for the same identifier
@@ -135,6 +140,8 @@ class AuthInitiateView(APIView):
             "success": True,
             "identifier": id_value,
             "get_password": False,
+            "get_mobile": get_mobile,
+            "get_email": get_email,
             "message": "OTP sent successfully",
             "status_code": status.HTTP_200_OK
         }, status=status.HTTP_200_OK)
