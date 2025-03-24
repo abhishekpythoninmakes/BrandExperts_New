@@ -3,6 +3,9 @@ import os
 import tempfile
 import time
 from decimal import Decimal, InvalidOperation
+
+from django.db.models import Q
+
 from pep_app .tasks import link_contact_and_update_status
 from django.conf import settings
 from django.core.cache import cache
@@ -176,6 +179,13 @@ class AuthInitiateView(APIView):
 
 
 
+
+# LOGIN WITH IDENTIFIER AND PASSWORD
+
+
+
+
+
 # OTP LOGIN VIEW
 
 class OTPLoginAPIView(APIView):
@@ -209,8 +219,17 @@ class OTPLoginAPIView(APIView):
 
         # Find CustomUser and Customer
         try:
-            custom_user = CustomUser.objects.get(username=id_value)
-            customer = Customer.objects.get(user=custom_user)
+            if id_type == 'email':
+                # For email, find user directly by email or username
+                custom_user = CustomUser.objects.get(Q(email=id_value) | Q(username=id_value))
+            else:
+                # For mobile, find through Customer model first
+                customer = Customer.objects.get(mobile=id_value, country_code=country_code)
+                custom_user = customer.user
+
+            # Get customer record if not already obtained
+            if id_type != 'mobile':
+                customer = Customer.objects.get(user=custom_user)
         except (CustomUser.DoesNotExist, Customer.DoesNotExist):
             return Response({
                 "success": False,
@@ -235,11 +254,13 @@ class OTPLoginAPIView(APIView):
 
         # Save OTP record
         OTPRecord.objects.filter(email=custom_user.email).delete()
-        OTPRecord.objects.filter(mobile=id_value).delete()
+        OTPRecord.objects.filter(mobile=id_value, country_code=country_code).delete()
+
         OTPRecord.objects.create(
             email=custom_user.email if verified_email else None,
             mobile=id_value if verified_mobile else None,
-            otp=otp,country_code=country_code
+            country_code=country_code if verified_mobile else None,
+            otp=otp
         )
 
         return Response({
@@ -292,6 +313,16 @@ class OTPLoginAPIView(APIView):
 class OTPVerifyAPIView(APIView):
     permission_classes = [AllowAny]
 
+    def parse_mobile_number(self, full_mobile):
+        """
+        Parses a full mobile number into country code and local number.
+        Example: '+917356176925' -> ('+91', '7356176925')
+        """
+        match = re.match(r'^(\+\d{1,3})(\d+)$', full_mobile)
+        if not match:
+            raise ValueError("Invalid mobile number format")
+        return match.group(1), match.group(2)
+
     def post(self, request):
         identifier = request.data.get("identifier")
         otp = request.data.get("otp")
@@ -302,23 +333,67 @@ class OTPVerifyAPIView(APIView):
                 "status_code": status.HTTP_400_BAD_REQUEST
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        # Find OTP record
-        otp_record = OTPRecord.objects.filter(email=identifier).first() or \
-                     OTPRecord.objects.filter(mobile=identifier).first()
+        # Determine if identifier is email or mobile
+        is_email = '@' in identifier
 
-        if not otp_record or otp_record.otp != otp:
+        # Find OTP record
+        if is_email:
+            otp_record = OTPRecord.objects.filter(email=identifier, otp=otp).first()
+        else:
+            try:
+                country_code, local_number = self.parse_mobile_number(identifier)
+                print("LOcal number ===", local_number)
+                otp_record = OTPRecord.objects.filter(
+                    mobile=local_number,
+                    country_code=country_code,
+                    otp=otp
+                ).first()
+            except ValueError:
+                return Response({
+                    "error": "Invalid mobile number format",
+                    "status_code": status.HTTP_400_BAD_REQUEST
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+        if not otp_record:
             return Response({
-                "error": "Invalid OTP",
+                "error": "Invalid OTP or identifier",
                 "status_code": status.HTTP_401_UNAUTHORIZED
             }, status=status.HTTP_401_UNAUTHORIZED)
 
-        # Find user
-        custom_user = CustomUser.objects.filter(username=identifier).first()
+        # Find user based on identifier type
+        custom_user = None
+        if is_email:
+            # For email, find user by email or username
+            custom_user = CustomUser.objects.filter(
+                Q(email=identifier) | Q(username=identifier)
+            ).first()
+        else:
+            # For mobile, find through Customer model first
+            try:
+                customer = Customer.objects.get(
+                    mobile=local_number,
+                    country_code=country_code
+                )
+                custom_user = customer.user
+            except Customer.DoesNotExist:
+                pass
+
         if not custom_user:
             return Response({
                 "error": "User not found",
                 "status_code": status.HTTP_404_NOT_FOUND
             }, status=status.HTTP_404_NOT_FOUND)
+
+        # Update verification status in Customer model
+        try:
+            customer = Customer.objects.get(user=custom_user)
+            if is_email:
+                customer.verified_email = True
+            else:
+                customer.verified_mobile = True
+            customer.save()
+        except Customer.DoesNotExist:
+            pass
 
         # Generate tokens
         refresh = RefreshToken.for_user(custom_user)
@@ -329,11 +404,13 @@ class OTPVerifyAPIView(APIView):
             customer = Customer.objects.get(user=custom_user)
             customer_id = customer.id
             mobile = customer.mobile
+            country_code = customer.country_code
             customer_email_verified = customer.verified_email
             customer_verified_mobile = customer.verified_mobile
         except Customer.DoesNotExist:
             customer_id = None
             mobile = None
+            country_code = None
             customer_email_verified = None
             customer_verified_mobile = None
 
@@ -348,14 +425,13 @@ class OTPVerifyAPIView(APIView):
                 "last_name": custom_user.last_name,
                 "email": custom_user.email,
                 "mobile": mobile,
+                "country_code": country_code,
                 "verified_email": customer_email_verified,
                 "verified_mobile": customer_verified_mobile,
                 "is_partner": custom_user.is_partner,
             },
             "status_code": status.HTTP_200_OK
         }, status=status.HTTP_200_OK)
-
-
 
 
 
@@ -1004,52 +1080,91 @@ from django.utils import timezone
 
 # CUSTOMER LOGIN
 
+
 class LoginAPIView(APIView):
-    permission_classes = [AllowAny]  # Make sure login doesn't require authentication
+    permission_classes = [AllowAny]
 
     def post(self, request):
+        identifier = request.data.get("identifier", "").strip()
+        password = request.data.get("password", "").strip()
 
-        username = request.data.get("username")
-        password = request.data.get("password")
-
-        if not username or not password:
-            return Response({"error": "Username and password are required"},
+        # Validation checks
+        if not identifier:
+            return Response({"error": "Identifier is required"},
+                            status=status.HTTP_400_BAD_REQUEST)
+        if not password:
+            return Response({"error": "Password is required"},
                             status=status.HTTP_400_BAD_REQUEST)
 
-        user = authenticate(username=username, password=password)
+        # Email or mobile detection
+        if '@' in identifier:
+            # Email login flow
+            if not re.match(r'^[\w\.-]+@[\w\.-]+\.\w+$', identifier):
+                return Response({"error": "Invalid email format"},
+                                status=status.HTTP_400_BAD_REQUEST)
 
-        if user is None:
-            return Response({"error": "Invalid credentials"},
+            try:
+                user = CustomUser.objects.get(email=identifier)
+            except CustomUser.DoesNotExist:
+                return Response({"error": "Email not registered"},
+                                status=status.HTTP_404_NOT_FOUND)
+
+            username = user.username
+        else:
+            # Mobile login flow
+            if not identifier.isdigit():
+                return Response({"error": "Mobile number should contain only digits"},
+                                status=status.HTTP_400_BAD_REQUEST)
+
+            if len(identifier) != 10:
+                return Response({"error": "Mobile number must be 10 digits"},
+                                status=status.HTTP_400_BAD_REQUEST)
+
+            try:
+                customer = Customer.objects.get(mobile=identifier)
+                user = customer.user
+                username = user.username
+            except Customer.DoesNotExist:
+                return Response({"error": "Mobile number not registered"},
+                                status=status.HTTP_404_NOT_FOUND)
+
+        # Authentication
+        user = authenticate(username=username, password=password)
+        if not user:
+            return Response({"error": "Incorrect password"},
                             status=status.HTTP_401_UNAUTHORIZED)
 
+        # Token generation
         refresh = RefreshToken.for_user(user)
-        access_token = str(refresh.access_token)
 
+        # Get customer details
         try:
             customer = Customer.objects.get(user=user)
-            customer_id = customer.id
-            mobile = customer.mobile
-            customer_email_verified = customer.verified_email
-            customer_verified_mobile = customer.verified_mobile
+            customer_data = {
+                "customer_id": customer.id,
+                "mobile": customer.mobile,
+                "verified_email": customer.verified_email,
+                "verified_mobile": customer.verified_mobile,
+            }
         except Customer.DoesNotExist:
-            customer_id = None
-            mobile = None
-            customer_email_verified = None
-            customer_verified_mobile = None
+            customer_data = {
+                "customer_id": None,
+                "mobile": None,
+                "verified_email": None,
+                "verified_mobile": None,
+            }
 
         return Response({
+            "success": True,
             "user_id": user.id,
-            "customer_id": customer_id,
-            "access_token": access_token,
+            "access_token": str(refresh.access_token),
             "refresh_token": str(refresh),
             "user_details": {
+                **customer_data,
                 "username": user.username,
                 "first_name": user.first_name,
-                "last_name" : user.last_name,
+                "last_name": user.last_name,
                 "email": user.email,
-                "mobile": mobile,
-                "verified_email": customer_email_verified,
-                "verified_mobile": customer_verified_mobile,
                 "is_partner": user.is_partner,
             }
         }, status=status.HTTP_200_OK)
