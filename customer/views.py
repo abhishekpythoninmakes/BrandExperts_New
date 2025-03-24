@@ -75,6 +75,7 @@ class AuthInitiateView(APIView):
             if id_type == 'email' and customer and customer.verified_email:
                 return Response({
                     "success": True,
+                    "identifier": id_value,
                     "get_password": True,
                     "message": "User is verified, no OTP needed",
                     "status_code": status.HTTP_200_OK
@@ -107,6 +108,7 @@ class AuthInitiateView(APIView):
 
         return Response({
             "success": True,
+            "identifier":id_value,
             "get_password": False,
             "message": "OTP sent successfully",
             "status_code": status.HTTP_200_OK
@@ -148,6 +150,190 @@ class AuthInitiateView(APIView):
             }
         }
         requests.post(url, headers=headers, json=data)
+
+
+
+# OTP LOGIN VIEW
+
+class OTPLoginAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = AuthInitiateSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response({
+                "success": False,
+                "errors": serializer.errors,
+                "status_code": status.HTTP_400_BAD_REQUEST
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        identifier = serializer.validated_data['identifier']
+        id_type = identifier['type']
+        id_value = identifier['value']
+
+        # Parse mobile number to extract country code and local number
+        country_code = None
+        if id_type == 'mobile':
+            try:
+                country_code, local_number = self.parse_mobile_number(id_value)
+                id_value = local_number  # Save only the local number
+            except ValueError:
+                return Response({
+                    "success": False,
+                    "message": "Invalid mobile number format",
+                    "status_code": status.HTTP_400_BAD_REQUEST
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Find CustomUser and Customer
+        try:
+            custom_user = CustomUser.objects.get(username=id_value)
+            customer = Customer.objects.get(user=custom_user)
+        except (CustomUser.DoesNotExist, Customer.DoesNotExist):
+            return Response({
+                "success": False,
+                "message": "User not found",
+                "status_code": status.HTTP_404_NOT_FOUND
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        # Check verified email and mobile
+        verified_email = customer.verified_email
+        verified_mobile = customer.verified_mobile
+
+        # Generate OTP
+        otp = ''.join(random.choices('0123456789', k=6))
+
+        # Send OTP to verified email
+        if verified_email:
+            self.send_email_otp(custom_user.email, otp)
+
+        # Send OTP to verified mobile
+        if verified_mobile and id_type == 'mobile':
+            self.send_whatsapp_otp(f"{country_code}{id_value}", otp)
+
+        # Save OTP record
+        OTPRecord.objects.filter(email=custom_user.email).delete()
+        OTPRecord.objects.filter(mobile=id_value).delete()
+        OTPRecord.objects.create(
+            email=custom_user.email if verified_email else None,
+            mobile=id_value if verified_mobile else None,
+            otp=otp
+        )
+
+        return Response({
+            "success": True,
+            "message": "OTP sent successfully",
+            "identifier": id_value,
+            "status_code": status.HTTP_200_OK
+        }, status=status.HTTP_200_OK)
+
+    def parse_mobile_number(self, full_mobile):
+        """
+        Parses a full mobile number into country code and local number.
+        Example: '+919876543210' -> ('+91', '9876543210')
+        """
+        match = re.match(r'^(\+\d{1,3})(\d{10})$', full_mobile)
+        if not match:
+            raise ValueError("Invalid mobile number format")
+        return match.group(1), match.group(2)
+
+    def send_email_otp(self, email, otp):
+        subject = 'Your OTP for Login'
+        message = f'Your OTP code is: {otp}'
+        send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [email])
+
+    def send_whatsapp_otp(self, mobile, otp):
+        url = f"https://graph.facebook.com/v19.0/{settings.WHATSAPP_PHONE_NUMBER_ID}/messages"
+        headers = {
+            "Authorization": f"Bearer {settings.WHATSAPP_PERMANENT_TOKEN}",
+            "Content-Type": "application/json"
+        }
+        data = {
+            "messaging_product": "whatsapp",
+            "to": mobile,
+            "type": "template",
+            "template": {
+                "name": "be_auth",
+                "language": {"code": "en"},
+                "components": [
+                    {"type": "body", "parameters": [{"type": "text", "text": otp}]},
+                    {"type": "button", "sub_type": "url", "index": 0,
+                     "parameters": [{"type": "text", "text": otp}]}
+                ]
+            }
+        }
+        requests.post(url, headers=headers, json=data)
+
+
+# OTP VERIFICATION VIEW
+
+class OTPVerifyAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        identifier = request.data.get("identifier")
+        otp = request.data.get("otp")
+
+        if not identifier or not otp:
+            return Response({
+                "error": "Identifier and OTP are required",
+                "status_code": status.HTTP_400_BAD_REQUEST
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Find OTP record
+        otp_record = OTPRecord.objects.filter(email=identifier).first() or \
+                     OTPRecord.objects.filter(mobile=identifier).first()
+
+        if not otp_record or otp_record.otp != otp:
+            return Response({
+                "error": "Invalid OTP",
+                "status_code": status.HTTP_401_UNAUTHORIZED
+            }, status=status.HTTP_401_UNAUTHORIZED)
+
+        # Find user
+        custom_user = CustomUser.objects.filter(username=identifier).first()
+        if not custom_user:
+            return Response({
+                "error": "User not found",
+                "status_code": status.HTTP_404_NOT_FOUND
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        # Generate tokens
+        refresh = RefreshToken.for_user(custom_user)
+        access_token = str(refresh.access_token)
+
+        # Get customer details
+        try:
+            customer = Customer.objects.get(user=custom_user)
+            customer_id = customer.id
+            mobile = customer.mobile
+            customer_email_verified = customer.verified_email
+            customer_verified_mobile = customer.verified_mobile
+        except Customer.DoesNotExist:
+            customer_id = None
+            mobile = None
+            customer_email_verified = None
+            customer_verified_mobile = None
+
+        return Response({
+            "user_id": custom_user.id,
+            "customer_id": customer_id,
+            "access_token": access_token,
+            "refresh_token": str(refresh),
+            "user_details": {
+                "username": custom_user.username,
+                "first_name": custom_user.first_name,
+                "last_name": custom_user.last_name,
+                "email": custom_user.email,
+                "mobile": mobile,
+                "verified_email": customer_email_verified,
+                "verified_mobile": customer_verified_mobile,
+                "is_partner": custom_user.is_partner,
+            },
+            "status_code": status.HTTP_200_OK
+        }, status=status.HTTP_200_OK)
+
+
+
 
 
 class OTPVerificationView(APIView):
