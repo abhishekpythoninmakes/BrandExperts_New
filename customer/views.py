@@ -64,11 +64,28 @@ class AuthInitiateView(APIView):
                     "status_code": status.HTTP_400_BAD_REQUEST
                 }, status=status.HTTP_400_BAD_REQUEST)
 
-        # Check if user exists
-        if id_type == 'email':
-            user_exists = CustomUser.objects.filter(email=id_value).exists()
-        else:
-            user_exists = Customer.objects.filter(mobile=id_value, country_code=country_code).exists()
+        # Check if CustomUser exists with the identifier as username
+        user_exists = CustomUser.objects.filter(username=identifier['value']).exists()
+
+        # If user exists, check if they are verified
+        if user_exists:
+            custom_user = CustomUser.objects.get(username=identifier['value'])
+            customer = Customer.objects.filter(user=custom_user).first()
+
+            if id_type == 'email' and customer and customer.verified_email:
+                return Response({
+                    "success": True,
+                    "get_password": True,
+                    "message": "User is verified, no OTP needed",
+                    "status_code": status.HTTP_200_OK
+                }, status=status.HTTP_200_OK)
+            elif id_type == 'mobile' and customer and customer.verified_mobile:
+                return Response({
+                    "success": True,
+                    "get_password": True,
+                    "message": "User is verified, no OTP needed",
+                    "status_code": status.HTTP_200_OK
+                }, status=status.HTTP_200_OK)
 
         # Generate and send OTP
         otp = ''.join(random.choices('0123456789', k=6))
@@ -90,7 +107,7 @@ class AuthInitiateView(APIView):
 
         return Response({
             "success": True,
-            "user_exists": user_exists,
+            "get_password": False,
             "message": "OTP sent successfully",
             "status_code": status.HTTP_200_OK
         }, status=status.HTTP_200_OK)
