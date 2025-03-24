@@ -111,7 +111,7 @@ class ContactCreateAPIView(APIView):
     def post(self, request):
         # Manual content type handling
         content_type = request.content_type.split(';')[0].strip().lower()
-
+        print("content_type",content_type)
         try:
             # Handle raw text/plain input
             if content_type == 'text/plain':

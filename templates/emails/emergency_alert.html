@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emergency Alert Notification</title>
+    <style>
+        /* Modern CSS Reset */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; line-height: 1.6; }
+
+        /* Alert Styles */
+        .alert-container { max-width: 600px; margin: 2rem auto; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .alert-header { background: #dc3545; padding: 1.5rem; text-align: center; }
+        .alert-header h1 { color: #fff; font-size: 1.5rem; margin: 0; }
+
+        .alert-content { padding: 2rem; color: #4a5568; }
+        .cta-button { display: inline-block; padding: 0.8rem 1.5rem; background: #dc3545;
+                     color: white !important; text-decoration: none; border-radius: 6px;
+                     font-weight: 500; transition: transform 0.2s; }
+        .cta-button:hover { transform: translateY(-2px); }
+
+        .coordinates { background: #f8f9fa; padding: 1rem; border-radius: 6px; margin: 1.5rem 0; }
+        .footer { text-align: center; padding: 1.5rem; background: #f8f9fa; color: #718096; font-size: 0.875rem; }
+    </style>
+</head>
+<body>
+    <div class="alert-container">
+        <div class="alert-header">
+            <h1>EMERGENCY ALERT - IMMEDIATE ACTION REQUIRED</h1>
+        </div>
+
+        <div class="alert-content">
+            <p>A critical emergency alert has been triggered at the following location:</p>
+
+            <div class="coordinates">
+                <strong>📍 Exact Coordinates:</strong><br>
+                Latitude: {{ latitude }}<br>
+                Longitude: {{ longitude }}
+            </div>
+
+            <a href="{{ map_link }}" class="cta-button" target="_blank">
+                OPEN IN GOOGLE MAPS
+            </a>
+
+            <p style="margin-top: 2rem; color: #718096;">
+                <strong>Note:</strong> This is an automated emergency alert.
+                Please respond immediately and confirm receipt.
+            </p>
+        </div>
+
+        <div class="footer">
+            <p>Nova AI 🤖 Emergency Response System</p>
+            <p>24/7 Support: {{ support_email }}</p>
+        </div>
+    </div>
+</body>
+</html>

@@ -99,12 +99,7 @@ class Contact(models.Model):
         from .tasks import evaluate_partner_tasks  # Avoid circular import
         evaluate_partner_tasks.delay(self.id)
 
-        # Check if an account name is provided (assuming you want to use the contact's name)
-        if self.name:
-            # Get or create the account based on the contact's name
-            account, created = Accounts.objects.get_or_create(name=self.name)
-            # Add the account to the contact's many-to-many relationship
-            self.account.add(account)
+
 
     def __str__(self):
         return f"{self.name} - {self.email}"

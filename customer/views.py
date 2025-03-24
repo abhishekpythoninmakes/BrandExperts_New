@@ -2405,42 +2405,51 @@ def handle_creator_questions(text):
 
 
 
+import logging
 
-
+logger = logging.getLogger(__name__)
 # Modified emergency handling section
 def send_emergency_alert_async(lat, lng):
-    """Send WhatsApp alert using Twilio sandbox with template support"""
+    """Send emergency email alert with location details"""
 
     def async_task():
         try:
-            # Convert coordinates to floats first
+            # Convert and validate coordinates
             lat_float = float(lat)
             lng_float = float(lng)
 
-            client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+            # Prepare email context
+            map_link = f"https://maps.google.com/?q={lat_float:.6f},{lng_float:.6f}"
+            context = {
+                'latitude': f"{lat_float:.6f}",
+                'longitude': f"{lng_float:.6f}",
+                'map_link': map_link,
+                'support_email': 'nova_ai@gmail.com'  # Hardcoded or use settings
+            }
 
-            # Create message with template
-            message = client.messages.create(
-                from_=TWILIO_WHATSAPP_NUMBER,
-                content_sid=CONTENT_SID,  # Your template SID
-                content_variables=json.dumps({
-                    "1": f"{lat_float:.6f}",
-                    "2": f"{lng_float:.6f}",
-                    "3": f"https://maps.google.com/?q={lat_float:.6f},{lng_float:.6f}"
-                }),
-                to=EMERGENCY_CONTACT
+            # Render HTML email template
+            html_content = render_to_string('emails/emergency_alert.html', context)
+            text_content = strip_tags(html_content)
+
+            # Create and send email
+            email = EmailMultiAlternatives(
+                subject="🚨 EMERGENCY ALERT - Immediate Response Required",
+                body=text_content,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                to=['abhishekar3690@gmail.com','revathysravi21@gmail.com'],
+                headers={'Priority': 'Urgent', 'Importance': 'high'}
             )
+            email.attach_alternative(html_content, "text/html")
+            email.send()
 
-            print(f"Alert sent: {message.sid}")
-            print(f"Message Status: {message.status}")
+            print(f"Emergency email alert sent for coordinates {lat_float},{lng_float}")
 
         except ValueError as e:
-            print(f"Invalid coordinates: {lat}, {lng} - {str(e)}")
-        except TwilioRestException as e:
-            print(f"Twilio Error: {e.code} - {e.msg}")
+            print(f"Invalid coordinates format: {lat},{lng} - {str(e)}")
         except Exception as e:
-            print(f"General Error: {str(e)}")
+            print(f"Failed to send emergency alert: {str(e)}")
 
+    # Start async thread
     threading.Thread(target=async_task, daemon=True).start()
 
 

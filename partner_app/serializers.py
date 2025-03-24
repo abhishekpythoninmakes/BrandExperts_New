@@ -39,7 +39,7 @@ class ContactCreateSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         partner_user_id = validated_data.pop('partner_user_id')
-        account_names = validated_data.pop('accounts', [])
+        account_names = validated_data.pop('accounts', [])  # Get accounts from request
         partner = Partners.objects.get(user_id=partner_user_id)
 
         contact = Contact.objects.create(
@@ -48,7 +48,7 @@ class ContactCreateSerializer(serializers.ModelSerializer):
             created_by=self.context['request'].user
         )
 
-        # Add accounts from request
+        # Add only the accounts provided in the request
         for name in account_names:
             account, _ = Accounts.objects.get_or_create(name=name)
             contact.account.add(account)
