@@ -7,6 +7,11 @@ urlpatterns = [
     path('auth/initiate/', views.AuthInitiateView.as_view(), name='auth-initiate'),
     path('auth/login-with-otp/', views.OTPLoginAPIView.as_view(), name='login-with-otp'),
     path('auth/otp-verify/', views.OTPVerifyAPIView.as_view(), name='otp-verify'),
+    path('auth/otp-register-verify/', views.OTPVerifyViewRegister.as_view(), name='otp-register-verify'),
+    path('auth/update-otp/', views.OTPUpdateView.as_view(), name='update-otp'),
+    path('auth/verify-otp-final/', views.OTPVerifyViewFinal.as_view(), name='verify-otp-final'),
+    path('auth/final-register/', views.FinalRegistrationView.as_view(), name='final-register'),
+
     path('auth/verify-otp/', views.OTPVerificationView.as_view(), name='verify-otp'),
     path('auth/resend-otp/', views.ResendOTPView.as_view(), name='resend-otp'),
     path('auth/verify-otp2/', views.VerifyOTPView.as_view(), name='verify-otp'),

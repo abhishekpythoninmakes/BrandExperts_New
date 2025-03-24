@@ -231,3 +231,48 @@ class VerifyAlertSerializer(serializers.Serializer):
     user_id = serializers.IntegerField()
     alert_type = serializers.ChoiceField(choices=['email', 'mobile'])
     otp = serializers.CharField(max_length=6)
+
+
+
+class OTPVerifySerializer(serializers.Serializer):
+    identifier = serializers.CharField(required=True)
+    otp = serializers.CharField(required=True, min_length=6, max_length=6)
+
+    def validate_identifier(self, value):
+        if '@' in value:
+            if not re.match(r'^[\w\.-]+@[\w\.-]+\.\w+$', value):
+                raise serializers.ValidationError("Invalid email format")
+        else:
+            if not any(c.isdigit() for c in value):
+                raise serializers.ValidationError("Invalid mobile number")
+        return value
+
+
+class OTPUpdateSerializer(serializers.Serializer):
+    otp = serializers.CharField(required=True, min_length=6, max_length=6)
+    identifier = serializers.CharField(required=False, allow_null=True)
+    country_code = serializers.CharField(required=False, allow_null=True)
+
+    def validate_country_code(self, value):
+        if value and not value.startswith('+'):
+            raise serializers.ValidationError("Country code must start with '+'")
+        return value
+
+
+class OTPVerifySerializer(serializers.Serializer):
+    otp = serializers.CharField(required=True, min_length=6, max_length=6)
+
+
+from rest_framework import serializers
+
+class FinalRegistrationSerializer(serializers.Serializer):
+    otp = serializers.CharField(required=True, min_length=6, max_length=6)
+    first_name = serializers.CharField(required=True, max_length=150)
+    last_name = serializers.CharField(required=True, max_length=150)
+    password = serializers.CharField(required=True, min_length=8, write_only=True)
+    confirm_password = serializers.CharField(required=True, min_length=8, write_only=True)
+
+    def validate(self, data):
+        if data['password'] != data['confirm_password']:
+            raise serializers.ValidationError("Passwords do not match")
+        return data

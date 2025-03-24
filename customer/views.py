@@ -70,8 +70,6 @@ class AuthInitiateView(APIView):
         # Check for existing user with matching identifier
         existing_user = None
         customer = None
-        get_mobile = False
-        get_email = False
         # First check by username (identifier value)
         try:
             existing_user = CustomUser.objects.get(username=id_value)
@@ -116,7 +114,7 @@ class AuthInitiateView(APIView):
 
         # Generate and send OTP
         otp = ''.join(random.choices('0123456789', k=6))
-
+        otp_for = id_type
         if id_type == 'email':
             get_mobile = True
             get_email = False
@@ -131,9 +129,11 @@ class AuthInitiateView(APIView):
 
         # Save OTP record with additional fields
         OTPRecord.objects.create(
-            **{id_type: id_value},
+            mobile=id_value if id_type == 'mobile' else None,
+            email=id_value if id_type == 'email' else None,
             country_code=country_code if id_type == 'mobile' else None,
-            otp=otp
+            otp=otp,
+            otp_for=otp_for
         )
 
         return Response({
@@ -183,6 +183,380 @@ class AuthInitiateView(APIView):
             }
         }
         requests.post(url, headers=headers, json=data)
+
+
+
+# OTP REGISTER VIEW
+
+class OTPVerifyViewRegister(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = OTPVerifySerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response({
+                "success": False,
+                "errors": serializer.errors,
+                "status_code": status.HTTP_400_BAD_REQUEST
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        identifier = serializer.validated_data['identifier']
+        otp = serializer.validated_data['otp']
+        id_type = 'email' if '@' in identifier else 'mobile'
+
+        try:
+            # Find OTP record based on identifier type
+            if id_type == 'email':
+                otp_record = OTPRecord.objects.get(email=identifier, otp=otp)
+            else:
+                # For mobile, clean the number (remove non-digits)
+                mobile = ''.join(filter(str.isdigit, identifier))
+                otp_record = OTPRecord.objects.get(mobile=mobile, otp=otp)
+
+        except OTPRecord.DoesNotExist:
+            return Response({
+                "success": False,
+                "message": "Invalid OTP or identifier",
+                "status_code": status.HTTP_404_NOT_FOUND
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        # Update verification status based on otp_for field
+        if otp_record.otp_for == 'email':
+            otp_record.email_verified = True
+            get_email = False
+            get_mobile = True
+        elif otp_record.otp_for == 'mobile':
+            otp_record.mobile_verified = True
+            get_email = True
+            get_mobile = False
+
+        otp_record.save()
+
+        return Response({
+            "success": True,
+            "message": "OTP verified successfully",
+            "get_email": get_email,
+            "get_mobile": get_mobile,
+            "verified_type": otp_record.otp_for,
+            "status_code": status.HTTP_200_OK
+        }, status=status.HTTP_200_OK)
+
+
+# OTP TRIGGERING REGISTER VIEW
+
+class OTPUpdateView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = OTPUpdateSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response({
+                "success": False,
+                "errors": serializer.errors,
+                "status_code": status.HTTP_400_BAD_REQUEST
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        otp = serializer.validated_data['otp']
+        identifier = serializer.validated_data.get('identifier')
+        country_code = serializer.validated_data.get('country_code')
+
+        try:
+            otp_record = OTPRecord.objects.get(otp=otp)
+        except OTPRecord.DoesNotExist:
+            return Response({
+                "success": False,
+                "message": "Invalid OTP",
+                "status_code": status.HTTP_404_NOT_FOUND
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        # Case 1: No identifier provided
+        if not identifier:
+            return Response({
+                "success": True,
+                "message": "No verification done. You can verify this field later.",
+                "status_code": status.HTTP_200_OK
+            })
+
+        # Case 2: Email provided
+        if '@' in identifier:
+            if not re.match(r'^[\w\.-]+@[\w\.-]+\.\w+$', identifier):
+                return Response({
+                    "success": False,
+                    "message": "Invalid email format",
+                    "status_code": status.HTTP_400_BAD_REQUEST
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Generate new OTP
+            new_otp = ''.join(random.choices('0123456789', k=6))
+
+            # Update OTP record
+            otp_record.otp = new_otp
+            otp_record.email = identifier
+            otp_record.otp_for = 'email'
+            otp_record.save()
+
+            # Send email OTP
+            self.send_email_otp(identifier, new_otp)
+
+            return Response({
+                "success": True,
+                "message": "OTP sent successfully to email",
+                "status_code": status.HTTP_200_OK
+            })
+
+        # Case 3: Mobile number provided
+        else:
+            if not country_code:
+                return Response({
+                    "success": False,
+                    "message": "Country code is required for mobile verification",
+                    "status_code": status.HTTP_400_BAD_REQUEST
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Clean mobile number (remove all non-digit characters)
+            mobile = ''.join(filter(str.isdigit, identifier))
+            if not mobile:
+                return Response({
+                    "success": False,
+                    "message": "Invalid mobile number",
+                    "status_code": status.HTTP_400_BAD_REQUEST
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Generate new OTP
+            new_otp = ''.join(random.choices('0123456789', k=6))
+
+            # Update OTP record
+            otp_record.otp = new_otp
+            otp_record.mobile = mobile
+            otp_record.country_code = country_code
+            otp_record.otp_for = 'mobile'
+            otp_record.save()
+
+            # Send WhatsApp OTP
+            full_mobile = f"{country_code}{mobile}"
+            self.send_whatsapp_otp(full_mobile, new_otp)
+
+            return Response({
+                "success": True,
+                "message": "OTP sent successfully to WhatsApp",
+                "status_code": status.HTTP_200_OK
+            })
+
+    def send_email_otp(self, email, otp):
+        subject = 'Your Verification OTP'
+        message = f'Your new OTP code is: {otp}'
+        send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [email])
+
+    def send_whatsapp_otp(self, mobile, otp):
+        url = f"https://graph.facebook.com/v19.0/{settings.WHATSAPP_PHONE_NUMBER_ID}/messages"
+        headers = {
+            "Authorization": f"Bearer {settings.WHATSAPP_PERMANENT_TOKEN}",
+            "Content-Type": "application/json"
+        }
+        data = {
+            "messaging_product": "whatsapp",
+            "to": mobile,
+            "type": "template",
+            "template": {
+                "name": "be_auth",
+                "language": {"code": "en"},
+                "components": [
+                    {"type": "body", "parameters": [{"type": "text", "text": otp}]},
+                    {"type": "button", "sub_type": "url", "index": 0,
+                     "parameters": [{"type": "text", "text": otp}]}
+                ]
+            }
+        }
+        try:
+            requests.post(url, headers=headers, json=data)
+        except Exception as e:
+            print(f"Failed to send WhatsApp OTP: {str(e)}")
+
+
+
+
+
+# OTP FINAL VERIFICATION
+
+class OTPVerifyViewFinal(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = OTPVerifySerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response({
+                "success": False,
+                "errors": serializer.errors,
+                "status_code": status.HTTP_400_BAD_REQUEST
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        otp = serializer.validated_data['otp']
+
+        try:
+            otp_record = OTPRecord.objects.get(otp=otp)
+        except OTPRecord.DoesNotExist:
+            return Response({
+                "success": False,
+                "message": "Invalid OTP",
+                "status_code": status.HTTP_404_NOT_FOUND
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        # Verify OTP
+        if otp_record.otp == otp:
+            # Successful verification
+            if otp_record.otp_for == 'email':
+                otp_record.email_verified = True
+                verified_field = 'email'
+            elif otp_record.otp_for == 'mobile':
+                otp_record.mobile_verified = True
+                verified_field = 'mobile'
+
+            otp_record.save()
+
+            return Response({
+                "success": True,
+                "message": f"OTP verified successfully for {verified_field}",
+                "verified_field": verified_field,
+                "status_code": status.HTTP_200_OK
+            })
+        else:
+            # Failed verification - clear the corresponding field
+            if otp_record.otp_for == 'email':
+                otp_record.email = None
+                cleared_field = 'email'
+            elif otp_record.otp_for == 'mobile':
+                otp_record.mobile = None
+                otp_record.country_code = None
+                cleared_field = 'mobile'
+
+            otp_record.save()
+
+            return Response({
+                "success": False,
+                "message": f"Invalid OTP - {cleared_field} field cleared",
+                "status_code": status.HTTP_401_UNAUTHORIZED
+            }, status=status.HTTP_401_UNAUTHORIZED)
+
+
+
+from django.contrib.auth import get_user_model
+user = get_user_model()
+# FINAL REGISTRATION VIEW
+
+class FinalRegistrationView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = FinalRegistrationSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response({
+                "success": False,
+                "errors": serializer.errors,
+                "status_code": status.HTTP_400_BAD_REQUEST
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        otp = serializer.validated_data['otp']
+        first_name = serializer.validated_data['first_name']
+        last_name = serializer.validated_data['last_name']
+        password = serializer.validated_data['password']
+
+        try:
+            otp_record = OTPRecord.objects.get(otp=otp)
+        except OTPRecord.DoesNotExist:
+            return Response({
+                "success": False,
+                "message": "Invalid OTP",
+                "status_code": status.HTTP_404_NOT_FOUND
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        # Determine username based on verified fields
+        if otp_record.email_verified and otp_record.email:
+            username = otp_record.email
+            email = otp_record.email
+            mobile = otp_record.mobile
+            country_code = otp_record.country_code
+        elif otp_record.mobile_verified and otp_record.mobile:
+            username = otp_record.mobile  # Using mobile without country code as username
+            email = otp_record.email
+            mobile = otp_record.mobile
+            country_code = otp_record.country_code
+        else:
+            return Response({
+                "success": False,
+                "message": "No verified identifier found",
+                "status_code": status.HTTP_400_BAD_REQUEST
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check if user already exists
+        if CustomUser.objects.filter(username=username).exists():
+            return Response({
+                "success": False,
+                "message": "User already exists",
+                "status_code": status.HTTP_400_BAD_REQUEST
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Create CustomUser
+        try:
+            user = CustomUser.objects.create_user(
+                username=username,
+                email=email,
+                first_name=first_name,
+                last_name=last_name,
+                password=password
+            )
+        except Exception as e:
+            return Response({
+                "success": False,
+                "message": str(e),
+                "status_code": status.HTTP_400_BAD_REQUEST
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Create Customer
+        try:
+            customer = Customer.objects.create(
+                user=user,
+                mobile=mobile,
+                country_code=country_code,
+                verified_email=otp_record.email_verified,
+                verified_mobile=otp_record.mobile_verified,
+                status='active'  # or whatever default status you want
+            )
+        except Exception as e:
+            user.delete()  # Rollback user creation if customer creation fails
+            return Response({
+                "success": False,
+                "message": str(e),
+                "status_code": status.HTTP_400_BAD_REQUEST
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Generate tokens for automatic login
+        refresh = RefreshToken.for_user(user)
+        access_token = str(refresh.access_token)
+
+        # Clean up OTP record
+        otp_record.delete()
+
+        return Response({
+            "success": True,
+            "message": "Registration successful",
+            "user_id": user.id,
+            "customer_id": customer.id,
+            "access_token": access_token,
+            "refresh_token": str(refresh),
+            "user_details": {
+                "username": user.username,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "email": user.email,
+                "mobile": customer.mobile,
+                "verified_email": customer.verified_email,
+                "verified_mobile": customer.verified_mobile,
+                "is_partner": user.is_partner,
+            },
+            "status_code": status.HTTP_201_CREATED
+        }, status=status.HTTP_201_CREATED)
+
+
 
 
 
