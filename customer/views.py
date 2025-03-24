@@ -360,11 +360,19 @@ class OTPVerificationView(APIView):
                 "status_code": status.HTTP_400_BAD_REQUEST
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        return Response({
+        # Determine identifier type and add response flags
+        response_data = {
             "success": True,
             "message": "OTP verified successfully",
             "status_code": status.HTTP_200_OK
-        }, status=status.HTTP_200_OK)
+        }
+
+        if otp_record.email:  # Identifier is email
+            response_data["whatsapp_required"] = True
+        elif otp_record.mobile:  # Identifier is mobile
+            response_data["email_required"] = True
+
+        return Response(response_data, status=status.HTTP_200_OK)
 
 
 class CompleteRegistrationView(APIView):
