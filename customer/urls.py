@@ -16,8 +16,8 @@ urlpatterns = [
     path('auth/resend-otp/', views.ResendOTPView.as_view(), name='resend-otp'),
     path('auth/verify-otp2/', views.VerifyOTPView.as_view(), name='verify-otp'),
     path('auth/complete-registration/', views.CompleteRegistrationView.as_view(), name='complete-registration'),
-    path('alerts/enable/',views.EnableAlertView.as_view(),name='enable_alert_view'),
-    path('alerts/verify/',views.VerifyAlertView.as_view(),name='verify_alert_view'),
+    path('auth/send-email-otp/', views.EmailVerificationView.as_view(), name='send-email-otp'),
+    path('auth/verify-email/', views.VerifyEmailView.as_view(), name='verify-email'),
     path('login/', views.LoginAPIView.as_view(), name='login'),
     path('token/refresh/',TokenRefreshView.as_view(), name='token_refresh'),
 

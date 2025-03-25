@@ -1119,21 +1119,23 @@ class CompleteRegistrationView(APIView):
         }, status=status.HTTP_201_CREATED)
 
 
-class EnableAlertView(APIView):
+class EmailVerificationView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        serializer = EnableAlertSerializer(data=request.data)
-        if not serializer.is_valid():
+        """
+        Send OTP to email for verification
+        Request: { "user_id": 123, "email": "user@example.com" }
+        """
+        user_id = request.data.get('user_id')
+        email = request.data.get('email')
+
+        if not user_id or not email:
             return Response({
                 "success": False,
-                "errors": serializer.errors,
+                "message": "Both user_id and email are required",
                 "status_code": status.HTTP_400_BAD_REQUEST
             }, status=status.HTTP_400_BAD_REQUEST)
-
-        data = serializer.validated_data
-        user_id = data['user_id']
-        alert_type = data['alert_type']
 
         try:
             user = CustomUser.objects.get(id=user_id)
@@ -1141,139 +1143,117 @@ class EnableAlertView(APIView):
         except (CustomUser.DoesNotExist, Customer.DoesNotExist):
             return Response({
                 "success": False,
-                "message": "User not found.",
+                "message": "User not found",
                 "status_code": status.HTTP_404_NOT_FOUND
             }, status=status.HTTP_404_NOT_FOUND)
 
-        # Check if the selected alert type is already verified
-        if alert_type == 'email' and customer.verified_email:
+        if customer.verified_email and user.email == email:
             return Response({
                 "success": True,
-                "message": "Email alerts are already enabled.",
+                "message": "Email already verified",
                 "status_code": status.HTTP_200_OK
             }, status=status.HTTP_200_OK)
 
-        if alert_type == 'mobile' and customer.verified_mobile:
-            return Response({
-                "success": True,
-                "message": "WhatsApp alerts are already enabled.",
-                "status_code": status.HTTP_200_OK
-            }, status=status.HTTP_200_OK)
-
-        # Generate and send OTP
+        # Generate OTP
         otp = ''.join(random.choices('0123456789', k=6))
 
-        if alert_type == 'email':
-            self.send_email_otp(user.email, otp)
-        elif alert_type == 'mobile':
-            self.send_whatsapp_otp(customer.country_code, customer.mobile, otp)
+        # Send OTP via email
+        try:
+            self.send_email_otp(email, otp)
+        except Exception as e:
+            return Response({
+                "success": False,
+                "message": f"Failed to send OTP: {str(e)}",
+                "status_code": status.HTTP_500_INTERNAL_SERVER_ERROR
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-        # Delete existing OTP records for this alert type
-        if alert_type == 'email':
-            OTPRecord.objects.filter(email=user.email).delete()
-        elif alert_type == 'mobile':
-            OTPRecord.objects.filter(mobile=customer.mobile).delete()
-
-        # Save new OTP record
+        # Save OTP record with user reference
+        OTPRecord.objects.filter(user=user).delete()  # Clear previous OTPs
         OTPRecord.objects.create(
-            email=user.email if alert_type == 'email' else None,
-            mobile=customer.mobile if alert_type == 'mobile' else None,
-            otp=otp
+            user=user,
+            email=email,
+            otp=otp,
+            otp_for='email'
         )
 
         return Response({
             "success": True,
-            "message": f"OTP sent to your {alert_type}.",
+            "message": "OTP sent to email successfully",
             "status_code": status.HTTP_200_OK
         }, status=status.HTTP_200_OK)
-
     def send_email_otp(self, email, otp):
-        subject = 'Your OTP for Email Verification'
-        message = f'Your OTP code is: {otp}'
+        subject = 'Your Email Verification OTP'
+        message = f'Your verification code is: {otp}'
         send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [email])
 
-    def send_whatsapp_otp(self, country_code,mobile, otp):
-        print("function called")
-        full_mobile_number = f"{country_code}{mobile}"
-        url = f"https://graph.facebook.com/v19.0/{settings.WHATSAPP_PHONE_NUMBER_ID}/messages"
-        headers = {
-            "Authorization": f"Bearer {settings.WHATSAPP_PERMANENT_TOKEN}",
-            "Content-Type": "application/json"
-        }
-        data = {
-            "messaging_product": "whatsapp",
-            "to": full_mobile_number,
-            "type": "template",
-            "template": {
-                "name": "be_auth",
-                "language": {"code": "en"},
-                "components": [
-                    {"type": "body", "parameters": [{"type": "text", "text": otp}]},
-                    {"type": "button", "sub_type": "url", "index": 0,
-                     "parameters": [{"type": "text", "text": otp}]}
-                ]
-            }
-        }
-        requests.post(url, headers=headers, json=data)
 
-
-class VerifyAlertView(APIView):
+class VerifyEmailView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        serializer = VerifyAlertSerializer(data=request.data)
-        if not serializer.is_valid():
+        """
+        Verify OTP and update email verification status
+        Request: { "user_id": 123, "otp": "123456" }
+        """
+        user_id = request.data.get('user_id')
+        otp = request.data.get('otp')
+
+        if not user_id or not otp:
             return Response({
                 "success": False,
-                "errors": serializer.errors,
+                "message": "Both user_id and otp are required",
                 "status_code": status.HTTP_400_BAD_REQUEST
             }, status=status.HTTP_400_BAD_REQUEST)
-
-        data = serializer.validated_data
-        user_id = data['user_id']
-        alert_type = data['alert_type']
-        otp = data['otp']
 
         try:
             user = CustomUser.objects.get(id=user_id)
             customer = Customer.objects.get(user=user)
+
+            # Get the most recent OTP record for this user
+            otp_record = OTPRecord.objects.filter(
+                user=user
+            ).order_by('-created_at').first()
+
+            if not otp_record:
+                return Response({
+                    "success": False,
+                    "message": "No OTP record found for this user",
+                    "status_code": status.HTTP_400_BAD_REQUEST
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Verify OTP
+            if otp_record.otp != otp:
+                return Response({
+                    "success": False,
+                    "message": "Invalid OTP",
+                    "status_code": status.HTTP_400_BAD_REQUEST
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Update verification status
+            customer.verified_email = True
+
+            # Update email if it's different in OTP record
+            if otp_record.email and otp_record.email != user.email:
+                user.email = otp_record.email
+
+            user.save()
+            customer.save()
+
+            # Delete all OTP records for this user
+            OTPRecord.objects.filter(user=user).delete()
+
+            return Response({
+                "success": True,
+                "message": "Email verified successfully",
+                "status_code": status.HTTP_200_OK
+            }, status=status.HTTP_200_OK)
+
         except (CustomUser.DoesNotExist, Customer.DoesNotExist):
             return Response({
                 "success": False,
-                "message": "User not found.",
+                "message": "User not found",
                 "status_code": status.HTTP_404_NOT_FOUND
             }, status=status.HTTP_404_NOT_FOUND)
-
-        # Validate OTP
-        otp_record = OTPRecord.objects.filter(
-            otp=otp,
-            **{'email': user.email if alert_type == 'email' else None,
-               'mobile': customer.mobile if alert_type == 'mobile' else None}
-        ).first()
-
-        if not otp_record:
-            return Response({
-                "success": False,
-                "message": "Invalid OTP.",
-                "status_code": status.HTTP_400_BAD_REQUEST
-            }, status=status.HTTP_400_BAD_REQUEST)
-
-        # Update verification status
-        if alert_type == 'email':
-            customer.verified_email = True
-        elif alert_type == 'mobile':
-            customer.verified_mobile = True
-        customer.save()
-
-        # Delete OTP record
-        otp_record.delete()
-
-        return Response({
-            "success": True,
-            "message": f"{alert_type.capitalize()} verified successfully.",
-            "status_code": status.HTTP_200_OK
-        }, status=status.HTTP_200_OK)
-
 
 
 
