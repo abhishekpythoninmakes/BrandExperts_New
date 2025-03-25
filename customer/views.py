@@ -234,6 +234,7 @@ class OTPVerifyViewRegister(APIView):
 
         return Response({
             "success": True,
+            "otp":otp,
             "message": "OTP verified successfully",
             "get_email": get_email,
             "get_mobile": get_mobile,
@@ -273,6 +274,8 @@ class OTPUpdateView(APIView):
         if not identifier:
             return Response({
                 "success": True,
+                "verification":False,
+                "new_otp":otp,
                 "message": "No verification done. You can verify this field later.",
                 "status_code": status.HTTP_200_OK
             })
@@ -300,6 +303,8 @@ class OTPUpdateView(APIView):
 
             return Response({
                 "success": True,
+                "verification":True,
+                "new_otp":new_otp,
                 "message": "OTP sent successfully to email",
                 "status_code": status.HTTP_200_OK
             })
@@ -382,7 +387,7 @@ class OTPVerifyViewFinal(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        serializer = OTPVerifySerializer(data=request.data)
+        serializer = OTPVerifySerializer2(data=request.data)
         if not serializer.is_valid():
             return Response({
                 "success": False,
@@ -415,6 +420,7 @@ class OTPVerifyViewFinal(APIView):
 
             return Response({
                 "success": True,
+                "new_otp":otp,
                 "message": f"OTP verified successfully for {verified_field}",
                 "verified_field": verified_field,
                 "status_code": status.HTTP_200_OK
@@ -433,6 +439,7 @@ class OTPVerifyViewFinal(APIView):
 
             return Response({
                 "success": False,
+                "otp":otp,
                 "message": f"Invalid OTP - {cleared_field} field cleared",
                 "status_code": status.HTTP_401_UNAUTHORIZED
             }, status=status.HTTP_401_UNAUTHORIZED)

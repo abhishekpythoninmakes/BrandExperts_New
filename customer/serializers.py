@@ -259,7 +259,7 @@ class OTPUpdateSerializer(serializers.Serializer):
         return value
 
 
-class OTPVerifySerializer(serializers.Serializer):
+class OTPVerifySerializer2(serializers.Serializer):
     otp = serializers.CharField(required=True, min_length=6, max_length=6)
 
 
