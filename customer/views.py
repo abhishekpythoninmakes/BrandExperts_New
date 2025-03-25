@@ -274,8 +274,8 @@ class OTPUpdateView(APIView):
         if not identifier:
             return Response({
                 "success": True,
-                "verification":False,
-                "new_otp":otp,
+                "verification": False,
+                "new_otp": otp,
                 "message": "No verification done. You can verify this field later.",
                 "status_code": status.HTTP_200_OK
             })
@@ -286,6 +286,14 @@ class OTPUpdateView(APIView):
                 return Response({
                     "success": False,
                     "message": "Invalid email format",
+                    "status_code": status.HTTP_400_BAD_REQUEST
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Check if email already exists in CustomUser
+            if CustomUser.objects.filter(email=identifier).exists():
+                return Response({
+                    "success": False,
+                    "message": "Email already in use",
                     "status_code": status.HTTP_400_BAD_REQUEST
                 }, status=status.HTTP_400_BAD_REQUEST)
 
@@ -303,8 +311,8 @@ class OTPUpdateView(APIView):
 
             return Response({
                 "success": True,
-                "verification":True,
-                "new_otp":new_otp,
+                "verification": True,
+                "new_otp": new_otp,
                 "message": "OTP sent successfully to email",
                 "status_code": status.HTTP_200_OK
             })
@@ -327,6 +335,14 @@ class OTPUpdateView(APIView):
                     "status_code": status.HTTP_400_BAD_REQUEST
                 }, status=status.HTTP_400_BAD_REQUEST)
 
+            # Check if mobile already exists in Customer
+            if Customer.objects.filter(mobile=mobile).exists():
+                return Response({
+                    "success": False,
+                    "message": "Mobile number already in use",
+                    "status_code": status.HTTP_400_BAD_REQUEST
+                }, status=status.HTTP_400_BAD_REQUEST)
+
             # Generate new OTP
             new_otp = ''.join(random.choices('0123456789', k=6))
 
@@ -343,6 +359,8 @@ class OTPUpdateView(APIView):
 
             return Response({
                 "success": True,
+                "verification": True,
+                "new_otp": new_otp,
                 "message": "OTP sent successfully to WhatsApp",
                 "status_code": status.HTTP_200_OK
             })
@@ -373,10 +391,12 @@ class OTPUpdateView(APIView):
             }
         }
         try:
-            requests.post(url, headers=headers, json=data)
-        except Exception as e:
+            response = requests.post(url, headers=headers, json=data)
+            response.raise_for_status()
+        except requests.exceptions.RequestException as e:
             print(f"Failed to send WhatsApp OTP: {str(e)}")
-
+            if hasattr(e, 'response') and e.response:
+                print(f"Response content: {e.response.text}")
 
 
 
@@ -3078,35 +3098,85 @@ from .models import PasswordResetSession
 
 @api_view(['POST'])
 def send_otp(request):
-    email = request.data.get('email')
-    if not email:
-        return JsonResponse({"error": "Email is required"}, status=400)
+    identifier = request.data.get('identifier')
+    if not identifier:
+        return JsonResponse({"error": "Email or mobile number is required"}, status=400)
 
-    # Check if email exists
+    # Check if identifier is email or mobile
+    is_email = '@' in identifier
+
     try:
-        user = CustomUser.objects.get(email=email)
-    except CustomUser.DoesNotExist:
-        return JsonResponse({"error": "Email not found"}, status=404)
+        if is_email:
+            # Find user by email
+            user = CustomUser.objects.get(email=identifier)
+            customer = Customer.objects.filter(user=user).first()
+        else:
+            # Find user by mobile number (without country code)
+            customer = Customer.objects.get(mobile=identifier)
+            user = customer.user
+
+        if not user:
+            return JsonResponse({"error": "No user found with this identifier"}, status=404)
+
+    except (CustomUser.DoesNotExist, Customer.DoesNotExist):
+        return JsonResponse({"error": "No user found with this email or mobile number"}, status=404)
 
     # Generate OTP and session token
     otp = str(random.randint(100000, 999999))
-    session = PasswordResetSession.objects.create(email=email, otp=otp)
-
-    # Send OTP via email
-    send_mail(
-        'Password Reset OTP',
-        f'Your OTP is: {otp}',
-        'hello@brandexperts.ae',
-        [email],
-        fail_silently=False,
+    session = PasswordResetSession.objects.create(
+        email=user.email,  # Always store email in session for password reset
+        otp=otp
     )
 
+    # Send OTP based on identifier type
+    if is_email:
+        send_email_otp(user.email, otp)  # Removed self.
+    else:
+        # Format mobile number with country code for WhatsApp
+        full_mobile = f"{customer.country_code}{customer.mobile}" if customer.country_code else customer.mobile
+        send_whatsapp_otp(full_mobile, otp)  # Removed self.
 
     return JsonResponse({
         "message": "OTP sent successfully",
-        "session_token": str(session.session_token)
+        "session_token": str(session.session_token),
+        "identifier_type": "email" if is_email else "mobile"
     }, status=200)
 
+# These functions should be at module level, not inside the view
+def send_email_otp(email, otp):
+    print("Sending email OTP")
+    subject = 'Your OTP for Verification'
+    message = f'Your OTP code is: {otp}'
+    send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [email])
+    print("Sent email otp")
+
+def send_whatsapp_otp(mobile, otp):
+    url = f"https://graph.facebook.com/v19.0/{settings.WHATSAPP_PHONE_NUMBER_ID}/messages"
+    headers = {
+        "Authorization": f"Bearer {settings.WHATSAPP_PERMANENT_TOKEN}",
+        "Content-Type": "application/json"
+    }
+    data = {
+        "messaging_product": "whatsapp",
+        "to": mobile,
+        "type": "template",
+        "template": {
+            "name": "be_auth",
+            "language": {"code": "en"},
+            "components": [
+                {"type": "body", "parameters": [{"type": "text", "text": otp}]},
+                {"type": "button", "sub_type": "url", "index": "0",
+                 "parameters": [{"type": "text", "text": otp}]}
+            ]
+        }
+    }
+    try:
+        response = requests.post(url, headers=headers, json=data)
+        response.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        print(f"Failed to send WhatsApp OTP: {str(e)}")
+        if hasattr(e, 'response') and e.response:
+            print(f"Response content: {e.response.text}")
 
 @api_view(['POST'])
 def verify_otp2(request):
@@ -3116,7 +3186,6 @@ def verify_otp2(request):
     if not session_token or not otp:
         return JsonResponse({"error": "Session token and OTP are required"}, status=400)
 
-    # Validate UUID format
     try:
         session_token = uuid.UUID(session_token, version=4)
     except ValueError:
@@ -3151,7 +3220,6 @@ def reset_password(request):
     if new_password != confirm_password:
         return JsonResponse({"error": "Passwords do not match"}, status=400)
 
-    # Validate UUID format
     try:
         session_token = uuid.UUID(session_token, version=4)
     except ValueError:
@@ -3162,10 +3230,6 @@ def reset_password(request):
     except PasswordResetSession.DoesNotExist:
         return JsonResponse({"error": "Invalid session token"}, status=404)
 
-    # Debugging logs
-    print(f"Session Found: {session.email}, Verified: {session.is_verified}, Created At: {session.created_at}, Token: {session.session_token}")
-
-    # Check if the session is still valid
     if not session.is_valid():
         return JsonResponse({"error": "Session expired"}, status=400)
 
@@ -3177,15 +3241,11 @@ def reset_password(request):
     except CustomUser.DoesNotExist:
         return JsonResponse({"error": "User not found"}, status=404)
 
-    # Update password
     user.set_password(new_password)
     user.save()
-
-    # Invalidate the session
     session.delete()
 
     return JsonResponse({"message": "Password reset successfully"}, status=200)
-
 
 # @api_view(['POST'])
 # def upload_image(request):
