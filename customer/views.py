@@ -567,10 +567,10 @@ class FinalRegistrationView(APIView):
             "success": True,
             "message": "Registration successful",
             "user_id": user.id,
-            "customer_id": customer.id,
             "access_token": access_token,
             "refresh_token": str(refresh),
             "user_details": {
+                "customer_id": customer.id,
                 "username": user.username,
                 "first_name": user.first_name,
                 "last_name": user.last_name,

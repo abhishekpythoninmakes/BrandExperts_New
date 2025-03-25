@@ -159,3 +159,44 @@ class ContactCreateAPIView(APIView):
             }, status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+# Partner Details commission
+
+class PartnerStatsAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, user_id):
+        try:
+            # Get the partner associated with the user_id
+            partner = Partners.objects.get(user_id=user_id)
+            print("partner  ======",partner)
+            # Get total number of contacts associated with this partner
+            total_contacts = Contact.objects.filter(partner=partner).count()
+
+            # Get the partner's commission
+            commission = partner.get_commission()
+
+            response_data = {
+                'success': True,
+                'partner_id': partner.id,
+                'partner_name': partner.user.username if partner.user else None,
+                'total_contacts': total_contacts,
+                'total_commission': float(commission),
+                'status_code': status.HTTP_200_OK
+            }
+
+            return Response(response_data, status=status.HTTP_200_OK)
+
+        except Partners.DoesNotExist:
+            return Response({
+                'success': False,
+                'message': 'Partner not found',
+                'status_code': status.HTTP_404_NOT_FOUND
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({
+                'success': False,
+                'message': str(e),
+                'status_code': status.HTTP_400_BAD_REQUEST
+            }, status=status.HTTP_400_BAD_REQUEST)
