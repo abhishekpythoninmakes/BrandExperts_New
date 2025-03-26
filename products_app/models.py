@@ -72,7 +72,13 @@ class Product(models.Model):
     max_width = models.DecimalField(max_digits=6, decimal_places=2, default=5.00, help_text="📏 Maximum width")
     max_height = models.DecimalField(max_digits=6, decimal_places=2, default=5.00,help_text="📐 Maximum height")
     size = models.CharField(max_length=100, choices=sizes_available, default='cm',help_text="🛠 Select the measurement unit")
-    variable_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="💰 This is the variable price based on size and customization."
+    )
     fixed_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     status = models.ForeignKey(Product_status, on_delete=models.CASCADE, null=True, blank=True)
     amazon_url = models.URLField(null=True, blank=True)
