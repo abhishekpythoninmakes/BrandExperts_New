@@ -21,7 +21,8 @@ from rest_framework import permissions
 from django.conf.urls.static import static
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
-
+from django.contrib.auth.decorators import login_required
+from django.views.static import serve
 # Schema view for Swagger
 schema_view = get_schema_view(
     openapi.Info(
@@ -46,6 +47,8 @@ urlpatterns = [
     path('pep/',include('pep_app.urls')),
     path('partner/',include('partner_app.urls')),
     path('ckeditor/', include('ckeditor_uploader.urls')),
+    path('database_backup/<path:path>', login_required(serve),
+         {'document_root': settings.BASE_DIR / 'database_backup'}),
 
     # Swagger and Redoc URLs
     path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),

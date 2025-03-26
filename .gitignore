@@ -8,6 +8,9 @@ db.sqlite3
 # Ignore media folders and their contents
 media/
 
+
+media/backups/
+
 # Ignore .env files (for sensitive keys)
 .env
 

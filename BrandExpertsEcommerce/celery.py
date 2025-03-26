@@ -1,5 +1,5 @@
 from __future__ import absolute_import, unicode_literals
-
+from celery.schedules import crontab
 import os
 
 from django.conf import settings
@@ -36,6 +36,25 @@ app.conf.beat_schedule = {
 
 # Load task modules from all registered Django apps.
 app.autodiscover_tasks()
+
+
+# Schedule the backup task
+# app.conf.beat_schedule = {
+#     'weekly-database-backup': {
+#         'task': 'products_app.tasks.backup_database_and_send_email',
+#         'schedule': crontab(hour=2, minute=0, day_of_week=0),  # Sunday at 2 AM
+#     },
+# }
+
+from celery.schedules import timedelta
+
+app.conf.beat_schedule = {
+    'database-backup-every-1m-2s': {
+        'task': 'products_app.tasks.backup_database_and_send_email',
+        'schedule': timedelta(seconds=62),  # 1 minute + 2 seconds
+    },
+}
+
 
 
 @app.task(bind=True, ignore_result=True)

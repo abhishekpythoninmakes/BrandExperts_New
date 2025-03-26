@@ -60,6 +60,8 @@ INSTALLED_APPS = [
     'drf_yasg',
     'pep_app',
     'partner_app',
+    'django_celery_beat',
+    'dbbackup',
 ]
 
 MIDDLEWARE = [
@@ -403,3 +405,25 @@ LOGGING = {
         'level': 'DEBUG',
     },
 }
+
+
+# CELERY BEAT SETTINGS
+
+
+CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
+
+
+from celery.schedules import crontab
+
+
+BACKUP_NOTIFICATION_EMAIL = 'abhishekar3690@gmail.com'
+
+from datetime import timedelta
+
+CELERY_BEAT_SCHEDULE = {
+    'backup-database-every-20-seconds': {
+        'task': 'products_app.tasks.backup_database',  # Must match exactly
+        'schedule': timedelta(seconds=20),
+    },
+}
+
