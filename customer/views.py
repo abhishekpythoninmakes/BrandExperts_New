@@ -3173,6 +3173,8 @@ def send_whatsapp_otp(mobile, otp):
         if hasattr(e, 'response') and e.response:
             print(f"Response content: {e.response.text}")
 
+
+
 @api_view(['POST'])
 def verify_otp2(request):
     session_token = request.data.get('session_token')
@@ -3197,33 +3199,42 @@ def verify_otp2(request):
     if session.otp != otp:
         return JsonResponse({"error": "Invalid OTP"}, status=400)
 
+    # Generate a new reset token for password reset
+    reset_token = uuid.uuid4()
+
+    # Mark OTP as verified and store the reset token
     session.is_verified = True
+    session.reset_token = reset_token
     session.save()
 
-    return JsonResponse({"message": "OTP verified successfully"}, status=200)
+    return JsonResponse({
+        "success": True,
+        "message": "OTP verified successfully",
+        "reset_token": str(reset_token)
+    }, status=200)
 
 
 @api_view(['POST'])
 def reset_password(request):
-    session_token = request.data.get('session_token')
+    reset_token = request.data.get('reset_token')
     new_password = request.data.get('new_password')
     confirm_password = request.data.get('confirm_password')
 
-    if not session_token or not new_password or not confirm_password:
-        return JsonResponse({"error": "Session token, new password, and confirm password are required"}, status=400)
+    if not reset_token or not new_password or not confirm_password:
+        return JsonResponse({"error": "Reset token, new password, and confirm password are required"}, status=400)
 
     if new_password != confirm_password:
         return JsonResponse({"error": "Passwords do not match"}, status=400)
 
     try:
-        session_token = uuid.UUID(session_token, version=4)
+        reset_token = uuid.UUID(reset_token, version=4)
     except ValueError:
-        return JsonResponse({"error": "Invalid session token"}, status=400)
+        return JsonResponse({"error": "Invalid reset token"}, status=400)
 
     try:
-        session = PasswordResetSession.objects.get(session_token=session_token)
+        session = PasswordResetSession.objects.get(reset_token=reset_token)
     except PasswordResetSession.DoesNotExist:
-        return JsonResponse({"error": "Invalid session token"}, status=404)
+        return JsonResponse({"error": "Invalid reset token"}, status=404)
 
     if not session.is_valid():
         return JsonResponse({"error": "Session expired"}, status=400)
@@ -3240,7 +3251,7 @@ def reset_password(request):
     user.save()
     session.delete()
 
-    return JsonResponse({"message": "Password reset successfully..!"}, status=200)
+    return JsonResponse({"success": True, "message": "Password reset successfully!"}, status=200)
 
 # @api_view(['POST'])
 # def upload_image(request):

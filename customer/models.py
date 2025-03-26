@@ -279,6 +279,7 @@ class PasswordResetSession(models.Model):
     email = models.EmailField()
     otp = models.CharField(max_length=6)
     session_token = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    reset_token = models.UUIDField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     is_verified = models.BooleanField(default=False)
 
