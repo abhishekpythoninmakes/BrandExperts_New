@@ -80,7 +80,8 @@ class DetailedProductSerializer(serializers.ModelSerializer):
             "size",
             "amazon_url",
             "standard_sizes",
-            "price",
+            "variable_price",
+            "fixed_price",
             "parent_category",
             "category",
             "status",
@@ -170,7 +171,7 @@ class ProductSerializer_parent_id(serializers.ModelSerializer):
         model = Product
         fields = [
             'id', 'name', 'description', 'image1', 'image2', 'image3', 'image4',
-            'size', 'standard_size', 'width', 'height', 'price'
+            'size', 'standard_size', 'width', 'height', 'variable_price','fixed_price',
         ]
 
 class ProductSearchSerializer(serializers.ModelSerializer):
@@ -178,7 +179,7 @@ class ProductSearchSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Product
-        fields = ["id", "name", "image_url", "price", "size", "description"]
+        fields = ["id", "name", "image_url", "variable_price","fixed_price","size", "description"]
 
     def get_image_url(self, obj):
         """Return the URL of the first image (image1)."""
@@ -245,5 +246,5 @@ class ProductBasicDetailSerializer(serializers.ModelSerializer):
         model = Product
         fields = [
             'id', 'name', 'size', 'max_width', 'max_height',
-            'price', 'image1'
+            'variable_price','fixed_price', 'image1'
         ]

@@ -57,7 +57,8 @@ class ProductAdmin(admin.ModelAdmin):
     list_display = (
         'name',
         'image1_preview',
-        'price',
+        'variable_price',
+        'fixed_price',
         'status',
         'get_categories',
         'get_parent_categories',
@@ -71,7 +72,7 @@ class ProductAdmin(admin.ModelAdmin):
     readonly_fields = ('image1_preview', 'image2_preview', 'image3_preview', 'image4_preview')  # Image previews
     fieldsets = (
         ('Basic Information', {
-            'fields': ('name', 'description', 'categories', 'status', 'price', 'size', 'allow_direct_add_to_cart')
+            'fields': ('name', 'description', 'categories', 'status', 'variable_price','fixed_price', 'size', 'allow_direct_add_to_cart')
         }),
         ('Dimensions', {
             'fields': ('min_width', 'max_width', 'min_height', 'max_height')
