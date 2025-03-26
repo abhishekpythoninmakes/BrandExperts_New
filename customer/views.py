@@ -70,6 +70,7 @@ class AuthInitiateView(APIView):
         # Check for existing user with matching identifier
         existing_user = None
         customer = None
+
         # First check by username (identifier value)
         try:
             existing_user = CustomUser.objects.get(username=id_value)
@@ -93,24 +94,38 @@ class AuthInitiateView(APIView):
             except Customer.DoesNotExist:
                 pass
 
-        # If user exists, check verification status for the specific identifier type
-        if existing_user and customer:
-            if id_type == 'email' and customer.verified_email:
+        # If user exists
+        if existing_user:
+            # If user was found by username or email and has no customer record
+            if not customer:
                 return Response({
                     "success": True,
                     "identifier": id_value,
                     "get_password": True,
-                    "message": "Email is verified, no OTP needed",
+                    "message": "User exists but has incomplete profile",
                     "status_code": status.HTTP_200_OK
                 }, status=status.HTTP_200_OK)
-            elif id_type == 'mobile' and customer.verified_mobile:
-                return Response({
-                    "success": True,
-                    "identifier": id_value,
-                    "get_password": True,
-                    "message": "Mobile is verified, no OTP needed",
-                    "status_code": status.HTTP_200_OK
-                }, status=status.HTTP_200_OK)
+
+            # Check verification status
+            if id_type == 'email':
+                if existing_user.username == id_value or (customer and customer.verified_email):
+                    return Response({
+                        "success": True,
+                        "identifier": id_value,
+                        "get_password": True,
+                        "message": "User exists, no OTP needed",
+                        "status_code": status.HTTP_200_OK
+                    }, status=status.HTTP_200_OK)
+            elif id_type == 'mobile':
+                if (customer and customer.verified_mobile) or \
+                        (customer and customer.mobile == id_value and customer.country_code == country_code):
+                    return Response({
+                        "success": True,
+                        "identifier": id_value,
+                        "get_password": True,
+                        "message": "User exists, no OTP needed",
+                        "status_code": status.HTTP_200_OK
+                    }, status=status.HTTP_200_OK)
 
         # Generate and send OTP
         otp = ''.join(random.choices('0123456789', k=6))

@@ -263,7 +263,7 @@ class OTPVerifySerializer2(serializers.Serializer):
     otp = serializers.CharField(required=True, min_length=6, max_length=6)
 
 
-from rest_framework import serializers
+
 
 class FinalRegistrationSerializer(serializers.Serializer):
     otp = serializers.CharField(required=True, min_length=6, max_length=6)
