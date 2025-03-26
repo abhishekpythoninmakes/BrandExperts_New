@@ -22,3 +22,4 @@ staticfiles/
 **/__pycache__/
 
 
+media/backups/
