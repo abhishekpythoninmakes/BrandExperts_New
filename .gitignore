@@ -16,3 +16,5 @@ media/backups/
 
 .qodo
 staticfiles/
+__pycache__/
+*.pyc
