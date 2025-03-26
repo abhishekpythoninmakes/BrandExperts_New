@@ -48,12 +48,12 @@ app.autodiscover_tasks()
 
 from celery.schedules import timedelta
 
-app.conf.beat_schedule = {
-    'database-backup-every-1m-2s': {
-        'task': 'products_app.tasks.backup_database_and_send_email',
-        'schedule': timedelta(seconds=62),  # 1 minute + 2 seconds
-    },
-}
+# app.conf.beat_schedule = {
+#     'database-backup-every-1m-2s': {
+#         'task': 'products_app.tasks.backup_database_and_send_email',
+#         'schedule': timedelta(seconds=62),  # 1 minute + 2 seconds
+#     },
+# } 
 
 
 

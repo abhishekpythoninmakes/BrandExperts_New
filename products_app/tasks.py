@@ -83,7 +83,7 @@ def delete_old_backups(backup_dir):
     Delete backup files older than 4 weeks (28 days).
     """
     # Calculate the date 4 weeks ago
-    four_weeks_ago = datetime.now() - timedelta(weeks=4)
+    four_weeks_ago = datetime.now() - timedelta(weeks=2)
 
     try:
         # Loop through the files in the backup directory
