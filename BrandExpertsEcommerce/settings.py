@@ -421,9 +421,9 @@ BACKUP_NOTIFICATION_EMAIL = 'abhishekar3690@gmail.com'
 from datetime import timedelta
 
 CELERY_BEAT_SCHEDULE = {
-    'backup-database-every-20-seconds': {
-        'task': 'products_app.tasks.backup_database',  # Must match exactly
-        'schedule': timedelta(seconds=20),
+    'backup-database-weekly': {
+        'task': 'Certificate_App.tasks.backup_database',
+        'schedule': crontab(minute=0, hour=2, day_of_week='sunday'),  # Runs every Sunday at 2 AM
     },
 }
 
