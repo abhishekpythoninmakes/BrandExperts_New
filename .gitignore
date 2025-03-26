@@ -1,0 +1,17 @@
+# Ignore pycache
+BrandExpertsEcommerce/__pycache__/
+__pycache__/
+
+# Ignore SQLite database
+db.sqlite3
+
+# Ignore media folders and their contents
+media/
+
+
+media/backups/
+
+# Ignore .env files (for sensitive keys)
+.env
+
+.qodo
