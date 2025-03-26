@@ -416,7 +416,7 @@ CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
 from celery.schedules import crontab
 
 
-BACKUP_NOTIFICATION_EMAIL = 'abhishekar3690@gmail.com'
+BACKUP_NOTIFICATION_EMAIL = 'me@subodh.co.in'
 
 from datetime import timedelta
 
