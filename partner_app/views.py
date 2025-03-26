@@ -200,3 +200,190 @@ class PartnerStatsAPIView(APIView):
                 'message': str(e),
                 'status_code': status.HTTP_400_BAD_REQUEST
             }, status=status.HTTP_400_BAD_REQUEST)
+
+
+# Partner Contact adding through excel
+
+import pandas as pd
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from django.http import HttpResponse
+from django.shortcuts import get_object_or_404
+from pep_app .models import Partners, Contact, Accounts
+import io
+import os
+
+
+class ContactImportAPIView(APIView):
+    def post(self, request):
+        # Debug print
+        print("Received import request with data:", request.data)
+
+        # Get user_id and file from request
+        user_id = request.data.get('user_id')
+        excel_file = request.FILES.get('excel_file')
+
+        if not user_id or not excel_file:
+            print("Missing required fields - user_id:", user_id, "excel_file:", bool(excel_file))
+            return Response({
+                'success': False,
+                'message': 'Both user_id and excel_file are required',
+                'status_code': status.HTTP_400_BAD_REQUEST
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Get partner instance
+        try:
+            partner = Partners.objects.get(user_id=user_id)
+            print("Found partner:", partner.user.username)
+        except Partners.DoesNotExist:
+            print("Partner not found for user_id:", user_id)
+            return Response({
+                'success': False,
+                'message': 'Partner not found for the given user_id',
+                'status_code': status.HTTP_404_NOT_FOUND
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        # Validate file extension
+        if not excel_file.name.endswith(('.xlsx', '.xls')):
+            print("Invalid file format:", excel_file.name)
+            return Response({
+                'success': False,
+                'message': 'Invalid file format. Please upload an Excel file (.xlsx or .xls)',
+                'status_code': status.HTTP_400_BAD_REQUEST
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            # Read Excel file
+            df = pd.read_excel(excel_file)
+            print("Excel file read successfully. Columns:", df.columns.tolist())
+
+            # Normalize column names
+            df.columns = [str(col).strip().lower() for col in df.columns]
+            print("Normalized columns:", df.columns.tolist())
+
+            # Define required columns
+            required_columns = {'name', 'email', 'mobile', 'company'}
+            available_columns = set(df.columns)
+
+            # Check for missing required columns
+            missing_columns = required_columns - available_columns
+            if missing_columns:
+                print("Missing required columns:", missing_columns)
+                return Response({
+                    'success': False,
+                    'message': f"Missing required columns: {', '.join(missing_columns)}",
+                    'required_columns': list(required_columns),
+                    'suggestion': 'Please download the sample file for reference',
+                    'status_code': status.HTTP_400_BAD_REQUEST
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Process each row
+            created_count = 0
+            updated_count = 0
+            skipped_count = 0
+            errors = []
+
+            for index, row in df.iterrows():
+                try:
+                    # Get required fields
+                    name = str(row.get('name', '')).strip()
+                    email = str(row.get('email', '')).strip()
+                    mobile = str(row.get('mobile', '')).strip()
+                    company = str(row.get('company', '')).strip()
+
+                    # Skip if required fields are empty
+                    if not email or not company:
+                        skipped_count += 1
+                        errors.append(f"Row {index + 2}: Skipped - Missing email or company")
+                        continue
+
+                    # Get or create account
+                    account, _ = Accounts.objects.get_or_create(name=company)
+                    print(f"Processing row {index + 2}: {email} - {company}")
+
+                    # Prepare contact data
+                    contact_data = {
+                        'name': name if name else email.split('@')[0],
+                        'email': email,
+                        'mobile': mobile,
+                        'partner': partner,
+                        'created_by': partner.user,
+                        'status': 'data'
+                    }
+
+                    # Create or update contact
+                    contact, created = Contact.objects.update_or_create(
+                        email=email,
+                        defaults=contact_data
+                    )
+
+                    # Add account relationship
+                    if account not in contact.account.all():
+                        contact.account.add(account)
+
+                    if created:
+                        created_count += 1
+                    else:
+                        updated_count += 1
+
+                except Exception as e:
+                    skipped_count += 1
+                    error_msg = f"Row {index + 2}: Error - {str(e)}"
+                    errors.append(error_msg)
+                    print(error_msg)
+
+            # Prepare response
+            response_data = {
+                'success': True,
+                'message': f"Import completed. Created: {created_count}, Updated: {updated_count}, Skipped: {skipped_count}",
+                'created_count': created_count,
+                'updated_count': updated_count,
+                'skipped_count': skipped_count,
+                'status_code': status.HTTP_200_OK
+            }
+
+            if errors:
+                response_data['errors'] = errors[:10]  # Return first 10 errors to avoid huge response
+                if len(errors) > 10:
+                    response_data['error_message'] = f"Showing first 10 of {len(errors)} errors"
+
+            print("Import completed:", response_data['message'])
+            return Response(response_data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            print("Unexpected error during import:", str(e))
+            return Response({
+                'success': False,
+                'message': f"Error processing Excel file: {str(e)}",
+                'status_code': status.HTTP_500_INTERNAL_SERVER_ERROR
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def get(self, request):
+        # Sample file download endpoint
+        print("Received request for sample file")
+
+        # Create a simple Excel file in memory
+        from io import BytesIO
+        import pandas as pd
+
+        sample_data = {
+            'Name': ['John Doe', 'Jane Smith'],
+            'Email': ['john@example.com', 'jane@example.com'],
+            'Mobile': ['+1234567890', '+1987654321'],
+            'Company': ['ABC Corp', 'XYZ Inc']
+        }
+        df = pd.DataFrame(sample_data)
+
+        output = BytesIO()
+        writer = pd.ExcelWriter(output, engine='xlsxwriter')
+        df.to_excel(writer, sheet_name='Contacts', index=False)
+        writer.close()
+        output.seek(0)
+
+        response = HttpResponse(
+            output.getvalue(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = 'attachment; filename=contact_import_sample.xlsx'
+        return response

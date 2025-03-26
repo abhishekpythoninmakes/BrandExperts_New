@@ -3292,7 +3292,7 @@ import re
 import requests
 from urllib.parse import quote
 import os
-import pytesseract
+
 from PIL import Image
 from django.conf import settings
 
@@ -3566,8 +3566,8 @@ def ask_gemini_ai(query, location=None):
         headers = {"Content-Type": "application/json"}
 
         # Build the prompt
-        prompt = query
-        if location and any(word in query for word in ["near me", "nearby", "close to me"]):
+        prompt = f"{query} tell me in maximun 8 scentences"
+        if location and any(word in query for word in ["near me", "nearby", "close to me","where am i"]):
             prompt += f"\n\nContext: User's current location is {location}."
 
         payload = {
