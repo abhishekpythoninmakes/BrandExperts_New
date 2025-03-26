@@ -53,7 +53,7 @@ from celery.schedules import timedelta
 #         'task': 'products_app.tasks.backup_database_and_send_email',
 #         'schedule': timedelta(seconds=62),  # 1 minute + 2 seconds
 #     },
-# } 
+# }
 
 
 
