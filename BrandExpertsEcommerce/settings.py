@@ -422,7 +422,7 @@ from datetime import timedelta
 
 CELERY_BEAT_SCHEDULE = {
     'backup-database-weekly': {
-        'task': 'Certificate_App.tasks.backup_database',
+        'task': 'products_app.tasks.backup_database',
         'schedule': crontab(minute=0, hour=2, day_of_week='sunday'),  # Runs every Sunday at 2 AM
     },
 }
