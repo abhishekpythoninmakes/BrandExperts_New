@@ -469,7 +469,8 @@ class ProductPriceView(APIView):
 
         # Calculate total price based on product's unit squared
         fixed_price = product.fixed_price if product.fixed_price else Decimal('0')
-        total_price_per_item = (area_in_product_unit_sq * product.price) + fixed_price
+        pro_price = product.price if product.price else Decimal('0')
+        total_price_per_item = (area_in_product_unit_sq * pro_price) + fixed_price
         total_price = total_price_per_item * quantity
 
         print(f"Total price: {total_price:.2f}")
