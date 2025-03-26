@@ -3357,7 +3357,7 @@ def send_emergency_alert_async(lat, lng):
                 'latitude': f"{lat_float:.6f}",
                 'longitude': f"{lng_float:.6f}",
                 'map_link': map_link,
-                'support_email': 'nova_ai@gmail.com'  # Hardcoded or use settings
+                'support_email': 'ray_ai@gmail.com'  # Hardcoded or use settings
             }
 
             # Render HTML email template
