@@ -3240,7 +3240,7 @@ def reset_password(request):
     user.save()
     session.delete()
 
-    return JsonResponse({"message": "Password reset successfully"}, status=200)
+    return JsonResponse({"message": "Password reset successfully..!"}, status=200)
 
 # @api_view(['POST'])
 # def upload_image(request):
