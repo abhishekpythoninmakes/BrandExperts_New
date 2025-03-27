@@ -63,7 +63,8 @@ class ProductAdmin(admin.ModelAdmin):
         'get_categories',
         'get_parent_categories',
         'size',
-        'allow_direct_add_to_cart'
+        'allow_direct_add_to_cart',
+        'disable_customization',
     )
     list_filter = ('status', 'categories', 'size', 'allow_direct_add_to_cart')  # Enhanced filters
     search_fields = ('name', 'categories__category_name', 'categories__parent_categories__name', 'size', 'description')
@@ -72,7 +73,7 @@ class ProductAdmin(admin.ModelAdmin):
     readonly_fields = ('image1_preview', 'image2_preview', 'image3_preview', 'image4_preview')  # Image previews
     fieldsets = (
         ('Basic Information', {
-            'fields': ('name', 'description', 'categories', 'status', 'price','fixed_price', 'size', 'allow_direct_add_to_cart')
+            'fields': ('name', 'description', 'categories', 'status', 'price','fixed_price', 'size', 'allow_direct_add_to_cart','disable_customization')
         }),
         ('Dimensions', {
             'fields': ('min_width', 'max_width', 'min_height', 'max_height')
