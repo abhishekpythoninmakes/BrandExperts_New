@@ -174,50 +174,50 @@ class CustomerDesignAdmin(admin.ModelAdmin):
 admin.site.register(PasswordResetSession)
 
 
-@admin.register(Client_user)
-class ClientUserAdmin(admin.ModelAdmin):
-    # Fields to display in the list view
-    list_display = ('name', 'email_link', 'mobile_link', 'user_username', 'status')
-
-    # Fields to filter by in the right sidebar
-    list_filter = ('status', 'user')
-
-    # Fields to search by in the search bar
-    search_fields = ('name', 'email', 'mobile', 'user__username')
-
-    # Fields to group in the edit form
-    fieldsets = (
-        ('Basic Information', {
-            'fields': ('name', 'email', 'mobile')
-        }),
-        ('User Information', {
-            'fields': ('user',),
-            'description': 'Link this client to an existing user (optional).'
-        }),
-        ('Status', {
-            'fields': ('status',),
-            'description': 'Set the status of the client.'
-        }),
-    )
-
-    # Custom method to display linked user's username
-    def user_username(self, obj):
-        return obj.user.username if obj.user else "No User Linked"
-
-    user_username.short_description = 'Linked User'
-
-    # Custom method to display email as a clickable link
-    def email_link(self, obj):
-        if obj.email:
-            return mark_safe(f'<a href="mailto:{obj.email}">{obj.email}</a>')
-        return "No Email"
-
-    email_link.short_description = 'Email'
-
-    # Custom method to display mobile as a clickable link
-    def mobile_link(self, obj):
-        if obj.mobile:
-            return mark_safe(f'<a href="tel:{obj.mobile}">{obj.mobile}</a>')
-        return "No Mobile"
-
-    mobile_link.short_description = 'Mobile'
+# @admin.register(Client_user)
+# class ClientUserAdmin(admin.ModelAdmin):
+#     # Fields to display in the list view
+#     list_display = ('name', 'email_link', 'mobile_link', 'user_username', 'status')
+#
+#     # Fields to filter by in the right sidebar
+#     list_filter = ('status', 'user')
+#
+#     # Fields to search by in the search bar
+#     search_fields = ('name', 'email', 'mobile', 'user__username')
+#
+#     # Fields to group in the edit form
+#     fieldsets = (
+#         ('Basic Information', {
+#             'fields': ('name', 'email', 'mobile')
+#         }),
+#         ('User Information', {
+#             'fields': ('user',),
+#             'description': 'Link this client to an existing user (optional).'
+#         }),
+#         ('Status', {
+#             'fields': ('status',),
+#             'description': 'Set the status of the client.'
+#         }),
+#     )
+#
+#     # Custom method to display linked user's username
+#     def user_username(self, obj):
+#         return obj.user.username if obj.user else "No User Linked"
+#
+#     user_username.short_description = 'Linked User'
+#
+#     # Custom method to display email as a clickable link
+#     def email_link(self, obj):
+#         if obj.email:
+#             return mark_safe(f'<a href="mailto:{obj.email}">{obj.email}</a>')
+#         return "No Email"
+#
+#     email_link.short_description = 'Email'
+#
+#     # Custom method to display mobile as a clickable link
+#     def mobile_link(self, obj):
+#         if obj.mobile:
+#             return mark_safe(f'<a href="tel:{obj.mobile}">{obj.mobile}</a>')
+#         return "No Mobile"
+#
+#     mobile_link.short_description = 'Mobile'
