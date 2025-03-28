@@ -3635,6 +3635,32 @@ def process_text(request):
     }
     text = request.data.get("text", "").lower().strip()
 
+    # NLP Processing Steps
+    import nltk
+    nltk.download('punkt', quiet=True)
+    nltk.download('stopwords', quiet=True)
+    nltk.download('wordnet', quiet=True)
+    from nltk.corpus import stopwords
+    from nltk.tokenize import word_tokenize
+    from nltk.stem import WordNetLemmatizer
+
+    # Tokenization
+    tokens = word_tokenize(text)
+    print(f"Tokens: {tokens}")
+    # Stopword Removal
+    stop_words = set(stopwords.words('english'))
+    filtered_tokens = [word for word in tokens if word not in stop_words]
+    print(f"Filtered Tokens: {filtered_tokens}")
+
+    # Lemmatization
+    lemmatizer = WordNetLemmatizer()
+    lemmatized_tokens = [lemmatizer.lemmatize(token) for token in filtered_tokens]
+
+    # Recreate text from processed tokens
+    processed_text = ' '.join(lemmatized_tokens)
+    print(f"Processed Text: {processed_text}")
+    text = processed_text
+
     # 1. Exit command handling
     exit_pattern = r'\b(exit|close|bye|shutdown|quit|stop|goodbye)\b|(close|terminate)\s+(app|application)'
     if re.search(exit_pattern, text, re.IGNORECASE):
