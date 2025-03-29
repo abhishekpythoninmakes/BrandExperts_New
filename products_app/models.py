@@ -56,6 +56,9 @@ class Product_status(models.Model):
         return self.status if self.status else "No Status"
 
 
+
+
+
 class Product(models.Model):
     categories = models.ManyToManyField(Category, blank=True, related_name="products")
     name = models.CharField(max_length=900, null=True, blank=True)
@@ -73,13 +76,18 @@ class Product(models.Model):
     max_height = models.DecimalField(max_digits=6, decimal_places=2, default=5.00,help_text="📐 Maximum height")
     size = models.CharField(max_length=100, choices=sizes_available, default='cm',help_text="🛠 Select the measurement unit")
     price = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
+        max_digits=16,
+        decimal_places=6,
         null=True,
         blank=True,
         help_text="💰 This is the variable price based on size and customization."
     )
-    fixed_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    fixed_price = models.DecimalField(
+        max_digits=16,
+        decimal_places=6,
+        null=True,
+        blank=True
+    )
     status = models.ForeignKey(Product_status, on_delete=models.CASCADE, null=True, blank=True)
     amazon_url = models.URLField(null=True, blank=True)
     # New Checkbox Field

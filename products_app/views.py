@@ -480,6 +480,7 @@ class ProductPriceView(APIView):
             "height": height,
             "unit": unit,
             "quantity": quantity,
+            "total_price_without_rounded": total_price,
             "total_price": round(total_price, 2)
         })
 
