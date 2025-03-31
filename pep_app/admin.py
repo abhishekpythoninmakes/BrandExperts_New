@@ -693,6 +693,10 @@ class EmailCampaignAdmin(admin.ModelAdmin):
     filter_horizontal = ('contact_lists',)
     ordering = ('-created_at',)
 
+    def get_queryset(self, request):
+        # Disable caching for the queryset
+        return super().get_queryset(request).select_related()
+
     fieldsets = (
         ('Basic Information', {
             'fields': ('name', 'sender_name', 'status')
