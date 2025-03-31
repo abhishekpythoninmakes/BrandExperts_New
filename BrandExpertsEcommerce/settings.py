@@ -387,7 +387,7 @@ JAZZMIN_SETTINGS = {
 
 
 
-# Celery settings for local RabbitMQ
+## Celery settings for local RabbitMQ
 # CELERY_BROKER_URL = 'amqp://guest:guest@localhost:5672//'
 # CELERY_ACCEPT_CONTENT = ['json']
 # CELERY_TASK_SERIALIZER = 'json'

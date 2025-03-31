@@ -1,5 +1,7 @@
 # tasks.py
 import os
+import time
+
 from django.core.exceptions import ValidationError
 from decimal import Decimal
 from celery import shared_task
@@ -274,10 +276,25 @@ def send_email_campaign(campaign_id):
 
                 # Add tracking pixel
                 try:
+                    # Get tracking URL with cache busting
+                    timestamp = int(time.time())  # Import time at the top of your file
                     tracking_url = recipient.tracking_pixel_url()
-                    tracking_pixel = f'<img src="{tracking_url}" width="1" height="1" alt="">'
+
+                    # Make sure the URL has cache busting
+                    if '?' not in tracking_url:
+                        tracking_url = f"{tracking_url}?t={timestamp}"
+
                     print(f"Adding tracking pixel with URL: {tracking_url}")
 
+                    # Create an enhanced tracking pixel that's more likely to load
+                    tracking_pixel = f'''
+                    <!-- Email tracking pixel -->
+                    <div style="display:none;font-size:1px;color:transparent;max-height:0;max-width:0;opacity:0;overflow:hidden;">
+                        <img src="{tracking_url}" width="1" height="1" alt="" style="display:block;">
+                    </div>
+                    '''
+
+                    # Add the tracking pixel before the closing body tag or at the end
                     if '</body>' in content:
                         content = content.replace('</body>', f'{tracking_pixel}</body>')
                     else:

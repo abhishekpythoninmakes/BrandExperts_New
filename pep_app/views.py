@@ -62,15 +62,41 @@ from django.http import HttpResponse
 from .models import EmailRecipient
 from django.utils import timezone
 
+
 def track_email_open(request, tracking_id):
-    recipient = get_object_or_404(EmailRecipient, tracking_id=tracking_id)
-    if not recipient.opened_at:
+    print(f"Email tracking triggered for ID: {tracking_id}")
+
+    try:
+        recipient = get_object_or_404(EmailRecipient, tracking_id=tracking_id)
+
+        # Always update the opened_at time to track repeated opens
         recipient.opened_at = timezone.now()
         recipient.status = 'opened'
         recipient.save()
-    # Return transparent 1x1 pixel
-    pixel = b'\x47\x49\x46\x38\x39\x61\x01\x00\x01\x00\x80\x00\x00\xff\xff\xff\x00\x00\x00\x21\xf9\x04\x01\x00\x00\x00\x00\x2c\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02\x44\x01\x00\x3b'
-    return HttpResponse(pixel, content_type='image/gif')
+
+        print(f"Tracked email open for recipient ID: {recipient.id}, email: {recipient.contact.email}")
+
+        # Also update the associated contact's status from 'data' to 'lead'
+        contact = recipient.contact
+        if contact and contact.status == 'data':
+            contact.status = 'lead'
+            contact.save()
+            print(f"Updated contact {contact.id} status from 'data' to 'lead'")
+    except Exception as e:
+        print(f"Error in tracking pixel: {str(e)}")
+
+    # Return transparent 1x1 pixel with anti-caching headers
+    response = HttpResponse(
+        b'\x47\x49\x46\x38\x39\x61\x01\x00\x01\x00\x80\x00\x00\xff\xff\xff\x00\x00\x00\x21\xf9\x04\x01\x00\x00\x00\x00\x2c\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02\x44\x01\x00\x3b',
+        content_type='image/gif'
+    )
+
+    # Add headers to prevent caching
+    response['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response['Pragma'] = 'no-cache'
+    response['Expires'] = '0'
+
+    return response
 
 
 

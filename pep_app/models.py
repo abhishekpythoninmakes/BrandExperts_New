@@ -219,4 +219,13 @@ class EmailRecipient(models.Model):
     sent_at = models.DateTimeField(null=True, blank=True)
 
     def tracking_pixel_url(self):
-        return settings.DOMAIN + reverse('track_email_open', args=[str(self.tracking_id)])
+        from django.urls import reverse
+        from django.conf import settings
+
+        # Build the absolute URL with a cache-busting parameter
+        base_url = settings.DOMAIN.rstrip('/') + reverse('track_email_open', args=[str(self.tracking_id)])
+
+        # Add a timestamp parameter to prevent caching
+        import time
+        cache_buster = int(time.time())
+        return f"{base_url}?t={cache_buster}"
