@@ -107,6 +107,8 @@ def add_contacts_to_contactlist(contactlist_id, contact_ids):
 
         # Add contacts to the many-to-many field
         contactlist.contacts_new.add(*contacts)
+        k = [x for x in contactlist.contacts_new.all()]
+        print("K   ===",k)
 
         # Debug: Print success message
         print(f"Added {len(contacts)} contacts to ContactList {contactlist.name}")
@@ -139,8 +141,7 @@ def send_email_campaign(campaign_id):
     print(f"Starting email campaign task for campaign_id: {campaign_id}")
 
     try:
-        # Fetch the campaign and lock it for update to prevent race conditions
-        campaign = EmailCampaign.objects.select_for_update().get(id=campaign_id)
+        campaign = EmailCampaign.objects.get(id=campaign_id)
         print(f"Found campaign: {campaign.name} (ID: {campaign_id})")
 
         # Get all contacts from associated contact lists
@@ -172,7 +173,7 @@ def send_email_campaign(campaign_id):
         campaign.total_recipients = contacts.count()
         campaign.save()
 
-        # Prepare email content
+        # Check if the campaign has content to send
         try:
             subject = campaign.subject or "No Subject"
 
@@ -214,6 +215,12 @@ def send_email_campaign(campaign_id):
             print(traceback.format_exc())
             processed_content = base_content
 
+        # Check email settings
+        print(f"Using email sender: {campaign.sender_name or settings.DEFAULT_FROM_EMAIL}")
+        print(f"EMAIL_BACKEND setting: {settings.EMAIL_BACKEND}")
+        print(f"EMAIL_HOST setting: {settings.EMAIL_HOST}")
+        print(f"EMAIL_PORT setting: {settings.EMAIL_PORT}")
+
         # Send emails to each recipient
         success_count = 0
         fail_count = 0
@@ -229,23 +236,35 @@ def send_email_campaign(campaign_id):
                     recipient.save()
                     fail_count += 1
                     continue
-
                 # Replace placeholders in content
                 try:
                     content = processed_content
+                    # Find all placeholders with pattern [FIELD_NAME]
                     placeholders = re.findall(r'\[(.*?)\]', content)
                     for placeholder in placeholders:
                         field_value = None
                         try:
-                            if placeholder.lower() == 'account':
+                            # Handle special cases for date and time
+                            if placeholder.lower() == 'date':
+                                field_value = timezone.now().strftime('%Y-%m-%d')
+                                print(f"Replacing date placeholder with: {field_value}")
+                            elif placeholder.lower() == 'time':
+                                field_value = timezone.now().strftime('%H:%M:%S')
+                                print(f"Replacing time placeholder with: {field_value}")
+                            # Handle special cases for related fields
+                            elif placeholder.lower() == 'account':
+                                # Join all account names for many-to-many relationship
                                 accounts = contact.account.all()
-                                field_value = ', '.join([str(account) for account in accounts]) if accounts.exists() else ''
+                                field_value = ', '.join(
+                                    [str(account) for account in accounts]) if accounts.exists() else ''
                             else:
+                                # Use getattr for other fields
                                 field_value = getattr(contact, placeholder.lower(), '')
                         except Exception as e:
                             print(f"Error fetching placeholder {placeholder}: {str(e)}")
                             field_value = ''  # Fallback to empty string
 
+                        # Replace placeholder in content
                         if field_value is not None:
                             content = content.replace(f'[{placeholder}]', str(field_value))
                 except Exception as e:
@@ -263,6 +282,7 @@ def send_email_campaign(campaign_id):
                         content = content.replace('</body>', f'{tracking_pixel}</body>')
                     else:
                         content += tracking_pixel
+
                 except Exception as e:
                     print(f"Error adding tracking pixel: {str(e)}")
                     print(traceback.format_exc())
@@ -273,6 +293,7 @@ def send_email_campaign(campaign_id):
                     msg = EmailMultiAlternatives(
                         subject=subject,
                         body="This is the plain text version of your email. Please view in HTML for proper formatting.",
+                        # Plain text version
                         from_email=email_from,
                         to=[contact.email]
                     )
@@ -282,9 +303,16 @@ def send_email_campaign(campaign_id):
                     print(f"SMTP DEBUG: Subject: {subject}")
                     print(f"SMTP DEBUG: Content length: {len(content)} characters")
 
-                    msg.send(fail_silently=False)
-                    print(f"Email sent successfully to {contact.email}")
+                    # Try to send with explicit error capture
+                    try:
+                        msg.send(fail_silently=False)
+                        print(f"Email sent successfully to {contact.email}")
+                    except Exception as smtp_error:
+                        print(f"SMTP ERROR: {str(smtp_error)}")
+                        print(traceback.format_exc())
+                        raise  # Re-raise to the outer exception handler
 
+                    # Update recipient status
                     recipient.status = 'sent'
                     recipient.sent_at = timezone.now()
                     recipient.save()
@@ -309,7 +337,7 @@ def send_email_campaign(campaign_id):
         campaign.status = 'sent'
         campaign.sent_at = timezone.now()
         campaign.save()
-        print("Email campaign task completed. === status ==", campaign.status)
+        print("Email campaign task completed. === status ==",campaign.status)
 
         print(f"Campaign {campaign_id} completed: {success_count} sent, {fail_count} failed")
         return f"Campaign {campaign_id} completed: {success_count} sent, {fail_count} failed"
@@ -318,11 +346,12 @@ def send_email_campaign(campaign_id):
         print(f"Fatal error in send_email_campaign task: {str(e)}")
         print(traceback.format_exc())
         try:
+            # Try to update campaign status if possible
             campaign = EmailCampaign.objects.get(id=campaign_id)
             campaign.status = 'cancelled'
             campaign.save()
-        except Exception as save_error:
-            print(f"Failed to update campaign status: {str(save_error)}")
+        except:
+            pass
         raise
 
 

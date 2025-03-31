@@ -135,7 +135,7 @@ class EmailTemplate(models.Model):
     name = models.CharField(max_length=255)
     category = models.ForeignKey(EmailTemplateCategory, on_delete=models.CASCADE,null=True,blank=True)
     subject = models.CharField(max_length=255,null=True,blank=True)
-    content = RichTextUploadingField(null=True, blank=True)
+    content = RichTextUploadingField(null=True, blank=True,config_name='default')
     created_at = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey(CustomUser, on_delete=models.CASCADE,null=True,blank=True)
     sent_at = models.DateTimeField(null=True, blank=True)
@@ -159,7 +159,7 @@ class EmailTemplate(models.Model):
 
 class Placeholder(models.Model):
     key = models.CharField(max_length=255, unique=True)
-    value = models.CharField(max_length=255)
+
 
     def __str__(self):
         return self.key
@@ -180,7 +180,7 @@ class EmailCampaign(models.Model):
     sender_name = models.CharField(max_length=255,null=True,blank=True)
     contact_lists = models.ManyToManyField(ContactList)
     template = models.ForeignKey(EmailTemplate, on_delete=models.SET_NULL, null=True, blank=True)
-    custom_content = RichTextUploadingField(null=True, blank=True)
+    custom_content = RichTextUploadingField(null=True, blank=True,config_name='default')
     subject = models.CharField(max_length=255,null=True,blank=True,default="No Subject")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
     created_at = models.DateTimeField(auto_now_add=True)

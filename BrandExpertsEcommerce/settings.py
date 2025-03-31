@@ -265,14 +265,27 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 CKEDITOR_CONFIGS = {
     'default': {
         'toolbar': 'full',
+        'toolbar_Custom': [
+            ['Source', '-', 'Save', 'NewPage', 'Preview', '-', 'Templates'],
+            ['Cut', 'Copy', 'Paste', 'PasteText', 'PasteFromWord', '-', 'Undo', 'Redo'],
+            ['Find', 'Replace', '-', 'SelectAll'],
+            ['Bold', 'Italic', 'Underline', 'Strike', 'Subscript', 'Superscript', '-', 'RemoveFormat'],
+            ['NumberedList', 'BulletedList', '-', 'Outdent', 'Indent', '-', 'Blockquote'],
+            ['JustifyLeft', 'JustifyCenter', 'JustifyRight', 'JustifyBlock'],
+            ['Link', 'Unlink', 'Anchor'],
+            ['Image', 'Table', 'HorizontalRule', 'SpecialChar'],
+            ['Styles', 'Format', 'Font', 'FontSize'],
+            ['TextColor', 'BGColor'],
+            ['Maximize', 'ShowBlocks'],
+            ['Placeholders'],  # Add our custom dropdown
+        ],
         'height': 300,
         'width': '100%',
-        'extraPlugins': ','.join([
-            'justify', 'autogrow', 'clipboard', 'dialog', 'div', 'find', 'font', 'image', 'link',
-            'liststyle', 'pagebreak', 'pastetext', 'preview', 'table', 'templates','uploadimage','image2',
-        ]),
+        'extraPlugins': 'placeholders',  # Use a string instead of join for a single plugin
         'filebrowserUploadUrl': '/ckeditor/upload/',
         'filebrowserBrowseUrl': '/ckeditor/browse/',
+        # Pass your app name to the plugin
+        'appName': 'pep_app',  # Replace with your actual app name
     },
 }
 
@@ -374,24 +387,25 @@ JAZZMIN_SETTINGS = {
 
 
 
-# # Celery settings for local RabbitMQ
-# CELERY_BROKER_URL = 'amqp://guest:guest@localhost:5672//'
-# CELERY_ACCEPT_CONTENT = ['json']
-# CELERY_TASK_SERIALIZER = 'json'
-# CELERY_RESULT_BACKEND = 'django-db'  # Store results in Django DB
-# CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
-# TIMEZONE = 'UTC'
-
-CELERY_BROKER_URL = 'amqp://your_user:your_password@65.1.248.191:5672//'
+# Celery settings for local RabbitMQ
+CELERY_BROKER_URL = 'amqp://guest:guest@localhost:5672//'
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
-CELERY_RESULT_BACKEND = 'django-db'
+CELERY_RESULT_BACKEND = 'django-db'  # Store results in Django DB
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 TIMEZONE = 'UTC'
 
+# CELERY_BROKER_URL = 'amqp://your_user:your_password@65.1.248.191:5672//'
+# CELERY_ACCEPT_CONTENT = ['json']
+# CELERY_TASK_SERIALIZER = 'json'
+# CELERY_RESULT_BACKEND = 'django-db'
+# CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+# TIMEZONE = 'UTC'
 
 
-CELERY_TASK_ALWAYS_EAGER = True  # Temporary - tasks run synchronously
+
+# CELERY_TASK_ALWAYS_EAGER = True  # Temporary - tasks run synchronously
+CELERY_TASK_EAGER_PROPAGATES = True
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,

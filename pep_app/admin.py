@@ -523,7 +523,7 @@ class ContactListAdmin(admin.ModelAdmin):
         # Save the ContactList instance first (basic fields only)
         obj.name = form.cleaned_data['name']
         obj.save()  # Save manually to avoid form.save() clearing M2M
-
+        print("NAME ==",obj.name)
         # If "Import Contacts" was selected and an Excel file is present, process it.
         if form.cleaned_data.get('import_or_manual') == 'import' and form.cleaned_data.get('excel_file'):
             excel_file = form.cleaned_data.get('excel_file')
@@ -569,7 +569,7 @@ class ContactListAdmin(admin.ModelAdmin):
 
                     # Get or create the account.
                     account, _ = Accounts.objects.get_or_create(name=account_name)
-
+                    print("Created account == ",account)
                     # Determine partner for the contact.
                     if 'partner' in df.columns:
                         partner_email = str(row.get('partner', '')).strip()
@@ -595,7 +595,7 @@ class ContactListAdmin(admin.ModelAdmin):
                             'created_by': request.user if request.user.is_authenticated else None,
                         }
                     )
-
+                    print("Contact =",contact)
                     # Ensure the account relationship exists.
                     if account not in contact.account.all():
                         contact.account.add(account)
@@ -665,7 +665,6 @@ class EmailTemplateCategoryAdmin(admin.ModelAdmin):
 admin.site.register(EmailTemplateCategory, EmailTemplateCategoryAdmin)
 
 
-
 class EmailTemplateAdmin(admin.ModelAdmin):
     list_display = ['name', 'category', 'created_at', 'created_by']
     search_fields = ['name', 'category__name', 'created_by__username']
@@ -673,11 +672,26 @@ class EmailTemplateAdmin(admin.ModelAdmin):
     ordering = ['-created_at']
     exclude = ('created_by',)  # Auto-set created_by in save_model
 
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path('get_excel_columns/', self.admin_site.admin_view(self.get_excel_columns_view),
+                 name='get_excel_columns'),
+        ]
+        return custom_urls + urls
+
+    def get_excel_columns_view(self, request):
+        # This would be dynamically fetched based on your data source
+        # For example, from the most recent Excel file or from a predefined list
+        columns = list(Placeholder.objects.values_list('key', flat=True))
+        return JsonResponse({'columns': columns})
+
     def save_model(self, request, obj, form, change):
         # On creation, assign the current logged-in user to created_by.
         if not change:
             obj.created_by = request.user
         obj.save()
+
 
 admin.site.register(EmailTemplate, EmailTemplateAdmin)
 
