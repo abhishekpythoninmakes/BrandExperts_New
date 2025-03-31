@@ -234,18 +234,30 @@ def send_email_campaign(campaign_id):
                     recipient.save()
                     fail_count += 1
                     continue
-
                 # Replace placeholders in content
                 try:
                     content = processed_content
                     # Find all placeholders with pattern [FIELD_NAME]
                     placeholders = re.findall(r'\[(.*?)\]', content)
-
                     for placeholder in placeholders:
-                        field_value = getattr(contact, placeholder.lower(), '')
-                        if field_value:
-                            content = content.replace(f'[{placeholder}]', str(field_value))
+                        field_value = None
+                        try:
+                            # Handle special cases for related fields
+                            if placeholder.lower() == 'account':
+                                # Join all account names for many-to-many relationship
+                                accounts = contact.account.all()
+                                field_value = ', '.join(
+                                    [str(account) for account in accounts]) if accounts.exists() else ''
+                            else:
+                                # Use getattr for other fields
+                                field_value = getattr(contact, placeholder.lower(), '')
+                        except Exception as e:
+                            print(f"Error fetching placeholder {placeholder}: {str(e)}")
+                            field_value = ''  # Fallback to empty string
 
+                        # Replace placeholder in content
+                        if field_value is not None:
+                            content = content.replace(f'[{placeholder}]', str(field_value))
                 except Exception as e:
                     print(f"Error replacing placeholders: {str(e)}")
                     print(traceback.format_exc())
