@@ -58,6 +58,87 @@ class Product_status(models.Model):
 
 
 
+class GlobalThickness(models.Model):
+    """Global thickness options that can be used as defaults"""
+    size = models.CharField(max_length=50, help_text="Example: 12mm, 1.5cm, etc.")
+    price = models.DecimalField(max_digits=16, decimal_places=6, help_text="Price per unit")
+    is_active = models.BooleanField(default=True, help_text="Whether this option is active")
+
+    class Meta:
+        verbose_name_plural = "Global Thickness Options"
+        ordering = ['price']
+
+    def __str__(self):
+        return f"{self.size} - {self.price}"
+
+class GlobalTurnaroundTime(models.Model):
+    """Global turnaround time options"""
+    name = models.CharField(max_length=50, help_text="Example: Standard, Express, FastTrack")
+    description = models.TextField(null=True, blank=True)
+    price_percentage = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    price_decimal = models.DecimalField(max_digits=16, decimal_places=6, null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name_plural = "Global Turnaround Time Options"
+        ordering = ['price_decimal']
+
+    def __str__(self):
+        return f"{self.name} - {self.price_percentage}% / {self.price_decimal}"
+
+class GlobalDelivery(models.Model):
+    """Global delivery options"""
+    name = models.CharField(max_length=50, help_text="Example: Pickup, FastTrack, Express, Standard")
+    description = models.TextField(null=True, blank=True)
+    price_percentage = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    price_decimal = models.DecimalField(max_digits=16, decimal_places=6, null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name_plural = "Global Delivery Options"
+        ordering = ['price_decimal']
+
+    def __str__(self):
+        return f"{self.name} - {self.price_percentage}% / {self.price_decimal}"
+
+class GlobalInstallationType(models.Model):
+    """Global installation options"""
+    name = models.CharField(max_length=50, help_text="Example: 5 business days, 8 business days")
+    days = models.IntegerField(help_text="Number of business days for installation")
+    description = models.TextField(null=True, blank=True)
+    price_percentage = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    price_decimal = models.DecimalField(max_digits=16, decimal_places=6, null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name_plural = "Global Installation Options"
+        ordering = ['days']
+
+    def __str__(self):
+        return f"{self.name} ({self.days} days) - {self.price_percentage}% / {self.price_decimal}"
+
+class GlobalDistance(models.Model):
+    """Global distance options"""
+    km = models.CharField(max_length=50, help_text="Example: 20 km, 50 km, Below 100 km")
+    unit = models.CharField(max_length=20, choices=[('km', 'Kilometers'), ('miles', 'Miles')], default='km')
+    description = models.TextField(null=True, blank=True)
+    price_percentage = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    price_decimal = models.DecimalField(max_digits=16, decimal_places=6, null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name_plural = "Global Distance Options"
+        ordering = ['price_decimal']
+
+    def __str__(self):
+        return f"{self.km} - {self.price_percentage}% / {self.price_decimal}"
+
+
+
+
+
+
+
 
 class Product(models.Model):
     categories = models.ManyToManyField(Category, blank=True, related_name="products")
@@ -105,6 +186,88 @@ class Product(models.Model):
         if self.min_height > self.max_height:
             raise ValidationError("Minimum height cannot be greater than maximum height.")
 
+    def get_available_thicknesses(self):
+        """Return product-specific thicknesses or global ones if none exist"""
+        if self.thicknesses.exists():
+            return self.thicknesses.all()
+        return GlobalThickness.objects.filter(is_active=True)
+
+    def get_available_turnaround_times(self):
+        """Return product-specific turnaround times or global ones if none exist"""
+        if self.turnaround_times.exists():
+            return self.turnaround_times.all()
+        return GlobalTurnaroundTime.objects.filter(is_active=True)
+
+    def get_available_deliveries(self):
+        """Return product-specific deliveries or global ones if none exist"""
+        if self.deliveries.exists():
+            return self.deliveries.all()
+        return GlobalDelivery.objects.filter(is_active=True)
+
+    def get_available_installation_types(self):
+        """Return product-specific installation types or global ones if none exist"""
+        if self.installation_types.exists():
+            return self.installation_types.all()
+        return GlobalInstallationType.objects.filter(is_active=True)
+
+    def get_available_distances(self):
+        """Return product-specific distances or global ones if none exist"""
+        if self.distances.exists():
+            return self.distances.all()
+        return GlobalDistance.objects.filter(is_active=True)
+
+    def copy_global_options(self):
+        """Copy global options to this product if it doesn't have any"""
+        if not self.thicknesses.exists():
+            for global_thickness in GlobalThickness.objects.filter(is_active=True):
+                Thickness.objects.create(
+                    product=self,
+                    size=global_thickness.size,
+                    price=global_thickness.price
+                )
+
+        if not self.turnaround_times.exists():
+            for global_turnaround in GlobalTurnaroundTime.objects.filter(is_active=True):
+                TurnaroundTime.objects.create(
+                    product=self,
+                    name=global_turnaround.name,
+                    description=global_turnaround.description,
+                    price_percentage=global_turnaround.price_percentage,
+                    price_decimal=global_turnaround.price_decimal
+                )
+
+        if not self.deliveries.exists():
+            for global_delivery in GlobalDelivery.objects.filter(is_active=True):
+                Delivery.objects.create(
+                    product=self,
+                    name=global_delivery.name,
+                    description=global_delivery.description,
+                    price_percentage=global_delivery.price_percentage,
+                    price_decimal=global_delivery.price_decimal
+                )
+
+        if not self.installation_types.exists():
+            for global_installation in GlobalInstallationType.objects.filter(is_active=True):
+                InstallationType.objects.create(
+                    product=self,
+                    name=global_installation.name,
+                    days=global_installation.days,
+                    description=global_installation.description,
+                    price_percentage=global_installation.price_percentage,
+                    price_decimal=global_installation.price_decimal
+                )
+
+        if not self.distances.exists():
+            for global_distance in GlobalDistance.objects.filter(is_active=True):
+                Distance.objects.create(
+                    product=self,
+                    km=global_distance.km,
+                    unit=global_distance.unit,
+                    description=global_distance.description,
+                    price_percentage=global_distance.price_percentage,
+                    price_decimal=global_distance.price_decimal
+                )
+
 
 class Standard_sizes(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, null=True, blank=True,related_name="standard_sizes",verbose_name="Product")
@@ -120,6 +283,99 @@ class Standard_sizes(models.Model):
 
     def __str__(self):
         return f"{self.product.name} - {self.standard_sizes}"
+
+
+
+class Thickness(models.Model):
+    product = models.ForeignKey('Product', on_delete=models.CASCADE, related_name="thicknesses")
+    size = models.CharField(max_length=50, help_text="Example: 12mm, 1.5cm, etc.")
+    price = models.DecimalField(max_digits=16, decimal_places=6, help_text="Price per unit")
+
+    class Meta:
+        verbose_name_plural = "Product Thickness Options"
+        ordering = ['price']
+
+    def __str__(self):
+        return f"{self.size} - {self.price}"
+
+class TurnaroundTime(models.Model):
+    product = models.ForeignKey('Product', on_delete=models.CASCADE, related_name="turnaround_times")
+    name = models.CharField(max_length=50, help_text="Example: Standard, Express, FastTrack")
+    description = models.TextField(null=True, blank=True)
+    price_percentage = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    price_decimal = models.DecimalField(max_digits=16, decimal_places=6, null=True, blank=True)
+
+    class Meta:
+        verbose_name_plural = "Product Turnaround Time Options"
+        ordering = ['price_decimal']
+
+    def __str__(self):
+        return f"{self.name} - {self.price_percentage}% / {self.price_decimal}"
+
+class Delivery(models.Model):
+    product = models.ForeignKey('Product', on_delete=models.CASCADE, related_name="deliveries")
+    name = models.CharField(max_length=50, help_text="Example: Pickup, FastTrack, Express, Standard")
+    description = models.TextField(null=True, blank=True)
+    price_percentage = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    price_decimal = models.DecimalField(max_digits=16, decimal_places=6, null=True, blank=True)
+
+    class Meta:
+        verbose_name_plural = "Product Delivery Options"
+        ordering = ['price_decimal']
+
+    def __str__(self):
+        return f"{self.name} - {self.price_percentage}% / {self.price_decimal}"
+
+class InstallationType(models.Model):
+    product = models.ForeignKey('Product', on_delete=models.CASCADE, related_name="installation_types")
+    name = models.CharField(max_length=50, help_text="Example: 5 business days, 8 business days")
+    days = models.IntegerField(help_text="Number of business days for installation")
+    description = models.TextField(null=True, blank=True)
+    price_percentage = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    price_decimal = models.DecimalField(max_digits=16, decimal_places=6, null=True, blank=True)
+
+    class Meta:
+        verbose_name_plural = "Product Installation Options"
+        ordering = ['days']
+
+    def __str__(self):
+        return f"{self.name} ({self.days} days) - {self.price_percentage}% / {self.price_decimal}"
+
+class Distance(models.Model):
+    product = models.ForeignKey('Product', on_delete=models.CASCADE, related_name="distances")
+    km = models.CharField(max_length=50, help_text="Example: 20 km, 50 km, Below 100 km")
+    unit = models.CharField(max_length=20, choices=[('km', 'Kilometers'), ('miles', 'Miles')], default='km')
+    description = models.TextField(null=True, blank=True)
+    price_percentage = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    price_decimal = models.DecimalField(max_digits=16, decimal_places=6, null=True, blank=True)
+
+    class Meta:
+        verbose_name_plural = "Product Distance Options"
+        ordering = ['price_decimal']
+
+    def __str__(self):
+        return f"{self.km} - {self.price_percentage}% / {self.price_decimal}"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

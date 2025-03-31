@@ -245,7 +245,7 @@ SIMPLE_JWT = {
     'BLACKLIST_AFTER_ROTATION': True,
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
-DOMAIN = 'https://dash.brandexperts.ae/'
+DOMAIN = 'https://dash.brandexperts.ae'
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'email-smtp.ap-south-1.amazonaws.com'  # AWS SES SMTP server

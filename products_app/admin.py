@@ -32,6 +32,135 @@ class CategoryAdmin(admin.ModelAdmin):
     search_fields = ['category_name', 'description']
 
 
+
+# ======================
+# INLINE ADMIN CLASSES
+# ======================
+
+class ThicknessInline(admin.TabularInline):
+    model = Thickness
+    extra = 1
+    verbose_name_plural = "Product-Specific Thickness Options"
+    fields = ('size', 'price')
+    ordering = ['price']
+
+class TurnaroundTimeInline(admin.TabularInline):
+    model = TurnaroundTime
+    extra = 1
+    verbose_name_plural = "Product-Specific Turnaround Options"
+    fields = ('name', 'description', 'price_percentage', 'price_decimal')
+    ordering = ['price_decimal']
+
+class DeliveryInline(admin.TabularInline):
+    model = Delivery
+    extra = 1
+    verbose_name_plural = "Product-Specific Delivery Options"
+    fields = ('name', 'description', 'price_percentage', 'price_decimal')
+    ordering = ['price_decimal']
+
+class InstallationTypeInline(admin.TabularInline):
+    model = InstallationType
+    extra = 1
+    verbose_name_plural = "Product-Specific Installation Options"
+    fields = ('name', 'days', 'description', 'price_percentage', 'price_decimal')
+    ordering = ['days']
+
+class DistanceInline(admin.TabularInline):
+    model = Distance
+    extra = 1
+    verbose_name_plural = "Product-Specific Distance Options"
+    fields = ('km', 'unit', 'description', 'price_percentage', 'price_decimal')
+    ordering = ['price_decimal']
+
+class StandardSizesInline(admin.TabularInline):
+    model = Standard_sizes
+    extra = 1
+    fields = ('width', 'height', 'unit')
+
+# ======================
+# GLOBAL MODEL ADMINS
+# ======================
+
+@admin.register(GlobalThickness)
+class GlobalThicknessAdmin(admin.ModelAdmin):
+    list_display = ('size', 'price')
+    list_editable = ('price',)
+    list_filter = ('price',)
+    search_fields = ('size',)
+    ordering = ('price',)
+    fieldsets = (
+        (None, {
+            'fields': ('size', 'price')
+        }),
+    )
+
+@admin.register(GlobalTurnaroundTime)
+class GlobalTurnaroundTimeAdmin(admin.ModelAdmin):
+    list_display = ('name', 'description', 'price_percentage', 'price_decimal')
+    list_editable = ( 'price_percentage', 'price_decimal')
+    list_filter = ('price_decimal',)
+    search_fields = ('name', 'description')
+    ordering = ('price_decimal',)
+    fieldsets = (
+        (None, {
+            'fields': ('name', 'description')
+        }),
+        ('Pricing', {
+            'fields': ('price_percentage', 'price_decimal')
+        }),
+    )
+
+@admin.register(GlobalDelivery)
+class GlobalDeliveryAdmin(admin.ModelAdmin):
+    list_display = ('name', 'description', 'price_percentage', 'price_decimal')
+    list_editable = ( 'price_percentage', 'price_decimal')
+    list_filter = ('price_decimal',)
+    search_fields = ('name', 'description')
+    ordering = ('price_decimal',)
+    fieldsets = (
+        (None, {
+            'fields': ('name', 'description')
+        }),
+        ('Pricing', {
+            'fields': ('price_percentage', 'price_decimal')
+        }),
+    )
+
+@admin.register(GlobalInstallationType)
+class GlobalInstallationTypeAdmin(admin.ModelAdmin):
+    list_display = ('name', 'days', 'description', 'price_percentage', 'price_decimal')
+    list_editable = ('days', 'price_percentage', 'price_decimal')
+    list_filter = ('price_decimal', 'days')
+    search_fields = ('name', 'description')
+    ordering = ('days',)
+    fieldsets = (
+        (None, {
+            'fields': ('name', 'days', 'description', 'is_active')
+        }),
+        ('Pricing', {
+            'fields': ('price_percentage', 'price_decimal')
+        }),
+    )
+
+@admin.register(GlobalDistance)
+class GlobalDistanceAdmin(admin.ModelAdmin):
+    list_display = ('km', 'unit', 'description', 'price_percentage', 'price_decimal')
+    list_editable = ('unit', 'price_percentage', 'price_decimal')
+    list_filter = ('unit',)
+    search_fields = ('km', 'description')
+    ordering = ('price_decimal',)
+    fieldsets = (
+        (None, {
+            'fields': ('km', 'unit', 'description')
+        }),
+        ('Pricing', {
+            'fields': ('price_percentage', 'price_decimal')
+        }),
+    )
+
+
+
+
 class ProductAdminForm(forms.ModelForm):
     product_overview = forms.CharField(widget=CKEditorUploadingWidget(), required=False)
     product_specifications = forms.CharField(widget=CKEditorUploadingWidget(), required=False)
@@ -42,6 +171,12 @@ class ProductAdminForm(forms.ModelForm):
         model = Product
         fields = "__all__"
 
+    def save(self, commit=True):
+        product = super().save(commit=commit)
+        if commit:
+            product.copy_global_options()
+        return product
+
 # Inline for Standard Sizes
 class StandardSizesInline(admin.TabularInline):
     model = Standard_sizes
@@ -50,10 +185,19 @@ class StandardSizesInline(admin.TabularInline):
     readonly_fields = ('standard_sizes',)  # Auto-generated field
     verbose_name_plural = "Standard Sizes"
 
+
+
 # Custom Product Admin
 class ProductAdmin(admin.ModelAdmin):
     form = ProductAdminForm
-    inlines = [StandardSizesInline]  # Add inline for standard sizes
+    inlines = [
+        StandardSizesInline,
+        ThicknessInline,
+        TurnaroundTimeInline,
+        DeliveryInline,
+        InstallationTypeInline,
+        DistanceInline,
+    ]  # Add inline for standard sizes
     list_display = (
         'name',
         'image1_preview',
