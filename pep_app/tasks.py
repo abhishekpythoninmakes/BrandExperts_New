@@ -316,6 +316,7 @@ def send_email_campaign(campaign_id):
         campaign.status = 'sent'
         campaign.sent_at = timezone.now()
         campaign.save()
+        print("Email campaign task completed. === status ==",campaign.status)
 
         print(f"Campaign {campaign_id} completed: {success_count} sent, {fail_count} failed")
         return f"Campaign {campaign_id} completed: {success_count} sent, {fail_count} failed"
