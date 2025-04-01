@@ -107,7 +107,11 @@ DATABASES = {
         'USER': 'admin',
         'PASSWORD': 'database1brandexperts',
         'HOST':'databasebe.cz6qg420mik4.ap-south-1.rds.amazonaws.com',
-        'PORT':3306
+        'PORT':3306,
+        'OPTIONS': {
+            'charset': 'utf8mb4',  # This is crucial for emojis
+            'use_unicode': True,
+        },
     }
 }
 
@@ -277,15 +281,22 @@ CKEDITOR_CONFIGS = {
             ['Styles', 'Format', 'Font', 'FontSize'],
             ['TextColor', 'BGColor'],
             ['Maximize', 'ShowBlocks'],
-            ['Placeholders'],  # Add our custom dropdown
+            ['Placeholders'],# Add our custom dropdown
+            ['EmojiPanel'],
         ],
         'height': 300,
         'width': '100%',
-        'extraPlugins': 'placeholders',  # Use a string instead of join for a single plugin
+        'extraPlugins': 'emoji,textwatcher,textmatch,autocomplete,placeholders',  # Use a string instead of join for a single plugin
         'filebrowserUploadUrl': '/ckeditor/upload/',
         'filebrowserBrowseUrl': '/ckeditor/browse/',
         # Pass your app name to the plugin
         'appName': 'pep_app',  # Replace with your actual app name
+
+        'extraAllowedContent': 'span(*)[*]{*};',
+        'entities': False,  # Disable automatic character conversion
+        'entities_latin': False,
+        'forceSimpleAmpersand': True,
+        'basicEntities': False,
     },
 }
 
