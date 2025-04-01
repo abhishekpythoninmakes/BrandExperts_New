@@ -211,7 +211,7 @@ def send_email_campaign(campaign_id):
             for img in soup.find_all('img'):
                 if 'src' in img.attrs and img['src'].startswith(('/media/', '/static/')):
                     img['src'] = urljoin(settings.DOMAIN, img['src'])
-            processed_content = str(soup)
+            processed_content = str(soup).encode('utf-8').decode('utf-8')
         except Exception as e:
             print(f"Error processing HTML content: {str(e)}")
             print(traceback.format_exc())
