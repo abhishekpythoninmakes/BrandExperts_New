@@ -1607,7 +1607,7 @@ class WarrantyRegistrationAPIView(APIView):
             warranty_plan_amount_float = float(warranty_plan_amount)
             warranty_plan_amount_decimal = Decimal(warranty_plan_amount_float).quantize(Decimal('0.01'))
         except (ValueError, TypeError):
-            return Response({"error": "Invalid warranty plan amount."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "Invalid amc coverage plan amount."}, status=status.HTTP_400_BAD_REQUEST)
 
         # Get or create user
         email = data.get("email")
@@ -1636,7 +1636,7 @@ class WarrantyRegistrationAPIView(APIView):
         # Get warranty plan
         warranty_plan = Warranty_plan.objects.filter(price_range=price_range).first()
         if not warranty_plan:
-            return Response({"error": "Invalid price range. No matching warranty plan found."},
+            return Response({"error": "Invalid price range. No matching amc coverage plan found."},
                             status=status.HTTP_400_BAD_REQUEST)
 
         # Create warranty registration
@@ -1716,17 +1716,17 @@ def confirm_payment_warranty(request):
                 link_contact_and_update_status.delay(customer.user.email)
                 # Send email with warranty and login details
                 warranty = WarrantyRegistration.objects.get(id=warranty_id)
-                subject = "Warranty Registration & Payment Confirmation"
+                subject = "AMC Coverage & Payment Confirmation"
                 message = f"""Dear {warranty.full_name},
                 Your payment was successful! 
                 🔑 Login Credentials:
                 Username: {warranty.email}
                 Password: {dummy_password}
-                📌 Warranty Details:
+                📌 AMC Coverage Details:
                 - Number: {warranty.warranty_number}
                 - Invoice Number: {warranty.invoice_number}
                 - Amount Paid: AED {warranty.warranty_plan_amount},
-                🔔 Your warranty will be active after a 30-day cooling-off period.
+                🔔 Your amc coverage will be active after a 30-day cooling-off period.
                 Thank you for choosing us!"""
                 send_mail(
                     subject,
@@ -1776,7 +1776,7 @@ Please try again later."""
         except Customer.DoesNotExist:
             return JsonResponse({"error": "Customer not found"}, status=404)
         except WarrantyRegistration.DoesNotExist:
-            return JsonResponse({"error": "Warranty registration not found"}, status=404)
+            return JsonResponse({"error": "AMC Coverage not found"}, status=404)
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
 
@@ -1850,26 +1850,26 @@ def validate_warranty_number(request):
         warranty_number = data.get('warranty_number', '').strip()
 
         if not warranty_number:
-            return Response({"is_valid": False, "message": "Warranty number is required"}, status=400)
+            return Response({"is_valid": False, "message": "AMC coverage number is required"}, status=400)
 
         try:
             warranty = WarrantyRegistration.objects.get(warranty_number=warranty_number)
         except WarrantyRegistration.DoesNotExist:
-            return Response({"is_valid": False, "message": "Invalid or inactive warranty number"}, status=404)
+            return Response({"is_valid": False, "message": "Invalid or inactive AMC coverage number"}, status=404)
 
         # Check 30-day cooling period
         cooling_period_end = warranty.created_at + timedelta(days=30)
         if timezone.now() < cooling_period_end:
             return Response({
                 "is_valid": False,
-                "message": "Sorry, you need to wait 30 days (cooling period) to claim warranty",
+                "message": "Sorry, you need to wait 30 days (cooling period) to claim AMC coverage",
                 "cooling_period_end": cooling_period_end.strftime("%Y-%m-%d")
             }, status=200)
 
         # Check if warranty plan has expired
         warranty_plan = warranty.invoice_value
         if not warranty_plan:
-            return Response({"is_valid": False, "message": "No warranty plan associated"}, status=400)
+            return Response({"is_valid": False, "message": "No amc coverage plan associated"}, status=400)
 
         # Calculate warranty duration
         warranty_duration = None
@@ -1881,11 +1881,11 @@ def validate_warranty_number(request):
             warranty_duration = 5
 
         if not warranty_duration:
-            return Response({"is_valid": False, "message": "Invalid warranty duration"}, status=400)
+            return Response({"is_valid": False, "message": "Invalid amc coverage duration"}, status=400)
 
         expiration_date = warranty.created_at + timedelta(days=365 * warranty_duration)
         if timezone.now() > expiration_date:
-            return Response({"is_valid": False, "message": "Warranty plan has expired"}, status=400)
+            return Response({"is_valid": False, "message": "Amc coverage plan has expired"}, status=400)
 
         # Build complete warranty details
         warranty_details = {
@@ -1909,7 +1909,7 @@ def validate_warranty_number(request):
 
         return Response({
             "is_valid": True,
-            "message": "Warranty number is valid and active",
+            "message": "AMC coverage number is valid and active",
             "warranty_details": warranty_details
         })
 
@@ -1929,7 +1929,7 @@ def create_claim_warranty(request):
 
             # Validate input
             if not warranty_number:
-                return JsonResponse({"error": "Warranty registration number is required."}, status=400)
+                return JsonResponse({"error": "AMC coverage registration number is required."}, status=400)
 
             if not description:
                 return JsonResponse({"error": "Claim description is required."}, status=400)
@@ -1938,12 +1938,12 @@ def create_claim_warranty(request):
             try:
                 warranty = WarrantyRegistration.objects.get(warranty_number=warranty_number)
             except WarrantyRegistration.DoesNotExist:
-                return JsonResponse({"error": "Invalid warranty number. No registration found."}, status=404)
+                return JsonResponse({"error": "Invalid amc coverage number. No registration found."}, status=404)
 
             # Check if warranty plan has expired
             warranty_plan = warranty.invoice_value
             if not warranty_plan:
-                return JsonResponse({"error": "No warranty plan associated with this warranty number"}, status=400)
+                return JsonResponse({"error": "No amc coverage plan associated with this amc number"}, status=400)
 
             # Calculate warranty expiration date
             warranty_duration = None
@@ -1955,11 +1955,11 @@ def create_claim_warranty(request):
                 warranty_duration = 5
 
             if not warranty_duration:
-                return JsonResponse({"error": "Invalid warranty plan duration"}, status=400)
+                return JsonResponse({"error": "Invalid amc coverage plan duration"}, status=400)
 
             expiration_date = warranty.created_at + timedelta(days=365 * warranty_duration)
             if timezone.now() > expiration_date:
-                return JsonResponse({"error": "Warranty plan has expired. Cannot create a new claim."}, status=400)
+                return JsonResponse({"error": "AMC coverage plan has expired. Cannot create a new claim."}, status=400)
 
             # Create a new claim warranty entry
             claim = ClaimWarranty.objects.create(
@@ -1969,7 +1969,7 @@ def create_claim_warranty(request):
 
             # Prepare response data
             response_data = {
-                "message": "Claim warranty successfully created.",
+                "message": "AMC coverage successfully created.",
                 "claim_details": {
                     "warranty_number": claim.warranty_number,
                     "description": claim.description,
