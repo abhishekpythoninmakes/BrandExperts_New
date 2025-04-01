@@ -190,7 +190,7 @@ class DetailedProductSerializer(serializers.ModelSerializer):
 
     def get_installation_options(self, obj):
         """Get product-specific installation options or global ones if none exist"""
-        installations = obj.installation_types.all() if obj.installation_types.exists() else GlobalInstallationType.objects.filter(is_active=True)
+        installations = obj.installation_types.all().order_by('-id') if obj.installation_types.exists() else GlobalInstallationType.objects.filter(is_active=True).order_by('-id')
         return [
             {
                 "id": i.id,

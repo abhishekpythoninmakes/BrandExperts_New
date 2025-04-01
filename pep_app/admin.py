@@ -303,7 +303,7 @@ class ContactAdmin(admin.ModelAdmin):
                 df.columns = [str(col).strip().lower() for col in df.columns]
 
                 # Define required and optional columns
-                required_columns = {'account', 'email', 'mobile'}
+                required_columns = {'account', 'email', 'mobile','contact name'}
                 optional_columns = {'marriage', 'address'}  # Will be stored in additional_data
 
                 # Validate required columns
@@ -325,6 +325,7 @@ class ContactAdmin(admin.ModelAdmin):
                     # Convert all values to strings and strip whitespace
                     account_name = str(row.get('account', '')).strip()
                     email = str(row.get('email', '')).strip()
+                    name = str(row.get('contact name', '')).strip()
                     mobile = str(row.get('mobile', '')).strip()
 
                     # Skip if required fields are missing
@@ -359,7 +360,7 @@ class ContactAdmin(admin.ModelAdmin):
                     contact, created = Contact.objects.update_or_create(
                         email=email,
                         defaults={
-                            'name': email.split('@')[0] if '@' in email else email,
+                            'name': name,
                             'mobile': mobile,
                             'additional_data': additional_data,
                             'partner': partner_inst , # Assign partner if exists
@@ -532,7 +533,7 @@ class ContactListAdmin(admin.ModelAdmin):
                 df.columns = [str(col).strip().lower() for col in df.columns]
 
                 # Define required and optional columns
-                required_columns = {'account', 'email', 'mobile'}
+                required_columns = {'account', 'email', 'mobile','contact name'}
                 optional_columns = {'marriage', 'address'}
 
                 # Validate required columns
@@ -555,6 +556,7 @@ class ContactListAdmin(admin.ModelAdmin):
                 for _, row in df.iterrows():
                     account_name = str(row.get('account', '')).strip()
                     email = str(row.get('email', '')).strip()
+                    name = str(row.get('contact name', '')).strip()
                     mobile = str(row.get('mobile', '')).strip()
                     if not account_name or not email:
                         continue
@@ -587,7 +589,7 @@ class ContactListAdmin(admin.ModelAdmin):
                     contact, created = Contact.objects.update_or_create(
                         email=email,
                         defaults={
-                            'name': email.split('@')[0] if '@' in email else email,
+                            'name': name,
                             'mobile': mobile,
                             'additional_data': additional_data,
                             'partner': partner_inst,
