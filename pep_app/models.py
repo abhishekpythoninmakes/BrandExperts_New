@@ -229,3 +229,6 @@ class EmailRecipient(models.Model):
         import time
         cache_buster = int(time.time())
         return f"{base_url}?t={cache_buster}"
+
+    def __str__(self):
+        return f"{self.contact.name or self.contact.email or 'Unknown Contact'}"

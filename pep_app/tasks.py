@@ -240,7 +240,7 @@ def send_email_campaign(campaign_id):
                     continue
                 # Replace placeholders in content
                 try:
-                    content = processed_content
+                    content = processed_content.encode('utf-8').decode('utf-8')
                     # Find all placeholders with pattern [FIELD_NAME]
                     placeholders = re.findall(r'\[(.*?)\]', content)
                     for placeholder in placeholders:
