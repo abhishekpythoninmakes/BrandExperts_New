@@ -529,6 +529,24 @@ class FinalRegistrationView(APIView):
                 "status_code": status.HTTP_400_BAD_REQUEST
             }, status=status.HTTP_400_BAD_REQUEST)
 
+
+        # Check if email already exists in Customer
+        if email and Customer.objects.filter(user__email=email).exists():
+            return Response({
+                "success": False,
+                "message": "Email already exists",
+                "status_code": status.HTTP_400_BAD_REQUEST
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check if mobile already exists in Customer
+        if mobile and Customer.objects.filter(mobile=mobile).exists():
+            return Response({
+                "success": False,
+                "message": "Mobile already taken",
+                "status_code": status.HTTP_400_BAD_REQUEST
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+
         # Check if user already exists
         if CustomUser.objects.filter(username=username).exists():
             return Response({
