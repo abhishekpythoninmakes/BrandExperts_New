@@ -60,6 +60,13 @@ class DetailedProductSerializer(serializers.ModelSerializer):
     amazon_url = serializers.SerializerMethodField()
     allow_direct_add_to_cart = serializers.BooleanField()
     disable_customization = serializers.BooleanField()
+    
+    # New fields for product options
+    thickness_options = serializers.SerializerMethodField()
+    turnaround_options = serializers.SerializerMethodField()
+    delivery_options = serializers.SerializerMethodField()
+    installation_options = serializers.SerializerMethodField()
+    distance_options = serializers.SerializerMethodField()
     class Meta:
         model = Product
         fields = [
@@ -87,6 +94,11 @@ class DetailedProductSerializer(serializers.ModelSerializer):
             "status",
             "allow_direct_add_to_cart",
             "disable_customization",
+            "thickness_options",
+            "turnaround_options",
+            "delivery_options",
+            "installation_options",
+            "distance_options",
         ]
 
     def get_absolute_html(self, content):
@@ -135,6 +147,76 @@ class DetailedProductSerializer(serializers.ModelSerializer):
         return categories if categories else None
     def get_amazon_url(self, obj):  # This method should exist
         return obj.amazon_url if obj.amazon_url else ""
+
+    def get_thickness_options(self, obj):
+        """Get product-specific thickness options or global ones if none exist"""
+        thicknesses = obj.thicknesses.all() if obj.thicknesses.exists() else GlobalThickness.objects.filter(is_active=True)
+        return [
+            {
+                "id": t.id,
+                "size": t.size,
+                "price": str(t.price)
+            }
+            for t in thicknesses
+        ] if thicknesses.exists() else None
+
+    def get_turnaround_options(self, obj):
+        """Get product-specific turnaround options or global ones if none exist"""
+        turnarounds = obj.turnaround_times.all() if obj.turnaround_times.exists() else GlobalTurnaroundTime.objects.filter(is_active=True)
+        return [
+            {
+                "id": t.id,
+                "name": t.name,
+                "description": t.description,
+                "price_percentage": str(t.price_percentage) if t.price_percentage else None,
+                "price_decimal": str(t.price_decimal) if t.price_decimal else None
+            }
+            for t in turnarounds
+        ] if turnarounds.exists() else None
+
+    def get_delivery_options(self, obj):
+        """Get product-specific delivery options or global ones if none exist"""
+        deliveries = obj.deliveries.all() if obj.deliveries.exists() else GlobalDelivery.objects.filter(is_active=True)
+        return [
+            {
+                "id": d.id,
+                "name": d.name,
+                "description": d.description,
+                "price_percentage": str(d.price_percentage) if d.price_percentage else None,
+                "price_decimal": str(d.price_decimal) if d.price_decimal else None
+            }
+            for d in deliveries
+        ] if deliveries.exists() else None
+
+    def get_installation_options(self, obj):
+        """Get product-specific installation options or global ones if none exist"""
+        installations = obj.installation_types.all() if obj.installation_types.exists() else GlobalInstallationType.objects.filter(is_active=True)
+        return [
+            {
+                "id": i.id,
+                "name": i.name,
+                "days": i.days,
+                "description": i.description,
+                "price_percentage": str(i.price_percentage) if i.price_percentage else None,
+                "price_decimal": str(i.price_decimal) if i.price_decimal else None
+            }
+            for i in installations
+        ] if installations.exists() else None
+
+    def get_distance_options(self, obj):
+        """Get product-specific distance options or global ones if none exist"""
+        distances = obj.distances.all() if obj.distances.exists() else GlobalDistance.objects.filter(is_active=True)
+        return [
+            {
+                "id": d.id,
+                "km": d.km,
+                "unit": d.unit,
+                "description": d.description,
+                "price_percentage": str(d.price_percentage) if d.price_percentage else None,
+                "price_decimal": str(d.price_decimal) if d.price_decimal else None
+            }
+            for d in distances
+        ] if distances.exists() else None
 
 
     
