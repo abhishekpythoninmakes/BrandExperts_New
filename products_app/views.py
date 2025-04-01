@@ -410,9 +410,6 @@ def get_site_visit_amount(request):
     return Response({'error': 'No site visit record found'}, status=404)
 
 
-
-
-
 class ProductPriceView(APIView):
     def post(self, request):
         serializer = ProductPriceSerializer(data=request.data)
@@ -425,6 +422,12 @@ class ProductPriceView(APIView):
         height = serializer.validated_data['height']
         unit = serializer.validated_data['unit']
         quantity = serializer.validated_data['quantity']
+        thickness_id = serializer.validated_data.get('thickness_id')
+        turnaround_id = serializer.validated_data.get('turnaround_id')
+        delivery_id = serializer.validated_data.get('delivery_id')
+        installation_type_id = serializer.validated_data.get('installation_type_id')
+        distance_id = serializer.validated_data.get('distance_id')
+
         print(f"product id = {product_id}, width = {width}, height = {height}, unit = {unit}, quantity = {quantity}")
 
         try:
@@ -467,19 +470,169 @@ class ProductPriceView(APIView):
         height_in_product_unit = height * (unit_conversion[unit] / unit_conversion[product_unit])
         area_in_product_unit_sq = width_in_product_unit * height_in_product_unit
 
-        # Calculate total price based on product's unit squared
+        # Calculate base price based on product's unit squared
         fixed_price = product.fixed_price if product.fixed_price else Decimal('0')
         pro_price = product.price if product.price else Decimal('0')
-        total_price_per_item = (area_in_product_unit_sq * pro_price) + fixed_price
-        total_price = total_price_per_item * quantity
+        base_price_per_item = (area_in_product_unit_sq * pro_price) + fixed_price
+        base_total_price = base_price_per_item * quantity
 
-        print(f"Total price: {total_price:.2f}")
+        # Initialize response with breakdown
+        price_breakdown = {
+            "base_price": round(base_total_price, 2),
+        }
+
+        # Initialize additional cost
+        additional_cost = Decimal('0')
+
+        # Get thickness details if provided
+        thickness_details = None
+        if thickness_id:
+            try:
+                # First check if product has specific thickness
+                thickness_details = Thickness.objects.filter(product=product, id=thickness_id).first()
+
+                # If not found, check global thickness
+                if not thickness_details:
+                    thickness_details = GlobalThickness.objects.get(id=thickness_id)
+
+                # Add thickness price based on area
+                thickness_price = thickness_details.price * area_in_product_unit_sq * quantity
+                additional_cost += thickness_price
+                price_breakdown["thickness"] = {
+                    "id": thickness_id,
+                    "size": thickness_details.size,
+                    "price": round(thickness_price, 2)
+                }
+            except (Thickness.DoesNotExist, GlobalThickness.DoesNotExist):
+                return Response({"error": f"Thickness with ID {thickness_id} not found"},
+                                status=status.HTTP_404_NOT_FOUND)
+
+        # Get turnaround time details if provided
+        if turnaround_id:
+            try:
+                # Check product-specific first
+                turnaround = TurnaroundTime.objects.filter(product=product, id=turnaround_id).first()
+
+                # If not found, check global
+                if not turnaround:
+                    turnaround = GlobalTurnaroundTime.objects.get(id=turnaround_id)
+
+                turnaround_price = Decimal('0')
+                # Calculate based on percentage if available
+                if turnaround.price_percentage:
+                    turnaround_price = (base_total_price * turnaround.price_percentage) / Decimal('100')
+                # Add fixed price if available
+                if turnaround.price_decimal:
+                    turnaround_price += turnaround.price_decimal
+
+                additional_cost += turnaround_price
+                price_breakdown["turnaround_time"] = {
+                    "id": turnaround_id,
+                    "name": turnaround.name,
+                    "price": round(turnaround_price, 2)
+                }
+            except (TurnaroundTime.DoesNotExist, GlobalTurnaroundTime.DoesNotExist):
+                return Response({"error": f"Turnaround time with ID {turnaround_id} not found"},
+                                status=status.HTTP_404_NOT_FOUND)
+
+        # Get delivery details if provided
+        if delivery_id:
+            try:
+                # Check product-specific first
+                delivery = Delivery.objects.filter(product=product, id=delivery_id).first()
+
+                # If not found, check global
+                if not delivery:
+                    delivery = GlobalDelivery.objects.get(id=delivery_id)
+
+                delivery_price = Decimal('0')
+                # Calculate based on percentage if available
+                if delivery.price_percentage:
+                    delivery_price = (base_total_price * delivery.price_percentage) / Decimal('100')
+                # Add fixed price if available
+                if delivery.price_decimal:
+                    delivery_price += delivery.price_decimal
+
+                additional_cost += delivery_price
+                price_breakdown["delivery"] = {
+                    "id": delivery_id,
+                    "name": delivery.name,
+                    "price": round(delivery_price, 2)
+                }
+            except (Delivery.DoesNotExist, GlobalDelivery.DoesNotExist):
+                return Response({"error": f"Delivery with ID {delivery_id} not found"},
+                                status=status.HTTP_404_NOT_FOUND)
+
+        # Get installation type details if provided
+        if installation_type_id:
+            try:
+                # Check product-specific first
+                installation = InstallationType.objects.filter(product=product, id=installation_type_id).first()
+
+                # If not found, check global
+                if not installation:
+                    installation = GlobalInstallationType.objects.get(id=installation_type_id)
+
+                installation_price = Decimal('0')
+                # Calculate based on percentage if available
+                if installation.price_percentage:
+                    installation_price = (base_total_price * installation.price_percentage) / Decimal('100')
+                # Add fixed price if available
+                if installation.price_decimal:
+                    installation_price += installation.price_decimal
+
+                additional_cost += installation_price
+                price_breakdown["installation"] = {
+                    "id": installation_type_id,
+                    "name": installation.name,
+                    "days": installation.days,
+                    "price": round(installation_price, 2)
+                }
+            except (InstallationType.DoesNotExist, GlobalInstallationType.DoesNotExist):
+                return Response({"error": f"Installation type with ID {installation_type_id} not found"},
+                                status=status.HTTP_404_NOT_FOUND)
+
+        # Get distance details if provided
+        if distance_id:
+            try:
+                # Check product-specific first
+                distance = Distance.objects.filter(product=product, id=distance_id).first()
+
+                # If not found, check global
+                if not distance:
+                    distance = GlobalDistance.objects.get(id=distance_id)
+
+                distance_price = Decimal('0')
+                # Calculate based on percentage if available
+                if distance.price_percentage:
+                    distance_price = (base_total_price * distance.price_percentage) / Decimal('100')
+                # Add fixed price if available
+                if distance.price_decimal:
+                    distance_price += distance.price_decimal
+
+                additional_cost += distance_price
+                price_breakdown["distance"] = {
+                    "id": distance_id,
+                    "km": distance.km,
+                    "unit": distance.unit,
+                    "price": round(distance_price, 2)
+                }
+            except (Distance.DoesNotExist, GlobalDistance.DoesNotExist):
+                return Response({"error": f"Distance with ID {distance_id} not found"},
+                                status=status.HTTP_404_NOT_FOUND)
+
+        # Calculate total price
+        total_price = base_total_price + additional_cost
+
         return Response({
             "product_id": product_id,
             "width": width,
             "height": height,
             "unit": unit,
             "quantity": quantity,
+            "area": round(area_in_product_unit_sq, 2),
+            "price_breakdown": price_breakdown,
+            "additional_cost": round(additional_cost, 2),
             "total_price_without_rounded": total_price,
             "total_price": round(total_price, 2)
         })

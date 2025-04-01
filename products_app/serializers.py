@@ -312,6 +312,11 @@ class ProductPriceSerializer(serializers.Serializer):
     height = serializers.DecimalField(max_digits=6, decimal_places=2)
     unit = serializers.CharField(max_length=10)
     quantity = serializers.IntegerField(min_value=1)
+    thickness_id = serializers.IntegerField(required=False, allow_null=True)
+    turnaround_id = serializers.IntegerField(required=False, allow_null=True)
+    delivery_id = serializers.IntegerField(required=False, allow_null=True)
+    installation_type_id = serializers.IntegerField(required=False, allow_null=True)
+    distance_id = serializers.IntegerField(required=False, allow_null=True)
 
     def validate_unit(self, value):
         valid_units = ['cm', 'meter', 'feet', 'yard', 'inches', 'mm']
