@@ -1,6 +1,7 @@
 # tasks.py
 import os
 import time
+from urllib.parse import quote
 
 from django.core.exceptions import ValidationError
 from decimal import Decimal
@@ -149,6 +150,8 @@ def send_email_campaign(campaign_id):
         # Get all contacts from associated contact lists
         contacts = Contact.objects.filter(
             contactlist__in=campaign.contact_lists.all()
+        ).exclude(
+            status='unsubscribed'
         ).distinct()
 
         print(f"Found {contacts.count()} unique contacts to email")
@@ -232,6 +235,13 @@ def send_email_campaign(campaign_id):
                 contact = recipient.contact
                 print(f"Preparing email for: {contact.email}")
 
+                # Double-check contact status (in case it changed after recipient creation)
+                if contact.status == 'unsubscribed':
+                    print(f"Contact {contact.email} is unsubscribed. Skipping.")
+                    recipient.status = 'unsubscribed'
+                    recipient.save()
+                    continue
+
                 if not contact.email:
                     print(f"Contact ID {contact.id} has no email address. Skipping.")
                     recipient.status = 'failed'
@@ -273,6 +283,48 @@ def send_email_campaign(campaign_id):
                     print(f"Error replacing placeholders: {str(e)}")
                     print(traceback.format_exc())
                     content = processed_content  # Fallback to unprocessed content
+
+                # Add unsubscribe link
+                unsubscribe_url = f"{settings.DOMAIN}/pep/unsubscribe/{recipient.tracking_id}/"
+                unsubscribe_html = f"""
+                <div style="margin: 20px 0; padding: 15px 0; border-top: 1px solid #eeeeee; font-size: 12px; color: #999999; text-align: center;">
+                    <p>If you wish to unsubscribe from future emails, 
+                    <a href="{unsubscribe_url}" style="color: #999999;">click here</a>.</p>
+                </div>
+                """
+
+                # Process links for tracking
+                try:
+                    soup = BeautifulSoup(content, 'html.parser')
+
+                    # First add the unsubscribe section to the email body
+                    if soup.body:
+                        soup.body.append(BeautifulSoup(unsubscribe_html, 'html.parser'))
+                    else:
+                        # If no <body> tag exists, append to the end
+                        soup.append(BeautifulSoup(unsubscribe_html, 'html.parser'))
+
+                    # Then process all other links for tracking
+                    for a in soup.find_all('a', href=True):
+                        original_url = a['href']
+                        # Skip processing if it's the unsubscribe link we just added
+                        if original_url == unsubscribe_url:
+                            continue
+                        if original_url.startswith(('http://', 'https://', 'mailto:', 'tel:')):
+                            # Create tracking URL
+                            tracking_url = f"{settings.DOMAIN}/pep/track-link/{recipient.tracking_id}/?url={quote(original_url)}"
+                            a['href'] = tracking_url
+                            print(f"Replaced link: {original_url} -> {tracking_url}")
+
+                    content = str(soup)
+                except Exception as e:
+                    print(f"Error processing links for tracking: {str(e)}")
+                    print(traceback.format_exc())
+                    # Fallback: append unsubscribe section to raw content
+                    if '</body>' in content:
+                        content = content.replace('</body>', f'{unsubscribe_html}</body>')
+                    else:
+                        content += unsubscribe_html
 
                 # Add tracking pixel
                 try:

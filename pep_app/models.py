@@ -10,6 +10,7 @@ STATUS_CHOICES = [
     ('data', 'Data'),
     ('lead', 'Lead'),
     ('client', 'Client'),
+    ('unsubscribed','Unsubscribed'),
     ('prospect', 'Prospect'),
 ]
 
@@ -207,6 +208,8 @@ class EmailRecipient(models.Model):
     STATUS_CHOICES = [
         ('pending', 'Pending'),
         ('sent', 'Sent'),
+        ('link','Link Clicked'),
+        ('unsubscribed','Unsubscribed'),
         ('opened', 'Opened'),
         ('failed', 'Failed'),
     ]
@@ -231,4 +234,4 @@ class EmailRecipient(models.Model):
         return f"{base_url}?t={cache_buster}"
 
     def __str__(self):
-        return f"{self.contact.name or self.contact.email or 'Unknown Contact'}"
+        return f"{self.contact.name or self.contact.email or 'Unknown Contact'} - {self.campaign.name} status: - {self.status}"

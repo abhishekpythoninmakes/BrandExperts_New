@@ -1,7 +1,8 @@
-from django.shortcuts import render , HttpResponse
+from django.shortcuts import render, HttpResponse, redirect
 from products_app .models import CustomUser
 from .models import *
 import json
+from urllib.parse import unquote
 # Create your views here.
 from django.views.decorators.http import require_GET, require_POST
 from django.views.decorators.csrf import csrf_exempt
@@ -65,6 +66,7 @@ from django.utils import timezone
 
 def track_email_open(request, tracking_id):
     print(f"Email tracking triggered for ID: {tracking_id}")
+    print(f"Tracking open for {tracking_id} at {timezone.now()}")
 
     try:
         recipient = get_object_or_404(EmailRecipient, tracking_id=tracking_id)
@@ -98,6 +100,58 @@ def track_email_open(request, tracking_id):
 
     return response
 
+
+# Link Tracking
+
+@require_GET
+def track_link_click(request, tracking_id):
+    """
+    Track when a link in an email is clicked and redirect to the original URL
+    """
+    try:
+        recipient = get_object_or_404(EmailRecipient, tracking_id=tracking_id)
+        original_url = unquote(request.GET.get('url', ''))
+
+        if not original_url:
+            print(f"No URL provided in tracking link (tracking_id: {tracking_id})")
+            return redirect(settings.DOMAIN)  # Fallback redirect
+
+        # Update recipient status to 'link' (clicked)
+        recipient.status = 'link'
+        recipient.save()
+
+        # Update contact status to 'prospect' if it's currently 'data'
+        if recipient.contact:
+            recipient.contact.status = 'prospect'
+            recipient.contact.save()
+
+        print(f"Link clicked by {recipient.contact.email} - redirecting to {original_url}")
+
+        return redirect(original_url)
+
+    except Exception as e:
+        print(f"Error tracking link click: {str(e)}")
+        return redirect(settings.DOMAIN)  # Fallback redirect
+
+
+# Unsubscribe
+
+def unsubscribe(request, tracking_id):
+    """
+    Handle unsubscribe requests using the existing tracking_id
+    """
+    recipient = get_object_or_404(EmailRecipient, tracking_id=tracking_id)
+
+    # Update contact status
+    contact = recipient.contact
+    contact.status = 'unsubscribed'
+    contact.save()
+
+    # Update recipient status
+    recipient.status = 'unsubscribed'
+    recipient.save()
+
+    return render(request, 'emails/unsubscribe_success.html')
 
 
 

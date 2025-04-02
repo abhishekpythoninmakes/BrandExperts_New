@@ -249,7 +249,7 @@ SIMPLE_JWT = {
     'BLACKLIST_AFTER_ROTATION': True,
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
-DOMAIN = 'https://dash.brandexperts.ae'
+DOMAIN = ' http://127.0.0.1:8000'
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'email-smtp.ap-south-1.amazonaws.com'  # AWS SES SMTP server
@@ -398,7 +398,7 @@ JAZZMIN_SETTINGS = {
 
 
 
-## Celery settings for local RabbitMQ
+# Celery settings for local RabbitMQ
 # CELERY_BROKER_URL = 'amqp://guest:guest@localhost:5672//'
 # CELERY_ACCEPT_CONTENT = ['json']
 # CELERY_TASK_SERIALIZER = 'json'
