@@ -818,3 +818,116 @@ admin.site.register(EmailCampaign, EmailCampaignAdmin)
 
 
 admin.site.register(EmailRecipient)
+
+from django.urls import reverse
+from django.http import HttpResponseRedirect
+from django.utils.html import format_html
+from django.db.models import Count, Q
+from django.shortcuts import render
+import plotly.express as px
+import pandas as pd
+
+
+class EmailCampaignAnalyticsAdmin(admin.ModelAdmin):
+    change_list_template = 'admin/email_campaign_analytics.html'
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def changelist_view(self, request, extra_context=None):
+        # Initialize context with default values
+        context = {
+            **self.admin_site.each_context(request),
+            'campaigns': EmailCampaign.objects.all().order_by('-created_at'),
+            'selected_campaign': None,
+            'analytics_data': None,
+            'opts': self.model._meta,
+            'title': 'Email Campaign Analytics',
+        }
+
+        # Get selected campaign ID from request
+        campaign_id = request.GET.get('campaign_id')
+
+        if campaign_id:
+            try:
+                selected_campaign = EmailCampaign.objects.get(id=campaign_id)
+                context['selected_campaign'] = selected_campaign
+
+                # Get basic stats
+                recipients = EmailRecipient.objects.filter(campaign=selected_campaign)
+                total_sent = recipients.count()
+                total_opened = recipients.filter(status='opened').count()
+                total_clicked = recipients.filter(status='link').count()
+                total_unsubscribed = recipients.filter(status='unsubscribed').count()
+                open_rate = (total_opened / total_sent * 100) if total_sent > 0 else 0
+                click_rate = (total_clicked / total_sent * 100) if total_sent > 0 else 0
+
+                # Status distribution data for pie chart
+                status_counts = recipients.values('status').annotate(count=Count('status')).order_by('-count')
+                charts = {}
+
+                try:
+                    import plotly.express as px
+                    import pandas as pd
+
+                    status_df = pd.DataFrame(list(status_counts))
+                    if not status_df.empty:
+                        fig_pie = px.pie(status_df, values='count', names='status',
+                                         title='Email Status Distribution')
+                        charts['status_pie'] = fig_pie.to_html()
+
+                    # Timeline data for line chart (opens/clicks over time)
+                    timeline_data = recipients.exclude(
+                        Q(opened_at__isnull=True) & Q(sent_at__isnull=True))
+
+                    if timeline_data.exists():
+                        timeline_df = pd.DataFrame(list(
+                            timeline_data.values('opened_at', 'sent_at', 'status')
+                        ))
+                    timeline_df['date'] = timeline_df['opened_at'].fillna(timeline_df['sent_at'])
+                    timeline_df = timeline_df[~timeline_df['date'].isnull()]
+                    timeline_df['date'] = pd.to_datetime(timeline_df['date']).dt.date
+                    timeline_df['action'] = timeline_df['status'].map({
+                        'opened': 'Opened',
+                        'link': 'Clicked',
+                        'sent': 'Sent'
+                    })
+
+                    timeline_counts = timeline_df.groupby(['date', 'action']).size().unstack(fill_value=0)
+
+                    fig_line = px.line(timeline_counts, x=timeline_counts.index, y=timeline_counts.columns,
+                                       title='Campaign Activity Over Time',
+                                       labels={'value': 'Count', 'variable': 'Action'})
+                    charts['timeline'] = fig_line.to_html()
+                except ImportError:
+                    charts = {'error': 'Plotly is not installed. Please install plotly to view charts.'}
+
+                # Prepare analytics data
+                context['analytics_data'] = {
+                    'total_sent': total_sent,
+                    'total_opened': total_opened,
+                    'total_clicked': total_clicked,
+                    'total_unsubscribed': total_unsubscribed,
+                    'open_rate': round(open_rate, 2),
+                    'click_rate': round(click_rate, 2),
+                    'status_distribution': status_counts,
+                    'charts': charts,
+                    'campaign': selected_campaign,
+                }
+
+            except EmailCampaign.DoesNotExist:
+                pass
+
+        if extra_context:
+            context.update(extra_context)
+
+        return render(request, self.change_list_template, context)
+
+# Register the analytics view
+admin.site.register(EmailCampaignAnalytics, EmailCampaignAnalyticsAdmin)

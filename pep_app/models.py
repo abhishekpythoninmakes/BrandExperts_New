@@ -235,3 +235,13 @@ class EmailRecipient(models.Model):
 
     def __str__(self):
         return f"{self.contact.name or self.contact.email or 'Unknown Contact'} - {self.campaign.name} status: - {self.status}"
+
+
+class EmailCampaignAnalytics(models.Model):
+    """
+    This is a dummy model used to create an admin interface
+    for displaying email campaign analytics.
+    """
+    class Meta:
+        verbose_name = 'Email Campaign Analytics'
+        verbose_name_plural = 'Email Campaign Analytics'
