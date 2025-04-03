@@ -61,6 +61,7 @@ class Product_status(models.Model):
 class GlobalThickness(models.Model):
     """Global thickness options that can be used as defaults"""
     size = models.CharField(max_length=50, help_text="Example: 12mm, 1.5cm, etc.")
+    price_percentage = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     price = models.DecimalField(max_digits=16, decimal_places=6, help_text="Price per unit")
     is_active = models.BooleanField(default=True, help_text="Whether this option is active")
 
@@ -289,6 +290,7 @@ class Standard_sizes(models.Model):
 class Thickness(models.Model):
     product = models.ForeignKey('Product', on_delete=models.CASCADE, related_name="thicknesses")
     size = models.CharField(max_length=50, help_text="Example: 12mm, 1.5cm, etc.")
+    price_percentage = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     price = models.DecimalField(max_digits=16, decimal_places=6, help_text="Price per unit")
 
     class Meta:

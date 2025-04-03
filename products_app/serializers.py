@@ -155,6 +155,7 @@ class DetailedProductSerializer(serializers.ModelSerializer):
             {
                 "id": t.id,
                 "size": t.size,
+                "price_percentage": str(t.price_percentage) if t.price_percentage else None,
                 "price": str(t.price)
             }
             for t in thicknesses

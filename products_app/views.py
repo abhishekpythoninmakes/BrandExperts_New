@@ -485,7 +485,6 @@ class ProductPriceView(APIView):
         additional_cost = Decimal('0')
 
         # Get thickness details if provided
-        thickness_details = None
         if thickness_id:
             try:
                 # First check if product has specific thickness
@@ -495,8 +494,19 @@ class ProductPriceView(APIView):
                 if not thickness_details:
                     thickness_details = GlobalThickness.objects.get(id=thickness_id)
 
-                # Add thickness price based on area
-                thickness_price = thickness_details.price * area_in_product_unit_sq * quantity
+                # Calculate thickness price based on percentage or fixed price
+                thickness_price = Decimal('0')
+
+                # Commenting out thickness calculation for now as per request
+                """
+                if thickness_details.price_percentage and thickness_details.price_percentage != Decimal('0'):
+                    # Calculate percentage of base price
+                    thickness_price = (base_total_price * thickness_details.price_percentage) / Decimal('100')
+                elif thickness_details.price and thickness_details.price != Decimal('0'):
+                    # Use fixed price
+                    thickness_price = thickness_details.price * area_in_product_unit_sq * quantity
+                """
+
                 additional_cost += thickness_price
                 price_breakdown["thickness"] = {
                     "id": thickness_id,
@@ -518,12 +528,12 @@ class ProductPriceView(APIView):
                     turnaround = GlobalTurnaroundTime.objects.get(id=turnaround_id)
 
                 turnaround_price = Decimal('0')
-                # Calculate based on percentage if available
-                if turnaround.price_percentage:
+                # Calculate based on percentage if available and not zero
+                if turnaround.price_percentage and turnaround.price_percentage != Decimal('0'):
                     turnaround_price = (base_total_price * turnaround.price_percentage) / Decimal('100')
-                # Add fixed price if available
-                if turnaround.price_decimal:
-                    turnaround_price += turnaround.price_decimal
+                # Add fixed price if available and not zero
+                elif turnaround.price_decimal and turnaround.price_decimal != Decimal('0'):
+                    turnaround_price = turnaround.price_decimal
 
                 additional_cost += turnaround_price
                 price_breakdown["turnaround_time"] = {
@@ -546,12 +556,12 @@ class ProductPriceView(APIView):
                     delivery = GlobalDelivery.objects.get(id=delivery_id)
 
                 delivery_price = Decimal('0')
-                # Calculate based on percentage if available
-                if delivery.price_percentage:
+                # Calculate based on percentage if available and not zero
+                if delivery.price_percentage and delivery.price_percentage != Decimal('0'):
                     delivery_price = (base_total_price * delivery.price_percentage) / Decimal('100')
-                # Add fixed price if available
-                if delivery.price_decimal:
-                    delivery_price += delivery.price_decimal
+                # Add fixed price if available and not zero
+                elif delivery.price_decimal and delivery.price_decimal != Decimal('0'):
+                    delivery_price = delivery.price_decimal
 
                 additional_cost += delivery_price
                 price_breakdown["delivery"] = {
@@ -574,12 +584,12 @@ class ProductPriceView(APIView):
                     installation = GlobalInstallationType.objects.get(id=installation_type_id)
 
                 installation_price = Decimal('0')
-                # Calculate based on percentage if available
-                if installation.price_percentage:
+                # Calculate based on percentage if available and not zero
+                if installation.price_percentage and installation.price_percentage != Decimal('0'):
                     installation_price = (base_total_price * installation.price_percentage) / Decimal('100')
-                # Add fixed price if available
-                if installation.price_decimal:
-                    installation_price += installation.price_decimal
+                # Add fixed price if available and not zero
+                elif installation.price_decimal and installation.price_decimal != Decimal('0'):
+                    installation_price = installation.price_decimal
 
                 additional_cost += installation_price
                 price_breakdown["installation"] = {
@@ -603,12 +613,12 @@ class ProductPriceView(APIView):
                     distance = GlobalDistance.objects.get(id=distance_id)
 
                 distance_price = Decimal('0')
-                # Calculate based on percentage if available
-                if distance.price_percentage:
+                # Calculate based on percentage if available and not zero
+                if distance.price_percentage and distance.price_percentage != Decimal('0'):
                     distance_price = (base_total_price * distance.price_percentage) / Decimal('100')
-                # Add fixed price if available
-                if distance.price_decimal:
-                    distance_price += distance.price_decimal
+                # Add fixed price if available and not zero
+                elif distance.price_decimal and distance.price_decimal != Decimal('0'):
+                    distance_price = distance.price_decimal
 
                 additional_cost += distance_price
                 price_breakdown["distance"] = {
