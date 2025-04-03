@@ -1,6 +1,8 @@
 from django.db import models
 from products_app .models import CustomUser , Product ,Warranty_plan,Designer_rate
 import random
+from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.models import ContentType
 import string
 
 # Create your models here.
@@ -20,12 +22,16 @@ class Customer(models.Model):
         return self.user.username if self.user else "Unknown Customer"
 
 
-class Client_user(models.Model):
-    user = models.ForeignKey(CustomUser,on_delete=models.CASCADE,null=True,blank=True)
-    name = models.CharField(max_length=200,null=True,blank=True)
-    mobile = models.CharField(max_length=20,null=True,blank=True)
-    email = models.EmailField(null=True,blank=True)
-    status = models.CharField(max_length=300,null=True,blank=True,choices=customer_status,default='client')
+class RequestedEmailUsers(models.Model):  # Renamed from Client_user
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, null=True, blank=True)
+    name = models.CharField(max_length=200, null=True, blank=True)
+    mobile = models.CharField(max_length=20, null=True, blank=True)
+    email = models.EmailField(null=True, blank=True)
+    company = models.CharField(max_length=200, null=True, blank=True)
+    status = models.CharField(max_length=300, null=True, blank=True, choices=customer_status, default='client')
+
+    class Meta:
+        db_table = "customer_client_user"  # Keep the old table name
 
     def __str__(self):
         return self.user.username if self.user else "Unknown Customer"
@@ -157,7 +163,36 @@ class CartItem(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     hire_designer = models.ForeignKey(Designer_rate,on_delete=models.CASCADE,null=True,blank=True)
     design_description = models.TextField(null=True,blank=True)
+    # Generic foreign key for thickness (can be either Thickness or GlobalThickness)
+    thickness_content_type = models.ForeignKey(ContentType, on_delete=models.SET_NULL, null=True, blank=True,
+                                               related_name='thickness_cart_items')
+    thickness_object_id = models.PositiveIntegerField(null=True, blank=True)
+    thickness = GenericForeignKey('thickness_content_type', 'thickness_object_id')
 
+    # Generic foreign key for delivery (can be either Delivery or GlobalDelivery)
+    delivery_content_type = models.ForeignKey(ContentType, on_delete=models.SET_NULL, null=True, blank=True,
+                                              related_name='delivery_cart_items')
+    delivery_object_id = models.PositiveIntegerField(null=True, blank=True)
+    delivery = GenericForeignKey('delivery_content_type', 'delivery_object_id')
+
+    # Generic foreign key for installation (can be either InstallationType or GlobalInstallationType)
+    installation_content_type = models.ForeignKey(ContentType, on_delete=models.SET_NULL, null=True, blank=True,
+                                                  related_name='installation_cart_items')
+    installation_object_id = models.PositiveIntegerField(null=True, blank=True)
+    installation = GenericForeignKey('installation_content_type', 'installation_object_id')
+
+    # Generic foreign key for turnaround time (can be either TurnaroundTime or GlobalTurnaroundTime)
+    turnaround_content_type = models.ForeignKey(ContentType, on_delete=models.SET_NULL, null=True, blank=True,
+                                                related_name='turnaround_cart_items')
+    turnaround_object_id = models.PositiveIntegerField(null=True, blank=True)
+    turnaround_time = GenericForeignKey('turnaround_content_type', 'turnaround_object_id')
+
+    # Generic foreign key for distance (can be either Distance or GlobalDistance)
+    distance_content_type = models.ForeignKey(ContentType, on_delete=models.SET_NULL, null=True, blank=True,
+                                              related_name='distance_cart_items')
+    distance_object_id = models.PositiveIntegerField(null=True, blank=True)
+    distance = GenericForeignKey('distance_content_type', 'distance_object_id')
+    is_smart = models.BooleanField(default=False, null=True, blank=True)
     def __str__(self):
         return self.product.name
 

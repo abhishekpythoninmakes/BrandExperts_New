@@ -21,7 +21,8 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, serializers
 
-from products_app.models import VAT, site_visit
+from products_app.models import VAT, site_visit, Delivery, GlobalDelivery, GlobalThickness, Thickness, TurnaroundTime, \
+    GlobalTurnaroundTime, InstallationType, GlobalInstallationType, GlobalDistance, Distance
 from .serializers import *
 from rest_framework_simplejwt.tokens import RefreshToken
 from .models import *
@@ -2209,12 +2210,13 @@ from .serializers import CartItemSerializer
 from rest_framework.decorators import api_view
 from .models import Cart, CartItem, Customer, Product, Designer_rate
 
+
 @api_view(['POST'])
 def create_or_update_cart(request):
     customer_id = request.data.get('customer_id')
     cart_items_data = request.data.get('cart_items', [])
     site_visit = request.data.get('site_visit', False)
-    print('cart data = ', request.data)
+
     if not customer_id:
         return Response({"error": "Customer ID is required"}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -2225,7 +2227,6 @@ def create_or_update_cart(request):
 
     # Get or create the cart
     cart, created = Cart.objects.get_or_create(customer=customer, status='active')
-
     cart.site_visit = site_visit
     cart.save()
 
@@ -2246,9 +2247,16 @@ def create_or_update_cart(request):
         quantity = item_data.get('quantity', 1)
         price = float(item_data.get('price', 0))
         total_price_item = float(item_data.get('total', 0))
-        size_unit = item_data.get('unit', 'inches')  # Default to 'inches' if not provided
-        hire_designer_id = item_data.get('hire_designer_id', None)  # Get hire_designer_id from request
-        design_description = item_data.get('design_description', '')  # Get design_description from request
+        size_unit = item_data.get('unit', 'inches')
+        hire_designer_id = item_data.get('hire_designer_id', None)
+        design_description = item_data.get('design_description', '')
+        is_smart = item_data.get('is_smart', False)
+        # New fields
+        delivery_id = item_data.get('deliveryId', None)
+        thickness_id = item_data.get('thicknessId', None)
+        turn_around_id = item_data.get('turnAroundId', None)
+        installation_type_id = item_data.get('Installation_type_id', None)
+        distance_id = item_data.get('distance', None)
 
         if not product_id:
             return Response({"error": "Product ID is required for each cart item"}, status=status.HTTP_400_BAD_REQUEST)
@@ -2264,7 +2272,36 @@ def create_or_update_cart(request):
             try:
                 hire_designer = Designer_rate.objects.get(id=hire_designer_id)
             except Designer_rate.DoesNotExist:
-                return Response({"error": f"Designer_rate with ID {hire_designer_id} not found"}, status=status.HTTP_404_NOT_FOUND)
+                return Response({"error": f"Designer_rate with ID {hire_designer_id} not found"},
+                                status=status.HTTP_404_NOT_FOUND)
+
+        # Helper function to get the appropriate model instance
+        def get_option_instance(model_class, global_model_class, product_relation_name, option_id):
+            if not option_id:
+                return None
+            try:
+                # First try to get from product-specific options
+                instance = model_class.objects.filter(
+                    product=product,
+                    id=option_id
+                ).first()
+                if not instance:
+                    # If not found, try global options
+                    instance = global_model_class.objects.filter(
+                        id=option_id,
+                        is_active=True
+                    ).first()
+                return instance
+            except Exception:
+                return None
+
+        # Get all option instances
+        delivery = get_option_instance(Delivery, GlobalDelivery, 'deliveries', delivery_id)
+        thickness = get_option_instance(Thickness, GlobalThickness, 'thicknesses', thickness_id)
+        turnaround_time = get_option_instance(TurnaroundTime, GlobalTurnaroundTime, 'turnaround_times', turn_around_id)
+        installation_type = get_option_instance(InstallationType, GlobalInstallationType, 'installation_types',
+                                                installation_type_id)
+        distance = get_option_instance(Distance, GlobalDistance, 'distances', distance_id)
 
         # Create or update the cart item
         cart_item, item_created = CartItem.objects.update_or_create(
@@ -2278,14 +2315,25 @@ def create_or_update_cart(request):
                 'price': price,
                 'total_price': total_price_item,
                 'size_unit': size_unit,
-                'status': 'pending',  # Default status
-                'hire_designer': hire_designer,  # Set hire_designer (can be None)
-                'design_description': design_description  # Set design_description
+                'status': 'pending',
+                'hire_designer': hire_designer,
+                'design_description': design_description,
+                'delivery': delivery,
+                'thickness': thickness,
+                'turnaround_time': turnaround_time,
+                'installation': installation_type,
+                'distance': distance,
+                'is_smart': is_smart
             }
         )
 
         total_price += total_price_item
         total_items += quantity
+
+        # Prepare option IDs for response
+        def get_option_id(instance):
+            return instance.id if instance else None
+
         cart_items_list.append({
             "productid": product.id,
             "name": product.name,
@@ -2298,8 +2346,15 @@ def create_or_update_cart(request):
             },
             "design_image": design_image,
             "unit": size_unit,
-            "hire_designer_id": hire_designer.id if hire_designer else None,  # Include hire_designer_id in response
-            "design_description": design_description  # Include design_description in response
+            "hire_designer_id": hire_designer.id if hire_designer else None,
+            "design_description": design_description,
+            "is_smart": is_smart,
+            # New fields in response
+            "deliveryId": get_option_id(delivery),
+            "thicknessId": get_option_id(thickness),
+            "turnAroundId": get_option_id(turnaround_time),
+            "Installation_type_id": get_option_id(installation_type),
+            "distance": get_option_id(distance)
         })
 
     # Prepare response
@@ -2316,6 +2371,117 @@ def create_or_update_cart(request):
     }
 
     return Response(response_data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+
+
+
+# @api_view(['POST'])
+# def create_or_update_cart(request):
+#     customer_id = request.data.get('customer_id')
+#     cart_items_data = request.data.get('cart_items', [])
+#     site_visit = request.data.get('site_visit', False)
+#     print('cart data = ', request.data)
+#     if not customer_id:
+#         return Response({"error": "Customer ID is required"}, status=status.HTTP_400_BAD_REQUEST)
+#
+#     try:
+#         customer = Customer.objects.get(id=customer_id)
+#     except Customer.DoesNotExist:
+#         return Response({"error": "Customer not found"}, status=status.HTTP_404_NOT_FOUND)
+#
+#     # Get or create the cart
+#     cart, created = Cart.objects.get_or_create(customer=customer, status='active')
+#
+#     cart.site_visit = site_visit
+#     cart.save()
+#
+#     if not created:
+#         CartItem.objects.filter(cart=cart, status='pending').delete()
+#
+#     # Process each cart item in the request
+#     total_price = 0
+#     total_items = 0
+#     cart_items_list = []
+#
+#     for item_data in cart_items_data:
+#         product_id = item_data.get('productid')
+#         product_name = item_data.get('name')
+#         custom_width = item_data.get('size', {}).get('width')
+#         custom_height = item_data.get('size', {}).get('height')
+#         design_image = item_data.get('design_image')
+#         quantity = item_data.get('quantity', 1)
+#         price = float(item_data.get('price', 0))
+#         total_price_item = float(item_data.get('total', 0))
+#         size_unit = item_data.get('unit', 'inches')  # Default to 'inches' if not provided
+#         hire_designer_id = item_data.get('hire_designer_id', None)  # Get hire_designer_id from request
+#         design_description = item_data.get('design_description', '')  # Get design_description from request
+#
+#         if not product_id:
+#             return Response({"error": "Product ID is required for each cart item"}, status=status.HTTP_400_BAD_REQUEST)
+#
+#         try:
+#             product = Product.objects.get(id=product_id)
+#         except Product.DoesNotExist:
+#             return Response({"error": f"Product with ID {product_id} not found"}, status=status.HTTP_404_NOT_FOUND)
+#
+#         # Fetch the Designer_rate instance if hire_designer_id is provided
+#         hire_designer = None
+#         if hire_designer_id:
+#             try:
+#                 hire_designer = Designer_rate.objects.get(id=hire_designer_id)
+#             except Designer_rate.DoesNotExist:
+#                 return Response({"error": f"Designer_rate with ID {hire_designer_id} not found"}, status=status.HTTP_404_NOT_FOUND)
+#
+#         # Create or update the cart item
+#         cart_item, item_created = CartItem.objects.update_or_create(
+#             cart=cart,
+#             product=product,
+#             defaults={
+#                 'custom_width': custom_width,
+#                 'custom_height': custom_height,
+#                 'design_image': design_image,
+#                 'quantity': quantity,
+#                 'price': price,
+#                 'total_price': total_price_item,
+#                 'size_unit': size_unit,
+#                 'status': 'pending',  # Default status
+#                 'hire_designer': hire_designer,  # Set hire_designer (can be None)
+#                 'design_description': design_description  # Set design_description
+#             }
+#         )
+#
+#         total_price += total_price_item
+#         total_items += quantity
+#         cart_items_list.append({
+#             "productid": product.id,
+#             "name": product.name,
+#             "quantity": quantity,
+#             "price": price,
+#             "total": total_price_item,
+#             "size": {
+#                 "width": custom_width,
+#                 "height": custom_height
+#             },
+#             "design_image": design_image,
+#             "unit": size_unit,
+#             "hire_designer_id": hire_designer.id if hire_designer else None,  # Include hire_designer_id in response
+#             "design_description": design_description  # Include design_description in response
+#         })
+#
+#     # Prepare response
+#     response_data = {
+#         "message": "Cart updated successfully" if not created else "Cart created successfully",
+#         "cart": {
+#             "cart_id": cart.id,
+#             "customer_id": customer.id,
+#             "site_visit": cart.site_visit,
+#             "cart_items": cart_items_list,
+#             "total_items": total_items,
+#             "total_price": total_price
+#         }
+#     }
+#
+#     return Response(response_data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
 # CartItem Update
 
@@ -2644,11 +2810,32 @@ class CustomerOrderDetailView(APIView):
 
 # Order Details view
 
-class OrderDetailView(RetrieveAPIView):
-    queryset = Order.objects.select_related('customer__user', 'address', 'cart').prefetch_related('cart__items')
-    serializer_class = OrderDetailSerializer
-    # permission_classes = [IsAuthenticated]
 
+class OrderDetailView(APIView):
+    """
+    API view to retrieve detailed information about an order by its ID.
+    Returns all order details including cart items, thickness, delivery, distance, etc.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        """
+        Get detailed information for a specific order
+        """
+        # Get the order or return 404
+        order = get_object_or_404(Order, id=pk)
+
+        # Check if the requesting user is the owner of the order
+        if request.user != order.customer.user:
+            return Response(
+                {"error": "You do not have permission to view this order"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Serialize the order with all related data
+        serializer = OrderSerializer(order, context={'request': request})
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 # SEND EMAIL RFQ
 from django.core.mail import EmailMultiAlternatives
@@ -2663,6 +2850,7 @@ class RFQRequestView(APIView):
         email = data.get("email")
         name = data.get("name")
         mobile = data.get("mobile")
+        company = data.get("company")
         cart_items = data.get("cart_items", [])
         subtotal = data.get("subtotal", 0)
         site_visit = data.get("site_visit", False)
@@ -2703,11 +2891,12 @@ class RFQRequestView(APIView):
                 pass  # No user found with this email
 
         # Create Client_user object
-        client_user = Client_user.objects.create(
+        client_user = RequestedEmailUsers.objects.create(
             user=user,
             name=name,
             mobile=mobile,
             email=email,
+            company=company,
             status='lead'
         )
 
@@ -2742,6 +2931,7 @@ class RFQRequestView(APIView):
             "client_email": email,
             "client_mobile": mobile,
             "client_address": client_address,
+            "client_company": company,
             "contact_person": f"Mr.{name}" if name else None,
 
             # Order details

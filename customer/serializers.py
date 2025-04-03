@@ -91,16 +91,79 @@ class WarrantyRegistrationSerializer(serializers.ModelSerializer):
         read_only_fields = ['warranty_number']  # Make warranty_number read-only
 
 
-
-
-
 class CartItemSerializer(serializers.ModelSerializer):
+    product = serializers.StringRelatedField()
+    hire_designer = serializers.StringRelatedField()
+
+    # Option details fields
+    thickness_details = serializers.SerializerMethodField()
+    delivery_details = serializers.SerializerMethodField()
+    turnaround_details = serializers.SerializerMethodField()
+    installation_details = serializers.SerializerMethodField()
+    distance_details = serializers.SerializerMethodField()
+
     class Meta:
         model = CartItem
         fields = [
             'id', 'product', 'custom_width', 'custom_height', 'size_unit',
-            'design_image', 'quantity', 'price', 'total_price', 'hire_designer','status', 'created_at'
+            'design_image', 'quantity', 'price', 'total_price', 'hire_designer',
+            'status', 'created_at', 'is_smart', 'design_description',
+            # Remove the direct foreign key fields from here
+            'thickness_details', 'delivery_details', 'turnaround_details',
+            'installation_details', 'distance_details'
         ]
+        # Remove the extra_kwargs since we're not including the FK fields in response
+
+    def get_thickness_details(self, obj):
+        if obj.thickness:
+            return {
+                'id': obj.thickness.id,
+                'size': getattr(obj.thickness, 'size', None),
+                'price': getattr(obj.thickness, 'price', None) or
+                         getattr(obj.thickness, 'price_decimal', None)
+            }
+        return None
+
+    def get_delivery_details(self, obj):
+        if obj.delivery:
+            return {
+                'id': obj.delivery.id,
+                'name': getattr(obj.delivery, 'name', None),
+                'price': getattr(obj.delivery, 'price_decimal', None) or
+                         getattr(obj.delivery, 'price_percentage', None)
+            }
+        return None
+
+    def get_turnaround_details(self, obj):
+        if obj.turnaround_time:
+            return {
+                'id': obj.turnaround_time.id,
+                'name': getattr(obj.turnaround_time, 'name', None),
+                'price': getattr(obj.turnaround_time, 'price_decimal', None) or
+                         getattr(obj.turnaround_time, 'price_percentage', None)
+            }
+        return None
+
+    def get_installation_details(self, obj):
+        if obj.installation:
+            return {
+                'id': obj.installation.id,
+                'name': getattr(obj.installation, 'name', None),
+                'days': getattr(obj.installation, 'days', None),
+                'price': getattr(obj.installation, 'price_decimal', None) or
+                         getattr(obj.installation, 'price_percentage', None)
+            }
+        return None
+
+    def get_distance_details(self, obj):
+        if obj.distance:
+            return {
+                'id': obj.distance.id,
+                'km': getattr(obj.distance, 'km', None),
+                'price': getattr(obj.distance, 'price_decimal', None) or
+                         getattr(obj.distance, 'price_percentage', None)
+            }
+        return None
 
 
 class CartSerializer(serializers.ModelSerializer):
@@ -109,10 +172,14 @@ class CartSerializer(serializers.ModelSerializer):
         model = Cart
         fields = ['id', 'status', 'created_at','items']
 
-class CartItemUpdateSerializer(serializers.ModelSerializer):
+class CartItemCreateUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = CartItem
-        fields = ["quantity", "total_price"]  # Only updatable fields
+        fields = [
+            'product', 'custom_width', 'custom_height', 'size_unit',
+            'design_image', 'quantity', 'design_description', 'is_smart',
+            'thickness', 'delivery', 'turnaround_time', 'installation', 'distance'
+        ]
 
     def validate_quantity(self, value):
         """Ensure quantity is at least 1."""
@@ -143,49 +210,37 @@ class OrderSerializer(serializers.ModelSerializer):
         ]
 
 
-
-class CartItemWithProductNameSerializer(serializers.ModelSerializer):
-    product_name = serializers.CharField(source='product.name')
-    # product_image = serializers.URLField(source='product.image1')
-
-    class Meta:
-        model = CartItem
-        fields = [
-            'id', 'product_name', 'custom_width', 'custom_height',
-            'size_unit', 'design_image', 'quantity', 'price', 'total_price',
-            'hire_designer', 'status', 'created_at'
-        ]
-
-class CartWithItemsSerializer(serializers.ModelSerializer):
-    items = CartItemWithProductNameSerializer(many=True, read_only=True)
-
-    class Meta:
-        model = Cart
-        fields = ['id', 'status', 'created_at', 'items']
-
-class PaymentSerializer(serializers.Serializer):
-    transaction_id = serializers.CharField()
-    method = serializers.CharField(source='payment_method')
-    status = serializers.CharField(source='payment_status')
-
 class OrderDetailSerializer(serializers.ModelSerializer):
-    customer_name = serializers.SerializerMethodField()
-    address = CustomerAddressSerializer()
-    cart = CartWithItemsSerializer()
-    payment = PaymentSerializer(source='*')
-    total_amount = serializers.DecimalField(max_digits=10, decimal_places=2, source='amount')
-    site_visit_charge = serializers.DecimalField(max_digits=10, decimal_places=2, source='site_visit_fee')
-    vat = serializers.DecimalField(max_digits=10, decimal_places=2, source='vat_amount')
+    cart = CartSerializer(read_only=True)
+    address = CustomerAddressSerializer(read_only=True)
+    customer = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
         fields = [
-            'id', 'customer_name', 'ordered_date', 'delivered_date', 'payment',
-            'status', 'total_amount', 'cart', 'address', 'site_visit_charge', 'vat'
+            'id', 'customer', 'status', 'ordered_date', 'payment_method',
+            'payment_status', 'amount', 'delivered_date', 'transaction_id',
+            'site_visit', 'site_visit_fee', 'vat_percentage', 'vat_amount',
+            'cart', 'address'
         ]
 
-    def get_customer_name(self, obj):
-        return obj.customer.user.get_full_name()
+    def get_customer(self, obj):
+        """Return customer details"""
+        if obj.customer and obj.customer.user:
+            return {
+                'id': obj.customer.id,
+                'username': obj.customer.user.username,
+                'first_name': obj.customer.user.first_name,
+                'last_name': obj.customer.user.last_name,
+                'email': obj.customer.user.email,
+                'mobile': obj.customer.mobile,
+                'country_code': obj.customer.country_code,
+            }
+        return None
+
+
+
+
 
 
 class CustomerDesignSerializer(serializers.ModelSerializer):
