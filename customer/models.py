@@ -6,7 +6,7 @@ from django.contrib.contenttypes.models import ContentType
 import string
 
 # Create your models here.
-customer_status = (('lead','LEAD'),('client','CLIENT'))
+customer_status = (('lead','LEAD'),('client','CLIENT'),('data','Data'))
 
 # Customer Registratio
 
@@ -29,7 +29,7 @@ class RequestedEmailUsers(models.Model):  # Renamed from Client_user
     email = models.EmailField(null=True, blank=True)
     company = models.CharField(max_length=200, null=True, blank=True)
     status = models.CharField(max_length=300, null=True, blank=True, choices=customer_status, default='client')
-
+    type = models.CharField(max_length=300, null=True, blank=True, choices=(('email','Email'),('download','Download'),('print','Print')), default='email')
     class Meta:
         db_table = "customer_client_user"  # Keep the old table name
 

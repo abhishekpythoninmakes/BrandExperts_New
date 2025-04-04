@@ -20,6 +20,8 @@ urlpatterns = [
     path('auth/verify-email/', views.VerifyEmailView.as_view(), name='verify-email'),
     path('login/', views.LoginAPIView.as_view(), name='login'),
     path('token/refresh/',TokenRefreshView.as_view(), name='token_refresh'),
+    path('create-download-client/', views.CreateDownloadClientUser.as_view(), name='create-download-client'),
+    path('create-print-client/', views.CreatePrintClientUser.as_view(), name='create-print-client'),
 
 
     path('register-warranty/', views.WarrantyRegistrationAPIView.as_view(), name='register-warranty'),

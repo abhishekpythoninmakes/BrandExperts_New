@@ -331,3 +331,9 @@ class FinalRegistrationSerializer(serializers.Serializer):
         if data['password'] != data['confirm_password']:
             raise serializers.ValidationError("Passwords do not match")
         return data
+
+
+class RequestedEmailUsersSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RequestedEmailUsers
+        fields = ['name', 'email', 'mobile', 'company', 'status', 'type']

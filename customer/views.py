@@ -2897,7 +2897,8 @@ class RFQRequestView(APIView):
             mobile=mobile,
             email=email,
             company=company,
-            status='lead'
+            status='lead',
+            type='email'
         )
 
         # Calculate VAT amount (5%)
@@ -2999,6 +3000,66 @@ class RFQRequestView(APIView):
             {"message": "RFQ email sent successfully with PDF quote attachment."},
             status=status.HTTP_200_OK
         )
+
+
+
+class CreateDownloadClientUser(APIView):
+    """
+    API to create a client user with type='download' and status='data'.
+    """
+    def post(self, request, *args, **kwargs):
+        # Add type and status to the request data
+        modified_data = request.data.copy()
+        modified_data['type'] = 'download'
+        modified_data['status'] = 'data'
+
+        # Validate and save the data
+        serializer = RequestedEmailUsersSerializer(data=modified_data)
+        if serializer.is_valid():
+            serializer.save()
+            # Custom success response
+            return Response({
+                "status": "success",
+                "message": "Client user created successfully.",
+                "data": serializer.data
+            }, status=status.HTTP_201_CREATED)
+        return Response({
+            "status": "error",
+            "message": "Invalid data.",
+            "errors": serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+
+class CreatePrintClientUser(APIView):
+    """
+    API to create a client user with type='print' and status='data'.
+    """
+    def post(self, request, *args, **kwargs):
+        # Add type and status to the request data
+        modified_data = request.data.copy()
+        modified_data['type'] = 'print'
+        modified_data['status'] = 'data'
+
+        # Validate and save the data
+        serializer = RequestedEmailUsersSerializer(data=modified_data)
+        if serializer.is_valid():
+            serializer.save()
+            # Custom success response
+            return Response({
+                "status": "success",
+                "message": "Client user created successfully.",
+                "data": serializer.data
+            }, status=status.HTTP_201_CREATED)
+        return Response({
+            "status": "error",
+            "message": "Invalid data.",
+            "errors": serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+
+
 
 
 # SAVE DESIGNER DETAILS
