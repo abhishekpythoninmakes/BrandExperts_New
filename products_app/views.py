@@ -435,6 +435,22 @@ class ProductPriceView(APIView):
         except Product.DoesNotExist:
             return Response({"error": "Product not found"}, status=status.HTTP_404_NOT_FOUND)
 
+        # Check for customization disabled early
+        if product.disable_customization:
+            if not product.fixed_price:
+                return Response(
+                    {"error": "Fixed price must be set when customization is disabled"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            total_price = product.fixed_price * quantity
+            return Response({
+                "product_id": product_id,
+                "fixed_price": round(total_price, 2),
+                "customization_disabled": True,
+                "message": "Customization is disabled. Only fixed price applies."
+            })
+
         unit_conversion = {
             'cm': Decimal('1'),
             'meter': Decimal('100'),
