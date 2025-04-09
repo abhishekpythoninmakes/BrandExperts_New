@@ -446,7 +446,7 @@ class ProductPriceView(APIView):
             total_price = product.fixed_price * quantity
             return Response({
                 "product_id": product_id,
-                "fixed_price": round(total_price, 2),
+                "total_price": round(total_price, 2),
                 "customization_disabled": True,
                 "message": "Customization is disabled. Only fixed price applies."
             })
