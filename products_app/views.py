@@ -445,25 +445,25 @@ class ProductPriceView(APIView):
         }
 
         product_unit = product.size
-
+        if not product.disable_customization:
         # Validate dimensions against product's min/max (converted to user's unit)
-        product_min_width_in_unit = product.min_width * (unit_conversion[product_unit] / unit_conversion[unit])
-        product_max_width_in_unit = product.max_width * (unit_conversion[product_unit] / unit_conversion[unit])
-        product_min_height_in_unit = product.min_height * (unit_conversion[product_unit] / unit_conversion[unit])
-        product_max_height_in_unit = product.max_height * (unit_conversion[product_unit] / unit_conversion[unit])
+            product_min_width_in_unit = product.min_width * (unit_conversion[product_unit] / unit_conversion[unit])
+            product_max_width_in_unit = product.max_width * (unit_conversion[product_unit] / unit_conversion[unit])
+            product_min_height_in_unit = product.min_height * (unit_conversion[product_unit] / unit_conversion[unit])
+            product_max_height_in_unit = product.max_height * (unit_conversion[product_unit] / unit_conversion[unit])
 
-        if width < product_min_width_in_unit:
-            error_msg = f"Width is below the minimum allowed value. Minimum width is {product_min_width_in_unit:.2f} {unit}."
-            return Response({"error": error_msg}, status=status.HTTP_400_BAD_REQUEST)
-        if width > product_max_width_in_unit:
-            error_msg = f"Width exceeds the maximum allowed value. Maximum width is {product_max_width_in_unit:.2f} {unit}."
-            return Response({"error": error_msg}, status=status.HTTP_400_BAD_REQUEST)
-        if height < product_min_height_in_unit:
-            error_msg = f"Height is below the minimum allowed value. Minimum height is {product_min_height_in_unit:.2f} {unit}."
-            return Response({"error": error_msg}, status=status.HTTP_400_BAD_REQUEST)
-        if height > product_max_height_in_unit:
-            error_msg = f"Height exceeds the maximum allowed value. Maximum height is {product_max_height_in_unit:.2f} {unit}."
-            return Response({"error": error_msg}, status=status.HTTP_400_BAD_REQUEST)
+            if width < product_min_width_in_unit:
+                error_msg = f"Width is below the minimum allowed value. Minimum width is {product_min_width_in_unit:.2f} {unit}."
+                return Response({"error": error_msg}, status=status.HTTP_400_BAD_REQUEST)
+            if width > product_max_width_in_unit:
+                error_msg = f"Width exceeds the maximum allowed value. Maximum width is {product_max_width_in_unit:.2f} {unit}."
+                return Response({"error": error_msg}, status=status.HTTP_400_BAD_REQUEST)
+            if height < product_min_height_in_unit:
+                error_msg = f"Height is below the minimum allowed value. Minimum height is {product_min_height_in_unit:.2f} {unit}."
+                return Response({"error": error_msg}, status=status.HTTP_400_BAD_REQUEST)
+            if height > product_max_height_in_unit:
+                error_msg = f"Height exceeds the maximum allowed value. Maximum height is {product_max_height_in_unit:.2f} {unit}."
+                return Response({"error": error_msg}, status=status.HTTP_400_BAD_REQUEST)
 
         # Convert dimensions to product's unit for pricing calculation
         width_in_product_unit = width * (unit_conversion[unit] / unit_conversion[product_unit])
