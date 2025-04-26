@@ -11,4 +11,9 @@ urlpatterns = [
     path('create_contacts/', views.ContactCreateAPIView.as_view(), name='create-contact'),
     path('partner-stats/<int:user_id>/', views.PartnerStatsAPIView.as_view(), name='partner-stats'),
     path('contacts/import/', views.ContactImportAPIView.as_view(), name='contact-import'),
+
+    path('contacts/validate-email/<int:contact_id>/', views.ValidateEmailAPIView.as_view(),
+         name='validate-contact-email'),
+    path('contacts/bulk-validate-emails/', views.BulkValidateEmailsAPIView.as_view(), name='bulk-validate-emails'),
+
 ]

@@ -408,14 +408,29 @@ JAZZMIN_SETTINGS = {
 # CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 # TIMEZONE = 'UTC'
 
-CELERY_BROKER_URL = 'amqp://your_user:your_password@65.1.248.191:5672//'
+# CELERY_BROKER_URL = 'amqp://your_user:your_password@65.1.248.191:5672//'
+# CELERY_ACCEPT_CONTENT = ['json']
+# CELERY_TASK_SERIALIZER = 'json'
+# CELERY_RESULT_BACKEND = 'django-db'
+# CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+# TIMEZONE = 'UTC'
+
+
+# Celery Configuration
+
+CELERY_BROKER_URL = config('CELERY_BROKER_URL')
+# Serializer settings
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
-CELERY_RESULT_BACKEND = 'django-db'
+CELERY_RESULT_BACKEND = 'django-db'  # Optional: Use Django DB for results
+
+# Retry connection on startup
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+
+# Timezone
 TIMEZONE = 'UTC'
-
-
+CELERY_TIMEZONE = 'UTC'
+CELERY_ENABLE_UTC = True
 
 # CELERY_TASK_ALWAYS_EAGER = True  # Temporary - tasks run synchronously
 CELERY_TASK_EAGER_PROPAGATES = True

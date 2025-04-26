@@ -20,10 +20,7 @@ app.config_from_object('django.conf:settings', namespace='CELERY')
 
 
 # CELERY BEAT SETTINGS
-app.conf.beat_schedule = {
 
-
-}
 
 
 # app.conf.beat_schedule = {
@@ -35,7 +32,7 @@ app.conf.beat_schedule = {
 
 
 # Load task modules from all registered Django apps.
-app.autodiscover_tasks()
+
 
 
 # Schedule the backup task
@@ -55,7 +52,31 @@ from celery.schedules import timedelta
 #     },
 # }
 
+# Add this to your existing celery.py file
 
+# Add the cron job check task to the beat schedule
+# Add this to your existing celery.py file
+
+# Add the cron job check task to the beat schedule
+# app.conf.beat_schedule = {
+#     # Schedule the cron job check to run at 7:30 AM UTC every day
+#     'check-cron-jobs-daily': {
+#         'task': 'partner_app.tasks.check_and_execute_cron_jobs',
+#         'schedule': crontab(hour=7, minute=30),  # Run at 7:30 AM UTC
+#     },
+# }
+
+app.conf.beat_schedule = {
+    'check-cron-jobs-daily': {
+        'task': 'partner_app.tasks.check_and_execute_cron_jobs',
+        'schedule': crontab(hour=10, minute=52),  # 10:52 AM UTC = 4:22 PM IST
+    },
+}
+
+
+
+# Load task modules from all registered Django apps.
+app.autodiscover_tasks()
 
 @app.task(bind=True, ignore_result=True)
 def debug_task(self):

@@ -13,6 +13,7 @@ from django.http import JsonResponse, HttpResponseForbidden, HttpResponseRedirec
 from django.db import transaction
 from django.contrib.auth.models import  Group, Permission
 import pandas as pd
+from django.contrib.admin.widgets import AdminDateWidget
 from .models import *
 from django_json_widget.widgets import JSONEditorWidget
 from django.shortcuts import render, redirect
@@ -189,7 +190,7 @@ class EmailThread(threading.Thread):
 @admin.register(Partners)
 class PartnersAdmin(admin.ModelAdmin):
     form = PartnerAdminForm
-    list_display = ('user_profile', 'commission_display', 'created_at')
+    list_display = ('id','user_profile', 'commission_display', 'created_at')
     search_fields = ('user__username', 'user__email')
     list_filter = ('created_at',)
     readonly_fields = ('created_at',)
@@ -260,11 +261,12 @@ class ContactAdmin(admin.ModelAdmin):
     list_display = (
         'name',
         'email',
-        'mobile',
         'partner_name',
         'status',
         'created_at',
-        'account_list'
+        'account_list',
+        'email_deliverability',
+
     )
 
     # Filters and search
@@ -668,7 +670,8 @@ admin.site.register(EmailTemplateCategory, EmailTemplateCategoryAdmin)
 
 
 class EmailTemplateAdmin(admin.ModelAdmin):
-    list_display = ['name', 'category', 'created_at', 'created_by']
+    list_display = ['name', 'category', 'created_at', 'created_by', 'selected']
+    list_editable = ['selected']
     search_fields = ['name', 'category__name', 'created_by__username']
     list_filter = ['category', 'created_by']
     ordering = ['-created_at']
@@ -689,10 +692,20 @@ class EmailTemplateAdmin(admin.ModelAdmin):
         return JsonResponse({'columns': columns})
 
     def save_model(self, request, obj, form, change):
-        # On creation, assign the current logged-in user to created_by.
         if not change:
             obj.created_by = request.user
+        # Unselect all other EmailTemplate instances if current is selected
+        if obj.selected:
+            EmailTemplate.objects.exclude(pk=obj.pk).update(selected=False)
         obj.save()
+
+        def save_formset(self, request, form, formset, change):
+            instances = formset.save(commit=False)
+            for instance in instances:
+                if instance.selected:
+                    EmailTemplate.objects.exclude(pk=instance.pk).update(selected=False)
+                instance.save()
+            formset.save_m2m()
 
 
 admin.site.register(EmailTemplate, EmailTemplateAdmin)
@@ -702,7 +715,8 @@ admin.site.register(Placeholder)
 
 
 class EmailCampaignAdmin(admin.ModelAdmin):
-    list_display = ('name', 'status_badge', 'created_at', 'campaign_actions')
+    list_display = ('name', 'status_badge', 'created_at', 'selected', 'campaign_actions')
+    list_editable = ('selected',)
     list_filter = ('status', 'created_by')
     search_fields = ('name', 'subject', 'sender_name')
     readonly_fields = ('created_at', 'created_by')
@@ -715,7 +729,7 @@ class EmailCampaignAdmin(admin.ModelAdmin):
 
     fieldsets = (
         ('Basic Information', {
-            'fields': ('name', 'sender_name', 'status')
+            'fields': ('name', 'sender_name', 'status', 'selected')
         }),
         ('Campaign Content', {
             'fields': ('subject', 'template', 'custom_content'),
@@ -803,7 +817,10 @@ class EmailCampaignAdmin(admin.ModelAdmin):
             return HttpResponseRedirect("../")
 
     def save_model(self, request, obj, form, change):
-        """Set the created_by field when creating a new campaign."""
+        """Ensure only one campaign is selected at a time."""
+        if obj.selected:
+            # Unselect all other campaigns
+            EmailCampaign.objects.exclude(id=obj.id).update(selected=False)
         if not obj.pk:
             obj.created_by = request.user
         super().save_model(request, obj, form, change)
@@ -931,3 +948,59 @@ class EmailCampaignAnalyticsAdmin(admin.ModelAdmin):
 
 # Register the analytics view
 admin.site.register(EmailCampaignAnalytics, EmailCampaignAnalyticsAdmin)
+
+
+
+################# CRON JOBS #####################
+
+class CronJobExecutionInline(admin.TabularInline):
+    model = CronJobExecution
+    extra = 0
+    readonly_fields = ('execution_time', 'status', 'contacts_found', 'emails_sent', 'error_message')
+    can_delete = False
+    max_num = 0
+    fields = ('execution_time', 'status', 'contacts_found', 'emails_sent', 'error_message')
+
+
+@admin.register(EmailCronJob)
+class EmailCronJobAdmin(admin.ModelAdmin):
+    list_display = ('name', 'frequency', 'status', 'start_date', 'end_date', 'last_run', 'next_run')
+    search_fields = ('name',)
+    list_filter = ('frequency', 'status', 'start_date', 'end_date')
+    readonly_fields = ('last_run', 'next_run', 'created_at', 'updated_at')
+    filter_horizontal = ('partners', 'contact_lists', 'campaigns', 'processed_contacts')
+    fieldsets = (
+        (None, {
+            'fields': ('name', 'email_template', 'email_category', 'status')
+        }),
+        ('Schedule', {
+            'fields': ('frequency', 'cron_expression', 'start_date', 'end_date', 'last_run', 'next_run')
+        }),
+        ('Associations', {
+            'fields': ('partners', 'contact_lists', 'campaigns', 'processed_contacts')
+        }),
+        ('Metadata', {
+            'fields': ('created_by', 'created_at', 'updated_at')
+        }),
+    )
+    inlines = [CronJobExecutionInline]
+
+    def save_model(self, request, obj, form, change):
+        if not change:  # Only for new objects
+            obj.created_by = request.user
+        super().save_model(request, obj, form, change)
+
+
+@admin.register(CronJobExecution)
+class CronJobExecutionAdmin(admin.ModelAdmin):
+    list_display = ('cron_job_name', 'execution_time', 'status', 'contacts_found', 'emails_sent')
+    search_fields = ('cron_job__name',)
+    list_filter = ('status', 'execution_time')
+    readonly_fields = (
+    'cron_job', 'campaign', 'execution_time', 'status', 'contacts_found', 'emails_sent', 'error_message')
+    filter_horizontal = ('new_contacts_processed',)
+
+    def cron_job_name(self, obj):
+        return obj.cron_job.name if obj.cron_job else "No cron job"
+
+    cron_job_name.short_description = "Cron Job"
