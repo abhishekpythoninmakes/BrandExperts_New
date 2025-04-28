@@ -200,7 +200,7 @@ logger = logging.getLogger(__name__)
 def partner_contacts(request, partner_id):
     """View to get all contacts for a specific partner"""
     try:
-        partner = Partners.objects.get(id=partner_id)
+        partner = Partners.objects.get(user_id=partner_id)
         contacts = Contact.objects.filter(partner=partner)
 
         data = {
