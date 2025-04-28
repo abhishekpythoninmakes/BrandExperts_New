@@ -36,7 +36,7 @@ def validate_email(contact_id):
 
         # Update contact with readable verification result
         reason = get_readable_verification_result(verification_result)
-        contact.email_deliverability = reason
+        #contact.email_deliverability = reason
         contact.save(update_fields=['email_deliverability'])
 
         return reason
