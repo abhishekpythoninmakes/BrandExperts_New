@@ -357,13 +357,13 @@ from rest_framework.views import APIView
 
 class PartnerCampaignAnalyticsView(APIView):
     def get(self, request, *args, **kwargs):
-        # Get the partner_id from query parameters
-        partner_id = request.query_params.get('partner_id')
+        # Get the partner_id from the URL path parameter
+        partner_id = kwargs.get('partner_id')
         if not partner_id:
             return Response({"error": "partner_id is required"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            # Fetch the partner object
+            # Fetch the partner object using user_id
             partner = Partners.objects.get(user_id=partner_id)
         except Partners.DoesNotExist:
             return Response({"error": "Partner not found"}, status=status.HTTP_404_NOT_FOUND)
