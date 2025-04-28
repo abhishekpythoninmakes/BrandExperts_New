@@ -190,7 +190,8 @@ from .models import (
     Partners, Contact, ContactList, EmailCampaign, EmailRecipient,
     EmailCronJob, CronJobExecution, Placeholder
 )
-from .serializers import CampaignAnalyticsSerializer, EmailCronJobSerializer, CronJobCreateSerializer
+from .serializers import CampaignAnalyticsSerializer, EmailCronJobSerializer, CronJobCreateSerializer, \
+    CampaignAnalyticsSerializerNew
 
 logger = logging.getLogger(__name__)
 
@@ -351,3 +352,71 @@ class CompletedCampaignAnalyticsView(View):
 
         except Partners.DoesNotExist:
             return JsonResponse({'error': 'Partner not found'}, status=404)
+
+from rest_framework.views import APIView
+
+class PartnerCampaignAnalyticsView(APIView):
+    def get(self, request, *args, **kwargs):
+        # Get the partner_id from query parameters
+        partner_id = request.query_params.get('partner_id')
+        if not partner_id:
+            return Response({"error": "partner_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            # Fetch the partner object
+            partner = Partners.objects.get(id=partner_id)
+        except Partners.DoesNotExist:
+            return Response({"error": "Partner not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Filter campaigns associated with the partner
+        campaigns = EmailCampaign.objects.filter(
+            contact_lists__contacts_new__partner=partner
+        ).distinct()
+
+        # Total campaigns
+        total_campaigns = campaigns.count()
+
+        # Total recipients (calculated dynamically from EmailRecipient)
+        total_recipients = EmailRecipient.objects.filter(
+            campaign__in=campaigns
+        ).count()
+
+        # Total earnings (calculated based on commission and total recipients)
+        total_earnings = total_recipients * float(partner.commission)
+
+        # Total sent campaigns
+        total_sent_campaigns = campaigns.filter(status='sent').count()
+
+        # Total completed campaigns
+        total_completed_campaigns = campaigns.filter(delivery_status='campaign_sent').count()
+
+        # Total failed campaigns
+        total_failed_campaigns = campaigns.filter(status='failed').count()
+
+        # Total opened emails
+        total_opened_emails = EmailRecipient.objects.filter(
+            campaign__in=campaigns, status='opened'
+        ).count()
+
+        # Total link clicked
+        total_link_clicked = EmailRecipient.objects.filter(
+            campaign__in=campaigns, status='link'
+        ).count()
+
+        # Prepare the response data
+        data = {
+            "total_campaigns": total_campaigns,
+            "total_recipients": total_recipients,
+            "total_earnings": total_earnings,
+            "total_sent_campaigns": total_sent_campaigns,
+            "total_completed_campaigns": total_completed_campaigns,
+            "total_failed_campaigns": total_failed_campaigns,
+            "total_opened_emails": total_opened_emails,
+            "total_link_clicked": total_link_clicked,
+        }
+
+        # Serialize the data
+        serializer = CampaignAnalyticsSerializerNew(data=data)
+        serializer.is_valid(raise_exception=True)
+
+        return Response(serializer.data, status=status.HTTP_200_OK)

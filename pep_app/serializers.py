@@ -144,3 +144,16 @@ class CampaignAnalyticsSerializer(serializers.Serializer):
     partner_name = serializers.CharField()
     partner_earnings = serializers.FloatField()
     partner_tasks = serializers.IntegerField()
+
+
+
+
+class CampaignAnalyticsSerializerNew(serializers.Serializer):
+    total_campaigns = serializers.IntegerField()
+    total_recipients = serializers.IntegerField()
+    total_earnings = serializers.DecimalField(max_digits=10, decimal_places=2)
+    total_sent_campaigns = serializers.IntegerField()
+    total_completed_campaigns = serializers.IntegerField()
+    total_failed_campaigns = serializers.IntegerField()
+    total_opened_emails = serializers.IntegerField()
+    total_link_clicked = serializers.IntegerField()
