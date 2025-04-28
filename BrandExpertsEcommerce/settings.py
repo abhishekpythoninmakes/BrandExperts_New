@@ -12,6 +12,8 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 
 from pathlib import Path
 
+from celery.schedules import crontab
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -418,6 +420,7 @@ JAZZMIN_SETTINGS = {
 
 # Celery Configuration
 
+
 CELERY_BROKER_URL = config('CELERY_BROKER_URL')
 # Serializer settings
 CELERY_ACCEPT_CONTENT = ['json']
@@ -448,24 +451,18 @@ LOGGING = {
     },
 }
 
-
 # CELERY BEAT SETTINGS
-
-
 CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
 
 
-from celery.schedules import crontab
-
-
-BACKUP_NOTIFICATION_EMAIL = 'me@subodh.co.in'
-
-from datetime import timedelta
 
 CELERY_BEAT_SCHEDULE = {
+    'check-cron-jobs-daily': {
+        'task': 'pep_app.tasks.check_and_execute_cron_jobs',  # Changed from partner_app to pep_app
+        'schedule': crontab(hour=7, minute=30),  # Run at 7:30 AM UTC
+    },
     'backup-database-weekly': {
         'task': 'products_app.tasks.backup_database',
         'schedule': crontab(minute=0, hour=2, day_of_week='sunday'),  # Runs every Sunday at 2 AM
     },
 }
-

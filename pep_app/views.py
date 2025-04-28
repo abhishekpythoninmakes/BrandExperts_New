@@ -197,217 +197,156 @@ logger = logging.getLogger(__name__)
 
 # Keep existing views...
 
-@require_GET
 def partner_contacts(request, partner_id):
-    """
-    API endpoint to get all contacts for a specific partner with email deliverability status
-    """
-    partner = get_object_or_404(Partners, id=partner_id)
-    contacts = Contact.objects.filter(partner=partner).order_by('-created_at')
+    """View to get all contacts for a specific partner"""
+    try:
+        partner = Partners.objects.get(id=partner_id)
+        contacts = Contact.objects.filter(partner=partner)
 
-    # Prepare contact data with email deliverability status
-    contact_data = []
-    for contact in contacts:
-        # Get email campaign status for this contact
-        recipient_statuses = EmailRecipient.objects.filter(contact=contact).values('status').annotate(count=Count('id'))
-        campaign_status = {status['status']: status['count'] for status in recipient_statuses}
-
-        # Get email deliverability status
-        deliverability_status = "Unknown"
-        if contact.email_deliverability:
-            try:
-                data = json.loads(contact.email_deliverability)
-                deliverability_status = data.get('status', 'Unknown')
-            except json.JSONDecodeError:
-                pass
-
-        contact_data.append({
-            'id': contact.id,
-            'name': contact.name,
-            'email': contact.email,
-            'mobile': contact.mobile,
-            'status': contact.status,
-            'created_at': contact.created_at.isoformat() if contact.created_at else None,
-            'email_deliverability': deliverability_status,
-            'campaign_status': campaign_status,
-            'accounts': [{'id': acc.id, 'name': acc.name} for acc in contact.account.all()]
-        })
-
-    return JsonResponse({
-        'partner': {
-            'id': partner.id,
-            'name': partner.user.username if partner.user else "Unknown",
-            'commission': float(partner.commission)
-        },
-        'contacts': contact_data
-    })
-
-
-class CampaignAnalyticsView(generics.RetrieveAPIView):
-    """
-    API endpoint for retrieving campaign analytics for a partner
-    """
-    serializer_class = CampaignAnalyticsSerializer
-
-    def get_object(self):
-        partner_id = self.kwargs.get('partner_id')
-        partner = get_object_or_404(Partners, id=partner_id)
-
-        # Get all contacts for this partner
-        partner_contacts = Contact.objects.filter(partner=partner)
-
-        # Get all recipients for these contacts
-        recipients = EmailRecipient.objects.filter(contact__in=partner_contacts)
-
-        # Get all campaigns for these recipients
-        campaign_ids = recipients.values_list('campaign_id', flat=True).distinct()
-        campaigns = EmailCampaign.objects.filter(id__in=campaign_ids)
-
-        # Calculate analytics
-        total_campaigns = campaigns.count()
-
-        # Get recipient stats
-        recipient_stats = recipients.aggregate(
-            total_sent=Count(Case(When(status='sent', then=1), output_field=IntegerField())),
-            total_opened=Count(Case(When(status='opened', then=1), output_field=IntegerField())),
-            total_clicked=Count(Case(When(status='link', then=1), output_field=IntegerField())),
-            total_failed=Count(Case(When(status='failed', then=1), output_field=IntegerField())),
-            total_unsubscribed=Count(Case(When(status='unsubscribed', then=1), output_field=IntegerField()))
-        )
-
-        total_sent = recipient_stats.get('total_sent', 0)
-        total_opened = recipient_stats.get('total_opened', 0)
-        total_clicked = recipient_stats.get('total_clicked', 0)
-        total_failed = recipient_stats.get('total_failed', 0)
-        total_unsubscribed = recipient_stats.get('total_unsubscribed', 0)
-
-        # Calculate rates
-        open_rate = (total_opened / total_sent * 100) if total_sent > 0 else 0
-        click_rate = (total_clicked / total_sent * 100) if total_sent > 0 else 0
-
-        # Get last campaign date
-        last_campaign = campaigns.order_by('-created_at').first()
-        last_campaign_date = last_campaign.created_at if last_campaign else None
-
-        # Get upcoming campaigns from cron jobs
-        now = timezone.now()
-        upcoming_cron_jobs = EmailCronJob.objects.filter(
-            status='active',
-            next_run__gt=now,
-            partners=partner
-        ).order_by('next_run')[:5]
-
-        upcoming_campaigns = []
-        for job in upcoming_cron_jobs:
-            upcoming_campaigns.append({
-                'id': str(job.id),
-                'name': job.name,
-                'template': job.email_template.name if job.email_template else "No template",
-                'scheduled_time': job.next_run.isoformat() if job.next_run else None,
-                'start_date': job.start_date.isoformat() if job.start_date else None,
-                'end_date': job.end_date.isoformat() if job.end_date else None
-            })
-
-        # Get recent campaigns
-        recent_campaigns = []
-        for campaign in campaigns.order_by('-created_at')[:5]:
-            campaign_recipients = recipients.filter(campaign=campaign)
-            recent_campaigns.append({
-                'id': campaign.id,
-                'name': campaign.name,
-                'sent_at': campaign.created_at.isoformat() if campaign.created_at else None,
-                'created_at': campaign.created_at.isoformat() if campaign.created_at else None,
-                'status': campaign.status,
-                'recipients': campaign_recipients.count(),
-                'opened': campaign_recipients.filter(status='opened').count(),
-                'clicked': campaign_recipients.filter(status='link').count(),
-                'failed': campaign_recipients.filter(status='failed').count(),
-                'unsubscribed': campaign_recipients.filter(status='unsubscribed').count()
-            })
-
-        # Get new contacts count (added in the last 7 days)
-        seven_days_ago = now - timezone.timedelta(days=7)
-        new_contacts_count = partner_contacts.filter(created_at__gte=seven_days_ago).count()
-
-        # Get total contacts
-        total_contacts = partner_contacts.count()
-
-        # Get contact status distribution
-        contact_status_distribution = list(partner_contacts.values('status').annotate(
-            count=Count('status')
-        ).order_by('-count'))
-
-        # Get partner earnings (commission)
-        partner_earnings = float(partner.commission) if partner.commission else 0.0
-
-        # Get partner tasks
-        today = timezone.now().date()
-        partner_tasks = partner.tasks.filter(
-            start_date__lte=today,
-            end_date__gte=today
-        ).count()
-
-        # Prepare the result
-        result = {
-            'total_campaigns': total_campaigns,
-            'total_sent': total_sent,
-            'total_failed': total_failed,
-            'total_opened': total_opened,
-            'total_clicked': total_clicked,
-            'total_unsubscribed': total_unsubscribed,
-            'open_rate': round(open_rate, 2),
-            'click_rate': round(click_rate, 2),
-            'last_campaign_date': last_campaign_date,
-            'upcoming_campaigns': upcoming_campaigns,
-            'recent_campaigns': recent_campaigns,
-            'new_contacts_count': new_contacts_count,
-            'total_contacts': total_contacts,
-            'contact_status_distribution': contact_status_distribution,
-            'partner_name': partner.user.username if partner.user else "Unknown Partner",
-            'partner_earnings': partner_earnings,
-            'partner_tasks': partner_tasks
+        data = {
+            'partner': {
+                'id': partner.id,
+                'name': partner.user.username if partner.user else "Unknown",
+            },
+            'contacts': [
+                {
+                    'id': contact.id,
+                    'name': contact.name,
+                    'email': contact.email,
+                    'status': contact.status,
+                    'created_at': contact.created_at.isoformat(),
+                }
+                for contact in contacts
+            ],
+            'total': contacts.count()
         }
 
-        return result
+        return JsonResponse(data)
+    except Partners.DoesNotExist:
+        return JsonResponse({'error': 'Partner not found'}, status=404)
 
 
-class EmailCronJobViewSet(viewsets.ModelViewSet):
-    """
-    API endpoint for managing email cron jobs
-    """
-    queryset = EmailCronJob.objects.all()
-    serializer_class = EmailCronJobSerializer
+class CampaignAnalyticsView(View):
+    """View to get campaign analytics for a specific partner"""
 
-    def get_serializer_class(self):
-        if self.action == 'create':
-            return CronJobCreateSerializer
-        return EmailCronJobSerializer
+    def get(self, request, partner_id):
+        try:
+            partner = Partners.objects.get(id=partner_id)
 
-    @action(detail=True, methods=['post'])
-    def execute(self, request, pk=None):
-        """
-        Manually execute a cron job
-        """
-        cron_job = self.get_object()
-        execute_email_cron_job.delay(str(cron_job.id))
-        return Response({'status': 'Cron job execution scheduled'})
+            # Get filter parameters
+            start_date = request.GET.get('start_date')
+            end_date = request.GET.get('end_date')
+            status = request.GET.get('status')
 
-    @action(detail=True, methods=['post'])
-    def pause(self, request, pk=None):
-        """
-        Pause a cron job
-        """
-        cron_job = self.get_object()
-        cron_job.status = 'paused'
-        cron_job.save()
-        return Response({'status': 'Cron job paused'})
+            # Base query - get campaigns for contacts added by this partner
+            campaigns = EmailCampaign.objects.filter(
+                contact_lists__contacts_new__partner=partner
+            ).distinct()
 
-    @action(detail=True, methods=['post'])
-    def resume(self, request, pk=None):
-        """
-        Resume a paused cron job
-        """
-        cron_job = self.get_object()
-        cron_job.status = 'active'
-        cron_job.save()
-        return Response({'status': 'Cron job resumed'})
+            # Apply filters
+            if start_date:
+                campaigns = campaigns.filter(created_at__gte=start_date)
+            if end_date:
+                campaigns = campaigns.filter(created_at__lte=end_date)
+            if status:
+                campaigns = campaigns.filter(status=status)
+
+            # Prepare response data
+            campaign_data = []
+            for campaign in campaigns:
+                # Get recipients for this campaign from this partner
+                recipients = EmailRecipient.objects.filter(
+                    campaign=campaign,
+                    contact__partner=partner
+                )
+
+                # Get execution data if this was from a cron job
+                executions = CronJobExecution.objects.filter(campaign=campaign)
+                cron_job = None
+                if executions.exists():
+                    cron_job = executions.first().cron_job
+
+                campaign_data.append({
+                    'id': campaign.id,
+                    'name': campaign.name,
+                    'status': campaign.status,
+                    'delivery_status': campaign.delivery_status,
+                    'created_at': campaign.created_at.isoformat(),
+                    'total_recipients': recipients.count(),
+                    'opened': recipients.filter(status='opened').count(),
+                    'clicked': recipients.filter(status='link').count(),
+                    'unsubscribed': recipients.filter(status='unsubscribed').count(),
+                    'next_run': cron_job.next_run.isoformat() if cron_job and cron_job.next_run else None,
+                    'last_run': cron_job.last_run.isoformat() if cron_job and cron_job.last_run else None,
+                })
+
+            return JsonResponse({
+                'partner': {
+                    'id': partner.id,
+                    'name': partner.user.username if partner.user else "Unknown",
+                },
+                'campaigns': campaign_data,
+                'total': len(campaign_data)
+            })
+
+        except Partners.DoesNotExist:
+            return JsonResponse({'error': 'Partner not found'}, status=404)
+
+
+class CompletedCampaignAnalyticsView(View):
+    """View to get analytics for completed campaigns for a specific partner"""
+
+    def get(self, request, partner_id):
+        try:
+            partner = Partners.objects.get(id=partner_id)
+
+            # Get completed campaigns for this partner
+            completed_campaigns = EmailCampaign.objects.filter(
+                contact_lists__contacts_new__partner=partner,
+                status='sent',
+                delivery_status='campaign_sent'
+            ).distinct()
+
+            # Prepare detailed analytics
+            campaign_analytics = []
+            for campaign in completed_campaigns:
+                # Get recipients for this campaign from this partner
+                recipients = EmailRecipient.objects.filter(
+                    campaign=campaign,
+                    contact__partner=partner
+                )
+
+                total = recipients.count()
+                opened = recipients.filter(status='opened').count()
+                clicked = recipients.filter(status='link').count()
+                unsubscribed = recipients.filter(status='unsubscribed').count()
+
+                # Calculate rates
+                open_rate = (opened / total * 100) if total > 0 else 0
+                click_rate = (clicked / total * 100) if total > 0 else 0
+                unsubscribe_rate = (unsubscribed / total * 100) if total > 0 else 0
+
+                campaign_analytics.append({
+                    'id': campaign.id,
+                    'name': campaign.name,
+                    'created_at': campaign.created_at.isoformat(),
+                    'total_recipients': total,
+                    'opened': opened,
+                    'clicked': clicked,
+                    'unsubscribed': unsubscribed,
+                    'open_rate': round(open_rate, 2),
+                    'click_rate': round(click_rate, 2),
+                    'unsubscribe_rate': round(unsubscribe_rate, 2),
+                })
+
+            return JsonResponse({
+                'partner': {
+                    'id': partner.id,
+                    'name': partner.user.username if partner.user else "Unknown",
+                },
+                'completed_campaigns': campaign_analytics,
+                'total': len(campaign_analytics)
+            })
+
+        except Partners.DoesNotExist:
+            return JsonResponse({'error': 'Partner not found'}, status=404)

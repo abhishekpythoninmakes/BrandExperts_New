@@ -16,7 +16,7 @@ from django.db import transaction
 from django.utils import timezone
 from django.conf import settings
 
-from .models import Contact, Partners, Tasks, ContactList, Accounts, EmailCronJob
+from .models import Contact, Partners, Tasks, ContactList, Accounts, EmailCronJob, CronJobExecution
 import pandas as pd
 from products_app.models import CustomUser
 from django.core.exceptions import ObjectDoesNotExist
@@ -412,6 +412,7 @@ def send_email_campaign(campaign_id):
 
         # Finalize campaign
         campaign.status = 'sent'
+        campaign.delivery_status = 'campaign_sent'
         campaign.sent_at = timezone.now()
         campaign.save()
         print("Email campaign task completed. === status ==",campaign.status)
@@ -480,43 +481,23 @@ def link_contact_and_update_status(customer_email):
 def check_and_execute_cron_jobs():
     """
     Check for cron jobs that need to be executed
-    This task should be scheduled to run every day at 7:30 AM UTC
+    This task is scheduled to run at the time specified in settings.py
     """
     now = timezone.now()
     logger.info(f"Running check_and_execute_cron_jobs at {now}")
-
-    # Only execute if it's around 7:30 AM UTC (with a 5-minute window)
-    current_time = now.time()
-    target_time = dt_time(7, 30)  # Fixed: Using time() correctly
-
-    time_diff = abs((current_time.hour * 60 + current_time.minute) -
-                    (target_time.hour * 60 + target_time.minute))
-
-    if time_diff > 5:  # More than 5 minutes from 7:30 AM
-        logger.info(f"Skipping execution, current time {current_time} is not close to 7:30 AM UTC")
-        return
 
     # Find active jobs within their date range
     today = now.date()
     active_jobs = EmailCronJob.objects.filter(
         status='active',
+        start_date__lte=today,
+        end_date__gte=today,
+        next_run__lte=now  # Only execute jobs that are due to run
     )
 
-    # Filter by date range if specified
-    date_filtered_jobs = []
+    logger.info(f"Found {active_jobs.count()} active cron jobs to execute")
+
     for job in active_jobs:
-        if job.start_date and job.start_date > today:
-            continue
-        if job.end_date and job.end_date < today:
-            # Mark as completed if end date has passed
-            job.status = 'completed'
-            job.save()
-            continue
-        date_filtered_jobs.append(job)
-
-    logger.info(f"Found {len(date_filtered_jobs)} active cron jobs to execute")
-
-    for job in date_filtered_jobs:
         try:
             # Execute the job
             execute_email_cron_job.delay(str(job.id))
@@ -545,67 +526,69 @@ def execute_email_cron_job(cron_job_id):
         )
 
         try:
-            # Determine time range for new contacts
-            today = timezone.now().date()
+            # Get the current time
+            now = timezone.now()
 
-            # For the first run, use start_date as reference
-            # For subsequent runs, use last_run
-            reference_date = None
-            if cron_job.last_run:
-                reference_date = cron_job.last_run
-            else:
-                reference_date = timezone.make_aware(
-                    datetime.combine(cron_job.start_date or today, dt_time(0, 0)),
-                    timezone=pytz.UTC
-                )
-
-            logger.info(f"Looking for contacts created after {reference_date}")
-
-            # Find new contacts created since the reference date
-            # Exclude contacts that have already been processed by this cron job
+            # Find contacts created between start_date and end_date
+            # that haven't been processed by this cron job yet
             new_contacts_query = Contact.objects.filter(
-                created_at__gte=reference_date,
-                created_at__date__lte=today
+                created_at__date__gte=cron_job.start_date,
+                created_at__date__lte=cron_job.end_date
             ).exclude(
                 status='unsubscribed'
             ).exclude(
-                processed_by_cron_jobs=cron_job
+                processed_by_cron_jobs=cron_job  # Don't process contacts that have already been processed
             )
+
+            logger.info(f"Looking for contacts created between {cron_job.start_date} and {cron_job.end_date}")
 
             # If contact lists are specified, only include contacts from those lists
             if cron_job.contact_lists.exists():
+                logger.info(f"Filtering by {cron_job.contact_lists.count()} contact lists")
                 new_contacts_query = new_contacts_query.filter(
                     contactlist__in=cron_job.contact_lists.all()
                 )
+
+            # Get the initial count before deliverability filtering
+            initial_count = new_contacts_query.count()
+            logger.info(f"Found {initial_count} contacts before deliverability check")
 
             # Check email deliverability status
             valid_contacts = []
             partner_ids = set()  # Track unique partner IDs
 
             for contact in new_contacts_query:
-                # Check if email deliverability status is OK
+                # Add debug info about each contact being evaluated
+                logger.info(f"Evaluating contact: {contact.email} (created: {contact.created_at})")
+
+                # Check if email deliverability status is OK or missing
+                is_valid = False
                 if contact.email_deliverability:
                     try:
                         deliverability_data = json.loads(contact.email_deliverability)
                         status = deliverability_data.get('status', '').lower()
 
-                        # Only include contacts with valid email status
-                        if status in ['valid', 'ok', 'deliverable']:
-                            valid_contacts.append(contact)
-                            # Track partner ID if available
-                            if contact.partner and contact.partner.id:
-                                partner_ids.add(contact.partner.id)
+                        # Include contacts with valid email status or catch_all status
+                        if status in ['valid', 'ok', 'deliverable', 'catch_all']:
+                            is_valid = True
+                            logger.info(f"Contact {contact.email} has valid deliverability status: {status}")
                         else:
                             logger.info(f"Skipping contact {contact.email} due to deliverability status: {status}")
                     except json.JSONDecodeError:
-                        # If we can't parse the JSON, assume it's not valid
-                        logger.warning(f"Could not parse deliverability data for {contact.email}")
+                        # Default to allowing if we can't parse JSON
+                        is_valid = True
+                        logger.warning(f"Could not parse deliverability data for {contact.email}, including by default")
                 else:
-                    # If no deliverability data, include the contact (default to allowing)
+                    # If no deliverability data, include the contact
+                    is_valid = True
+                    logger.info(f"Contact {contact.email} has no deliverability data, including by default")
+
+                if is_valid:
                     valid_contacts.append(contact)
                     # Track partner ID if available
                     if contact.partner and contact.partner.id:
                         partner_ids.add(contact.partner.id)
+                        logger.info(f"Found partner {contact.partner.id} for contact {contact.email}")
 
             contacts_count = len(valid_contacts)
             logger.info(f"Found {contacts_count} valid contacts for cron job {cron_job.name}")
@@ -622,11 +605,14 @@ def execute_email_cron_job(cron_job_id):
             # Update partners for the cron job based on the contacts
             if partner_ids:
                 partners = Partners.objects.filter(id__in=partner_ids)
-                cron_job.partners.add(*partners)
-                logger.info(f"Added {len(partners)} partners to cron job {cron_job.name}")
+                logger.info(f"Adding {len(partners)} partners to cron job {cron_job.name}")
+                for partner in partners:
+                    cron_job.partners.add(partner)
+                    logger.info(f"Added partner {partner.id} to cron job {cron_job.name}")
 
             # Create contact list
-            contact_list_name = f"Auto-generated for {cron_job.name} on {today}"
+            timestamp = timezone.now().strftime('%Y%m%d_%H%M%S')
+            contact_list_name = f"Auto-generated for {cron_job.name}_{timestamp}"
             contact_list = ContactList.objects.create(
                 name=contact_list_name,
                 created_by=cron_job.created_by
@@ -635,12 +621,13 @@ def execute_email_cron_job(cron_job_id):
             logger.info(f"Created contact list with {contacts_count} contacts")
 
             # Create campaign
-            campaign_name = f"Auto-campaign from {cron_job.name} on {today}"
+            campaign_name = f"Auto-campaign from {cron_job.name}_{timestamp}"
             campaign = EmailCampaign.objects.create(
                 name=campaign_name,
                 template=cron_job.email_template,
                 subject=cron_job.email_template.subject if cron_job.email_template else "No Subject",
                 status='draft',
+                delivery_status='queued',
                 created_by=cron_job.created_by
             )
             campaign.contact_lists.add(contact_list)
@@ -650,15 +637,18 @@ def execute_email_cron_job(cron_job_id):
             execution.campaign = campaign
             execution.save()
 
-            # Add contacts to processed list
-            cron_job.processed_contacts.add(*valid_contacts)
-            execution.new_contacts_processed.add(*valid_contacts)
+            # Add contacts to processed list to prevent duplicate processing
+            for contact in valid_contacts:
+                cron_job.processed_contacts.add(contact)
+                execution.new_contacts_processed.add(contact)
+                logger.info(f"Marked contact {contact.email} as processed by cron job {cron_job.name}")
 
             # Queue for sending
             send_email_campaign.delay(campaign.id)
             campaign.status = 'pending'
             campaign.save()
 
+            logger.info(f"Successfully executed cron job {cron_job.name}, created campaign {campaign.name}")
             return f"Successfully executed cron job {cron_job.name}"
 
         except Exception as e:
@@ -672,29 +662,3 @@ def execute_email_cron_job(cron_job_id):
     except EmailCronJob.DoesNotExist:
         logger.error(f"Cron job with ID {cron_job_id} not found")
         return f"Error: Cron job with ID {cron_job_id} not found"
-
-
-@shared_task
-def schedule_cron_job(job_id):
-    """Schedule a cron job for execution"""
-    try:
-        job = EmailCronJob.objects.get(id=job_id)
-        logger.info(f"Scheduling cron job: {job.name} (ID: {job_id})")
-
-        # Calculate next run time based on frequency
-        job.next_run = job.calculate_next_run()
-
-        # Check if the job should be active based on date range
-        today = timezone.now().date()
-        if job.end_date and today > job.end_date:
-            job.status = 'completed'
-            logger.info(f"Cron job {job.id} marked as completed (end date reached)")
-
-        job.save()
-        logger.info(f"Scheduled cron job {job.id} with next run at {job.next_run}")
-
-    except EmailCronJob.DoesNotExist:
-        logger.error(f"Cron job with ID {job_id} not found")
-    except Exception as e:
-        logger.error(f"Error in schedule_cron_job for job {job_id}: {str(e)}")
-        logger.error(traceback.format_exc())

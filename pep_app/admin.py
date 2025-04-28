@@ -715,9 +715,9 @@ admin.site.register(Placeholder)
 
 
 class EmailCampaignAdmin(admin.ModelAdmin):
-    list_display = ('name', 'status_badge', 'created_at', 'selected', 'campaign_actions')
+    list_display = ('name', 'status_badge','delivery_status', 'created_at', 'selected', 'campaign_actions')
     list_editable = ('selected',)
-    list_filter = ('status', 'created_by')
+    list_filter = ('status','delivery_status', 'created_by')
     search_fields = ('name', 'subject', 'sender_name')
     readonly_fields = ('created_at', 'created_by')
     filter_horizontal = ('contact_lists',)
@@ -729,7 +729,7 @@ class EmailCampaignAdmin(admin.ModelAdmin):
 
     fieldsets = (
         ('Basic Information', {
-            'fields': ('name', 'sender_name', 'status', 'selected')
+            'fields': ('name', 'sender_name', 'status','delivery_status', 'selected')
         }),
         ('Campaign Content', {
             'fields': ('subject', 'template', 'custom_content'),
@@ -967,20 +967,20 @@ class EmailCronJobAdmin(admin.ModelAdmin):
     list_display = ('name', 'frequency', 'status', 'start_date', 'end_date', 'last_run', 'next_run')
     search_fields = ('name',)
     list_filter = ('frequency', 'status', 'start_date', 'end_date')
-    readonly_fields = ('last_run', 'next_run', 'created_at', 'updated_at')
+    readonly_fields = ( 'created_at', 'updated_at', 'created_by')
     filter_horizontal = ('partners', 'contact_lists', 'campaigns', 'processed_contacts')
     fieldsets = (
         (None, {
-            'fields': ('name', 'email_template', 'email_category', 'status')
+            'fields': ('name', 'email_template', 'status')
         }),
         ('Schedule', {
-            'fields': ('frequency', 'cron_expression', 'start_date', 'end_date', 'last_run', 'next_run')
+            'fields': ('frequency', 'start_date', 'end_date', 'last_run', 'next_run')
         }),
         ('Associations', {
             'fields': ('partners', 'contact_lists', 'campaigns', 'processed_contacts')
         }),
         ('Metadata', {
-            'fields': ('created_by', 'created_at', 'updated_at')
+            'fields': ('created_at', 'updated_at')
         }),
     )
     inlines = [CronJobExecutionInline]
@@ -997,7 +997,8 @@ class CronJobExecutionAdmin(admin.ModelAdmin):
     search_fields = ('cron_job__name',)
     list_filter = ('status', 'execution_time')
     readonly_fields = (
-    'cron_job', 'campaign', 'execution_time', 'status', 'contacts_found', 'emails_sent', 'error_message')
+        'cron_job', 'campaign', 'execution_time', 'status', 'contacts_found', 'emails_sent', 'error_message'
+    )
     filter_horizontal = ('new_contacts_processed',)
 
     def cron_job_name(self, obj):

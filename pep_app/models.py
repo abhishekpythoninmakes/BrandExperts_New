@@ -199,16 +199,22 @@ class EmailCampaign(models.Model):
         ('cancelled', 'Cancelled'),
     ]
 
+    DELIVERY_STATUS_CHOICES = [
+        ('queued', 'Queued'),
+        ('campaign_sent', 'Campaign Sent'),
+    ]
+
     name = models.CharField(max_length=255)
-    sender_name = models.CharField(max_length=255,null=True,blank=True)
+    sender_name = models.CharField(max_length=255, null=True, blank=True)
     contact_lists = models.ManyToManyField(ContactList)
     template = models.ForeignKey(EmailTemplate, on_delete=models.SET_NULL, null=True, blank=True)
-    custom_content = RichTextUploadingField(null=True, blank=True,config_name='default')
-    subject = models.CharField(max_length=255,null=True,blank=True,default="No Subject")
+    custom_content = RichTextUploadingField(null=True, blank=True, config_name='default')
+    subject = models.CharField(max_length=255, null=True, blank=True, default="No Subject")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
+    delivery_status = models.CharField(max_length=20, choices=DELIVERY_STATUS_CHOICES, default='queued')
     created_at = models.DateTimeField(auto_now_add=True)
-    created_by = models.ForeignKey(CustomUser, on_delete=models.CASCADE,null=True,blank=True)
-    selected = models.BooleanField(default=False,null=True,blank=True)
+    created_by = models.ForeignKey(CustomUser, on_delete=models.CASCADE, null=True, blank=True)
+    selected = models.BooleanField(default=False, null=True, blank=True)
 
     def get_email_content(self):
         if self.custom_content:
@@ -218,7 +224,6 @@ class EmailCampaign(models.Model):
         else:
             content = ""
         return content
-
 
     def get_email_subject(self):
         return self.subject or (self.template.subject if self.template else "No Subject")
@@ -276,13 +281,11 @@ class EmailCampaignAnalytics(models.Model):
 
 
 class CronJobFrequency(models.TextChoices):
-    MINUTES = 'minutes', 'Minutes'
     HOURLY = 'hourly', 'Hourly'
     DAILY = 'daily', 'Daily'
     WEEKLY = 'weekly', 'Weekly'
     MONTHLY = 'monthly', 'Monthly'
     YEARLY = 'yearly', 'Yearly'
-    SPECIFIC_DATE = 'specific_date', 'Specific Date'
 
 
 class CronJobStatus(models.TextChoices):
@@ -303,14 +306,6 @@ class EmailCronJob(models.Model):
         related_name='cron_jobs',
         help_text="Select the email template to use for campaigns triggered by this cron job"
     )
-    email_category = models.ForeignKey(
-        EmailTemplateCategory,
-        null=True,
-        blank=True,
-        on_delete=models.CASCADE,
-        related_name='cron_jobs',
-        help_text="Select the email category"
-    )
     # Partner field is optional - will be determined automatically based on contacts
     partners = models.ManyToManyField(
         Partners,
@@ -330,22 +325,11 @@ class EmailCronJob(models.Model):
         default=CronJobFrequency.DAILY,
         help_text="Frequency of the cron job execution"
     )
-    # For more complex schedules, we can use a cron expression
-    cron_expression = models.CharField(
-        max_length=100,
-        blank=True,
-        null=True,
-        help_text="Custom cron expression (e.g., '0 7 * * *' for daily at 7 AM)"
-    )
     start_date = models.DateField(
-        null=True,
-        blank=True,
-        help_text="Start date in UTC. Cron job will start checking for contacts from this date."
+        help_text="Start date in UTC. Cron job will start checking for contacts from this date.",null=True,blank=True
     )
     end_date = models.DateField(
-        null=True,
-        blank=True,
-        help_text="End date in UTC. Cron job will stop running after this date."
+        help_text="End date in UTC. Cron job will stop running after this date.",null=True,blank=True
     )
     last_run = models.DateTimeField(null=True, blank=True)
     next_run = models.DateTimeField(null=True, blank=True)
@@ -392,9 +376,7 @@ class EmailCronJob(models.Model):
             tomorrow = now.date() + timedelta(days=1)
             return timezone.make_aware(datetime.combine(tomorrow, time(7, 30)))
 
-        if self.frequency == CronJobFrequency.MINUTES:
-            return self.last_run + timedelta(minutes=15)  # Default to 15 minutes
-        elif self.frequency == CronJobFrequency.HOURLY:
+        if self.frequency == CronJobFrequency.HOURLY:
             return self.last_run + timedelta(hours=1)
         elif self.frequency == CronJobFrequency.DAILY:
             return self.last_run + timedelta(days=1)
@@ -420,6 +402,8 @@ class EmailCronJob(models.Model):
             )
 
         super().save(*args, **kwargs)
+
+
 
 
 class CronJobExecution(models.Model):
