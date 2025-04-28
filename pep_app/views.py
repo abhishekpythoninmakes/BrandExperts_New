@@ -215,6 +215,7 @@ def partner_contacts(request, partner_id):
                     'email': contact.email,
                     'status': contact.status,
                     'created_at': contact.created_at.isoformat(),
+                    'email_deliverability': contact.email_deliverability,
                 }
                 for contact in contacts
             ],
