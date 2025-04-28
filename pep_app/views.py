@@ -391,6 +391,7 @@ class PartnerCampaignAnalyticsView(APIView):
         total_completed_campaigns = campaigns.filter(delivery_status='campaign_sent').count()
 
         # Total failed campaigns
+        total_queued_campaigns = campaigns.filter(status='queued').count()
         total_failed_campaigns = campaigns.filter(status='failed').count()
 
         # Total opened emails
@@ -403,6 +404,15 @@ class PartnerCampaignAnalyticsView(APIView):
             campaign__in=campaigns, status='link'
         ).count()
 
+        # Get email deliverability status counts (valid/invalid emails)
+        valid_email_contacts = Contact.objects.filter(
+            email_deliverability="Email is valid and deliverable"
+        ).count()
+
+        invalid_email_contacts = Contact.objects.filter(
+            email_deliverability="Invalid email"
+        ).count()
+
         # Prepare the response data
         data = {
             "total_campaigns": total_campaigns,
@@ -411,8 +421,11 @@ class PartnerCampaignAnalyticsView(APIView):
             "total_sent_campaigns": total_sent_campaigns,
             "total_completed_campaigns": total_completed_campaigns,
             "total_failed_campaigns": total_failed_campaigns,
+            "total_queued_campaigns": total_queued_campaigns,
             "total_opened_emails": total_opened_emails,
             "total_link_clicked": total_link_clicked,
+            "valid_email_contacts": valid_email_contacts,
+            "invalid_email_contacts": invalid_email_contacts,
         }
 
         # Serialize the data

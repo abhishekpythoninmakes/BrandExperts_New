@@ -155,5 +155,8 @@ class CampaignAnalyticsSerializerNew(serializers.Serializer):
     total_sent_campaigns = serializers.IntegerField()
     total_completed_campaigns = serializers.IntegerField()
     total_failed_campaigns = serializers.IntegerField()
+    total_queued_campaigns = serializers.IntegerField()  # Added for queued campaigns
     total_opened_emails = serializers.IntegerField()
     total_link_clicked = serializers.IntegerField()
+    valid_email_contacts = serializers.IntegerField()  # Added for valid email contacts
+    invalid_email_contacts = serializers.IntegerField()  # Added for invalid email contacts
