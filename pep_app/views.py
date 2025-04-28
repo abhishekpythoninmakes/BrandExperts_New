@@ -231,7 +231,7 @@ class CampaignAnalyticsView(View):
 
     def get(self, request, partner_id):
         try:
-            partner = Partners.objects.get(id=partner_id)
+            partner = Partners.objects.get(user_id=partner_id)
 
             # Get filter parameters
             start_date = request.GET.get('start_date')
@@ -298,7 +298,7 @@ class CompletedCampaignAnalyticsView(View):
 
     def get(self, request, partner_id):
         try:
-            partner = Partners.objects.get(id=partner_id)
+            partner = Partners.objects.get(user_id=partner_id)
 
             # Get completed campaigns for this partner
             completed_campaigns = EmailCampaign.objects.filter(
