@@ -364,7 +364,7 @@ class PartnerCampaignAnalyticsView(APIView):
 
         try:
             # Fetch the partner object
-            partner = Partners.objects.get(id=partner_id)
+            partner = Partners.objects.get(user_id=partner_id)
         except Partners.DoesNotExist:
             return Response({"error": "Partner not found"}, status=status.HTTP_404_NOT_FOUND)
 
