@@ -112,7 +112,8 @@ class ContactCreateAPIView(APIView):
 
     def post(self, request):
         # Manual content type handling
-        content_type = request.content_type.split(';')[0].strip().lower()
+        content_type = request.content_type.split(';')[
+            0].strip().lower() if request.content_type else 'application/json'
 
         try:
             # Handle raw text/plain input
@@ -120,17 +121,23 @@ class ContactCreateAPIView(APIView):
                 data = json.loads(request.body)
             else:
                 data = request.data
+
+            # Log received data for debugging
+            print(f"Received data: {data}")
+
         except json.JSONDecodeError as e:
             return Response(
                 {
                     "error": "Invalid JSON format",
                     "detail": str(e),
+                    "received_content": request.body.decode('utf-8', errors='replace')[:500],
+                    "content_type": content_type,
                     "example_request": {
                         "partner_user_id": 253,
                         "name": "John Doe",
                         "email": "john@example.com",
                         "mobile": "+1234567890",
-                        "accounts": "kef, smbs, def",  # Updated example with comma-separated format
+                        "accounts": ["Company A"],
                         "status": "data"
                     }
                 },
@@ -145,54 +152,80 @@ class ContactCreateAPIView(APIView):
             # Split by comma and strip whitespace
             data['accounts'] = [acc.strip() for acc in data['accounts'].split(',') if acc.strip()]
 
+        # Ensure partner_user_id is an integer
+        if 'partner_user_id' in data and not isinstance(data['partner_user_id'], int):
+            try:
+                data['partner_user_id'] = int(data['partner_user_id'])
+            except (ValueError, TypeError):
+                return Response(
+                    {"error": "partner_user_id must be an integer", "received": data.get('partner_user_id')},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
         serializer = ContactCreateSerializer(
             data=data,
             context={'request': request}
         )
 
-        if serializer.is_valid():
-            try:
-                # Save the contact
-                contact = serializer.save()
+        if not serializer.is_valid():
+            # Enhanced error response with received data
+            return Response(
+                {
+                    "error": "Invalid data",
+                    "validation_errors": serializer.errors,
+                    "received_data": data
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-                # Trigger email validation if requested and email exists
-                if validate_email_flag and contact.email:
-                    validate_email.delay(contact.id)
-                    validation_status = "Scheduled"
-                else:
-                    validation_status = "Skipped" if contact.email else "No email provided"
+        try:
+            # Save the contact
+            contact = serializer.save()
 
-                # Prepare response
-                response_data = {
-                    'id': contact.id,
-                    'name': contact.name,
-                    'email': contact.email,
-                    'mobile': contact.mobile,
-                    'status': contact.status,
-                    'partner': {
-                        'user_id': contact.partner.user.id,
-                        'username': contact.partner.user.username,
-                        'partner_id': contact.partner.id
-                    },
-                    'created_by': contact.created_by.username,
-                    'accounts': [account.name for account in contact.account.all()],
-                    'additional_data': contact.additional_data,
-                    'created_at': contact.created_at,
-                    'email_validation': {
-                        'status': validation_status,
-                        'deliverability': contact.email_deliverability or "Not checked yet"
-                    }
+            # Trigger email validation if requested and email exists
+            if validate_email_flag and contact.email:
+                validate_email.delay(contact.id)
+                validation_status = "Scheduled"
+            else:
+                validation_status = "Skipped" if contact.email else "No email provided"
+
+            # Prepare response
+            response_data = {
+                'id': contact.id,
+                'name': contact.name,
+                'email': contact.email,
+                'mobile': contact.mobile,
+                'status': contact.status,
+                'partner': {
+                    'user_id': contact.partner.user.id,
+                    'username': contact.partner.user.username,
+                    'partner_id': contact.partner.id
+                },
+                'created_by': contact.created_by.username,
+                'accounts': [account.name for account in contact.account.all()],
+                'additional_data': contact.additional_data,
+                'created_at': contact.created_at,
+                'email_validation': {
+                    'status': validation_status,
+                    'deliverability': contact.email_deliverability or "Not checked yet"
                 }
+            }
 
-                return Response(response_data, status=status.HTTP_201_CREATED)
+            return Response(response_data, status=status.HTTP_201_CREATED)
 
-            except Exception as e:
-                return Response(
-                    {"error": "Failed to create contact", "detail": str(e)},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            # Enhanced error logging and response
+            import traceback
+            print(f"Error creating contact: {str(e)}")
+            print(traceback.format_exc())
+            return Response(
+                {
+                    "error": "Failed to create contact",
+                    "detail": str(e),
+                    "received_data": data
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
 
 # Partner Details commission

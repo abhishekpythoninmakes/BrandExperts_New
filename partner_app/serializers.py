@@ -91,7 +91,7 @@ class ContactCreateSerializer(serializers.ModelSerializer):
             if not (hasattr(user, 'partner') or user.is_partner):
                 raise serializers.ValidationError("User is not associated with a partner")
         except User.DoesNotExist:
-            raise serializers.ValidationError("User does not exist")
+            raise serializers.ValidationError(f"User with ID {value} does not exist")
         return value
 
     def validate_accounts(self, value):
@@ -120,17 +120,27 @@ class ContactCreateSerializer(serializers.ModelSerializer):
             # First try to get the partner directly
             partner = Partners.objects.get(user_id=partner_user_id)
         except Partners.DoesNotExist:
-            # If no partner profile exists, check if the user is a partner themselves
-            user = User.objects.get(id=partner_user_id)
-            if user.is_partner:
-                # Create a partner profile for this user
-                partner = Partners.objects.create(
-                    user=user,
-                    created_at=timezone.now()
-                )
-            else:
+            # Try to access or debug the issue
+            user = None
+            try:
+                user = User.objects.get(id=partner_user_id)
+                if user.is_partner:
+                    # Create a partner profile for this user
+                    partner = Partners.objects.create(
+                        user=user,
+                        created_at=timezone.now()
+                    )
+                else:
+                    raise serializers.ValidationError(
+                        {"partner_user_id": f"User {user.username} (ID: {partner_user_id}) is not a partner and cannot be automatically assigned"}
+                    )
+            except User.DoesNotExist:
                 raise serializers.ValidationError(
-                    {"partner_user_id": "User is not associated with a partner and cannot be automatically assigned"}
+                    {"partner_user_id": f"User with ID {partner_user_id} does not exist"}
+                )
+            except Exception as e:
+                raise serializers.ValidationError(
+                    {"partner_user_id": f"Error processing partner user ID {partner_user_id}: {str(e)}"}
                 )
 
         # Create the contact
