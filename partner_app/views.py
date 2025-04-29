@@ -61,7 +61,7 @@ class PartnerContactsAPIView(APIView):
                 "email": contact.email,
                 "number": contact.mobile,
                 "accounts": accounts_str,
-                "email_delivery_status": contact.email_deliverability or "queued",
+                "email_delivery_status": contact.email_deliverability or "queued..",
 
             })
 
