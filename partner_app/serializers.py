@@ -106,41 +106,34 @@ class ContactCreateSerializer(serializers.ModelSerializer):
         partner_user_id = validated_data.pop('partner_user_id')
         account_names = validated_data.pop('accounts', [])
 
-        # Get or create accounts
+        # Get or create accounts - FIXED to handle Accounts model without created_by field
         accounts = []
         for name in account_names:
-            account, created = Accounts.objects.get_or_create(
-                name=name.strip(),
-                defaults={'created_by': self.context['request'].user}
-            )
-            accounts.append(account)
+            try:
+                # First try to get existing account
+                account = Accounts.objects.get(name=name.strip())
+                accounts.append(account)
+            except Accounts.DoesNotExist:
+                # Create new account without created_by field
+                account = Accounts.objects.create(name=name.strip())
+                accounts.append(account)
 
         # Get the partner - handle both direct partner users and users with partner profiles
         try:
             # First try to get the partner directly
             partner = Partners.objects.get(user_id=partner_user_id)
         except Partners.DoesNotExist:
-            # Try to access or debug the issue
-            user = None
-            try:
-                user = User.objects.get(id=partner_user_id)
-                if user.is_partner:
-                    # Create a partner profile for this user
-                    partner = Partners.objects.create(
-                        user=user,
-                        created_at=timezone.now()
-                    )
-                else:
-                    raise serializers.ValidationError(
-                        {"partner_user_id": f"User {user.username} (ID: {partner_user_id}) is not a partner and cannot be automatically assigned"}
-                    )
-            except User.DoesNotExist:
-                raise serializers.ValidationError(
-                    {"partner_user_id": f"User with ID {partner_user_id} does not exist"}
+            # If no partner profile exists, check if the user is a partner themselves
+            user = User.objects.get(id=partner_user_id)
+            if user.is_partner:
+                # Create a partner profile for this user
+                partner = Partners.objects.create(
+                    user=user,
+                    created_at=timezone.now()
                 )
-            except Exception as e:
+            else:
                 raise serializers.ValidationError(
-                    {"partner_user_id": f"Error processing partner user ID {partner_user_id}: {str(e)}"}
+                    {"partner_user_id": "User is not associated with a partner and cannot be automatically assigned"}
                 )
 
         # Create the contact
