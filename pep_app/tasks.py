@@ -157,7 +157,7 @@ def send_email_campaign(campaign_id):
 
         # Get all contacts from associated contact lists
         contacts = Contact.objects.filter(
-            contactlist__in=campaign.contact_lists.all()
+            contactlist__in=campaign.contact_lists.all(),email_deliverability="Valid Email"
         ).exclude(
             status='unsubscribed'
         ).distinct()
