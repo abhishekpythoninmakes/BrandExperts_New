@@ -1,10 +1,10 @@
 # serializers.py
 import json
-
+from django.utils import timezone
 from rest_framework import serializers
 from pep_app .models import Contact, Partners, Accounts
-
-
+from django.contrib.auth import get_user_model
+User = get_user_model()
 # class ContactCreateSerializer(serializers.ModelSerializer):
 #     partner_user_id = serializers.IntegerField(write_only=True)
 #     accounts = serializers.ListField(
@@ -63,9 +63,8 @@ class ContactCreateSerializer(serializers.ModelSerializer):
     accounts = serializers.ListField(
         child=serializers.CharField(),
         required=False,
-        allow_empty=True
+        default=[]
     )
-    verification_data = serializers.SerializerMethodField()
 
     class Meta:
         model = Contact
@@ -75,60 +74,67 @@ class ContactCreateSerializer(serializers.ModelSerializer):
             'email',
             'mobile',
             'accounts',
-            'additional_data',
             'status',
-            'verification_data'
+            'additional_data'
         ]
         extra_kwargs = {
-            'name': {'required': True},
-            'email': {'required': True},
-            'mobile': {'required': True},
-            'status': {'required': False},
-            'additional_data': {'required': False}
+            'email': {'required': False, 'allow_null': True},
+            'mobile': {'required': False, 'allow_null': True},
+            'status': {'required': False, 'default': 'data'},
+            'additional_data': {'required': False, 'default': {}}
         }
-
-    def get_verification_data(self, obj):
-        """Get verification data as a dictionary"""
-        if not obj.email_verification_status:
-            return {}
-        try:
-            return json.loads(obj.email_verification_status)
-        except:
-            return {}
 
     def validate_partner_user_id(self, value):
         try:
-            Partners.objects.get(user_id=value)
-        except Partners.DoesNotExist:
-            raise serializers.ValidationError("Partner not found with this user ID")
+            user = User.objects.get(id=value)
+            # Check if user has a partner or is a partner themselves
+            if not (hasattr(user, 'partner') or user.is_partner):
+                raise serializers.ValidationError("User is not associated with a partner")
+        except User.DoesNotExist:
+            raise serializers.ValidationError("User does not exist")
         return value
 
     def create(self, validated_data):
         partner_user_id = validated_data.pop('partner_user_id')
-        account_names = validated_data.pop('accounts', [])  # Get accounts from request
-        partner = Partners.objects.get(user_id=partner_user_id)
+        account_names = validated_data.pop('accounts', [])
 
-        # Set initial verification status
-        initial_status = json.dumps({
-            'status': 'Pending',
-            'sub_status': 'Verification in progress'
-        })
+        # Get or create accounts
+        accounts = []
+        for name in account_names:
+            account, created = Accounts.objects.get_or_create(
+                name=name.strip(),
+                defaults={'created_by': self.context['request'].user}
+            )
+            accounts.append(account)
 
+        # Get the partner - handle both direct partner users and users with partner profiles
+        try:
+            # First try to get the partner directly
+            partner = Partners.objects.get(user_id=partner_user_id)
+        except Partners.DoesNotExist:
+            # If no partner profile exists, check if the user is a partner themselves
+            user = User.objects.get(id=partner_user_id)
+            if user.is_partner:
+                # Create a partner profile for this user
+                partner = Partners.objects.create(
+                    user=user,
+                    created_at=timezone.now()
+                )
+            else:
+                raise serializers.ValidationError(
+                    {"partner_user_id": "User is not associated with a partner and cannot be automatically assigned"}
+                )
+
+        # Create the contact
         contact = Contact.objects.create(
-            **validated_data,
             partner=partner,
             created_by=self.context['request'].user,
-            email_verification_status=initial_status
+            **validated_data
         )
 
-        # Add only the accounts provided in the request
-        for name in account_names:
-            account, _ = Accounts.objects.get_or_create(name=name)
-            contact.account.add(account)
-
-        # Trigger email verification in background
-        from .tasks import verify_single_email
-        verify_single_email.delay(contact.email, contact.id)
+        # Add accounts to contact
+        if accounts:
+            contact.account.set(accounts)
 
         return contact
 

@@ -21,30 +21,43 @@ def validate_email(contact_id):
 
         # Skip if no email or already validated
         if not contact.email:
-            contact.email_deliverability = "No email provided"
+            contact.email_deliverability = "No email"
             contact.save(update_fields=['email_deliverability'])
-            return "No email provided"
+            return "No email"
 
         # Basic email format validation
         if not is_valid_email_format(contact.email):
-            contact.email_deliverability = "Invalid email format"
+            contact.email_deliverability = "Invalid format"
             contact.save(update_fields=['email_deliverability'])
-            return "Invalid email format"
+            return "Invalid format"
 
         # Verify with Clearout API
         verification_result = verify_email_with_clearout(contact.email)
 
-        # Update contact with readable verification result
-        reason = get_readable_verification_result(verification_result)
-        #contact.email_deliverability = reason
+        # Get full detailed reason
+        full_reason = get_readable_verification_result(verification_result)
+
+        # Create simplified reason
+        status = verification_result.get("status", "Unknown")
+        if status == "valid":
+            simplified_reason = "Valid Email"
+        elif status == "invalid":
+            simplified_reason = "Invalid Email"
+        else:
+            simplified_reason = "Unknown"
+
+        # Save simplified reason to the contact
+        contact.email_deliverability = simplified_reason
         contact.save(update_fields=['email_deliverability'])
 
-        return reason
+        # Log the full reason for reference
+        logger.info(f"Email validation for contact {contact_id}: {full_reason}")
+
+        return simplified_reason
 
     except Exception as e:
         logger.error(f"Error validating email for contact {contact_id}: {str(e)}")
-        return f"Error: {str(e)}"
-
+        return f"Error"
 
 @shared_task
 def bulk_validate_emails(contact_ids):

@@ -61,7 +61,7 @@ class PartnerContactsAPIView(APIView):
                 "email": contact.email,
                 "number": contact.mobile,
                 "accounts": accounts_str,
-                "email_delivery_status": contact.email_deliverability,
+                "email_deliverability": contact.email_deliverability,
             })
 
         return Response({
@@ -112,7 +112,7 @@ class ContactCreateAPIView(APIView):
     def post(self, request):
         # Manual content type handling
         content_type = request.content_type.split(';')[0].strip().lower()
-        print("content_type", content_type)
+
         try:
             # Handle raw text/plain input
             if content_type == 'text/plain':
@@ -125,12 +125,12 @@ class ContactCreateAPIView(APIView):
                     "error": "Invalid JSON format",
                     "detail": str(e),
                     "example_request": {
-                        "partner_user_id": 123,
+                        "partner_user_id": 253,
                         "name": "John Doe",
                         "email": "john@example.com",
                         "mobile": "+1234567890",
                         "accounts": ["Company A"],
-                        "status": "lead"
+                        "status": "data"
                     }
                 },
                 status=status.HTTP_400_BAD_REQUEST
@@ -139,43 +139,52 @@ class ContactCreateAPIView(APIView):
         # Check if email validation is requested (default to True)
         validate_email_flag = data.pop('validate_email', True)
 
-        # Continue with existing validation logic
         serializer = ContactCreateSerializer(
             data=data,
             context={'request': request}
         )
 
         if serializer.is_valid():
-            # Save the contact first
-            contact = serializer.save()
+            try:
+                # Save the contact
+                contact = serializer.save()
 
-            # Trigger email validation if requested and email exists
-            if validate_email_flag and contact.email:
-                print(f"Scheduling email validation for contact {contact.id}")
-                validate_email.delay(contact.id)
-                validation_status = "Scheduled"
-            else:
-                validation_status = "Skipped"
+                # Trigger email validation if requested and email exists
+                if validate_email_flag and contact.email:
+                    validate_email.delay(contact.id)
+                    validation_status = "Scheduled"
+                else:
+                    validation_status = "Skipped" if contact.email else "No email provided"
 
-            # Prepare response
-            response_data = {
-                'id': contact.id,
-                'name': contact.name,
-                'email': contact.email,
-                'mobile': contact.mobile,
-                'status': contact.status,
-                'partner': {
-                    'user_id': contact.partner.user.id,
-                    'username': contact.partner.user.username
-                },
-                'created_by': contact.created_by.username,
-                'accounts': [account.name for account in contact.account.all()],
-                'additional_data': contact.additional_data,
-                'created_at': contact.created_at,
-                'email_validation': validation_status
-            }
+                # Prepare response
+                response_data = {
+                    'id': contact.id,
+                    'name': contact.name,
+                    'email': contact.email,
+                    'mobile': contact.mobile,
+                    'status': contact.status,
+                    'partner': {
+                        'user_id': contact.partner.user.id,
+                        'username': contact.partner.user.username,
+                        'partner_id': contact.partner.id
+                    },
+                    'created_by': contact.created_by.username,
+                    'accounts': [account.name for account in contact.account.all()],
+                    'additional_data': contact.additional_data,
+                    'created_at': contact.created_at,
+                    'email_validation': {
+                        'status': validation_status,
+                        'deliverability': contact.email_deliverability or "Not checked yet"
+                    }
+                }
 
-            return Response(response_data, status=status.HTTP_201_CREATED)
+                return Response(response_data, status=status.HTTP_201_CREATED)
+
+            except Exception as e:
+                return Response(
+                    {"error": "Failed to create contact", "detail": str(e)},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
