@@ -94,6 +94,14 @@ class ContactCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("User does not exist")
         return value
 
+    def validate_accounts(self, value):
+        # This will validate the accounts field after the view has potentially converted
+        # from string to list
+        if isinstance(value, str):
+            # In case any string slips through to here, handle it
+            return [acc.strip() for acc in value.split(',') if acc.strip()]
+        return value
+
     def create(self, validated_data):
         partner_user_id = validated_data.pop('partner_user_id')
         account_names = validated_data.pop('accounts', [])

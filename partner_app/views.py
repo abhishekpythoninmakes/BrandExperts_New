@@ -130,7 +130,7 @@ class ContactCreateAPIView(APIView):
                         "name": "John Doe",
                         "email": "john@example.com",
                         "mobile": "+1234567890",
-                        "accounts": ["Company A"],
+                        "accounts": "kef, smbs, def",  # Updated example with comma-separated format
                         "status": "data"
                     }
                 },
@@ -139,6 +139,11 @@ class ContactCreateAPIView(APIView):
 
         # Check if email validation is requested (default to True)
         validate_email_flag = data.pop('validate_email', True)
+
+        # Process accounts field if it's a string format (comma-separated)
+        if 'accounts' in data and isinstance(data['accounts'], str):
+            # Split by comma and strip whitespace
+            data['accounts'] = [acc.strip() for acc in data['accounts'].split(',') if acc.strip()]
 
         serializer = ContactCreateSerializer(
             data=data,
