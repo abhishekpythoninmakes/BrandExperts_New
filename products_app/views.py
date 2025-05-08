@@ -309,6 +309,7 @@ def search_products(request):
     query = Q()
     if search_keyword:
         query |= Q(name__icontains=search_keyword)
+        query |= Q(alternate_names__icontains=search_keyword)
         query |= Q(description__icontains=search_keyword)
         query |= Q(size__icontains=search_keyword)
         query |= Q(categories__category_name__icontains=search_keyword)

@@ -217,7 +217,7 @@ class ProductAdmin(admin.ModelAdmin):
     readonly_fields = ('image1_preview', 'image2_preview', 'image3_preview', 'image4_preview')  # Image previews
     fieldsets = (
         ('Basic Information', {
-            'fields': ('name', 'description', 'categories', 'status', 'price','fixed_price', 'size', 'allow_direct_add_to_cart','disable_customization')
+            'fields': ('name','alternate_names','description', 'categories', 'status', 'price','fixed_price', 'size', 'allow_direct_add_to_cart','disable_customization')
         }),
         ('Dimensions', {
             'fields': ('min_width', 'max_width', 'min_height', 'max_height')

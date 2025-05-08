@@ -144,6 +144,7 @@ class GlobalDistance(models.Model):
 class Product(models.Model):
     categories = models.ManyToManyField(Category, blank=True, related_name="products")
     name = models.CharField(max_length=900, null=True, blank=True)
+    alternate_names = models.CharField(max_length=900, null=True, blank=True)
     description = models.TextField(null=True, blank=True)
     product_overview = RichTextUploadingField(null=True, blank=True)
     product_specifications = RichTextUploadingField(null=True,blank=True)
