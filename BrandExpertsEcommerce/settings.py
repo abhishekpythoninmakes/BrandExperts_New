@@ -178,6 +178,8 @@ CONTENT_SECURITY_POLICY = {
 X_FRAME_OPTIONS = 'DENY'
 
 # 3. SECURE CORS CONFIGURATION
+# API-specific CORS settings
+CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOWED_ORIGINS = [
     "https://brandexperts.ae",
     "https://www.brandexperts.ae",
@@ -186,7 +188,6 @@ CORS_ALLOWED_ORIGINS = [
     "https://be-editor-one.vercel.app",
 ]
 
-# Add development origins only in DEBUG mode
 if DEBUG:
     CORS_ALLOWED_ORIGINS.extend([
         "http://localhost:5173",
@@ -194,6 +195,18 @@ if DEBUG:
         "http://localhost:3000",
         "http://65.2.66.156",
     ])
+
+# Add development origins only in DEBUG mode
+CSRF_TRUSTED_ORIGINS = [
+    "https://brandexperts.ae",
+    "https://api.brandexperts.ae",
+    "https://dash.brandexperts.ae",
+    "https://www.brandexperts.ae",
+    "https://be-editor-one.vercel.app",
+    "https://designer.brandexperts.ae",
+]
+
+
 
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOW_CREDENTIALS = True
@@ -219,7 +232,68 @@ CORS_ALLOW_METHODS = [
     'PUT',
 ]
 
-# 4. CSRF PROTECTION
+
+
+
+# Additional security headers
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
+
+# 5. HTTPS AND SECURITY SETTINGS - FIXED VERSION
+if not DEBUG:
+    # Trust the proxy headers
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+    # DISABLE SSL redirect to prevent API redirect loops
+    SECURE_SSL_REDIRECT = False
+
+    # HSTS settings - keep disabled for now
+    SECURE_HSTS_SECONDS = 0
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = False
+    SECURE_HSTS_PRELOAD = False
+
+    # Cookie security
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+else:
+    # Development settings
+    SECURE_SSL_REDIRECT = False
+    SESSION_COOKIE_SECURE = False
+    CSRF_COOKIE_SECURE = False
+
+# Always secure regardless of DEBUG
+SESSION_COOKIE_HTTPONLY = True
+CSRF_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_SAMESITE = 'Lax'
+
+
+
+# Additional security headers
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
+
+# API-specific CORS settings
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOWED_ORIGINS = [
+    "https://brandexperts.ae",
+    "https://www.brandexperts.ae",
+    "https://dash.brandexperts.ae",
+    "https://designer.brandexperts.ae",
+    "https://be-editor-one.vercel.app",
+]
+
+if DEBUG:
+    CORS_ALLOWED_ORIGINS.extend([
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "http://localhost:3000",
+        "http://65.2.66.156",
+    ])
+
+# Ensure API endpoints don't require CSRF tokens for GET requests
 CSRF_TRUSTED_ORIGINS = [
     "https://brandexperts.ae",
     "https://api.brandexperts.ae",
@@ -236,40 +310,6 @@ if DEBUG:
         "http://localhost:3000",
         "http://65.2.66.156",
     ])
-
-# 5. HTTPS AND SECURITY SETTINGS - FIXED VERSION
-if not DEBUG:
-    # Trust the proxy headers from Cloudflare/Nginx
-    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-
-    # DISABLE SSL redirect to prevent Cloudflare loop
-    SECURE_SSL_REDIRECT = False
-
-    # HSTS settings - disabled temporarily for Cloudflare compatibility
-    SECURE_HSTS_SECONDS = 0
-    SECURE_HSTS_INCLUDE_SUBDOMAINS = False
-    SECURE_HSTS_PRELOAD = False
-
-    # Cookie security - keep secure but not requiring HTTPS redirect
-    SESSION_COOKIE_SECURE = True
-    CSRF_COOKIE_SECURE = True
-else:
-    # Development settings
-    SECURE_SSL_REDIRECT = False
-    SECURE_HSTS_SECONDS = 0
-    SESSION_COOKIE_SECURE = False
-    CSRF_COOKIE_SECURE = False
-
-# Always secure regardless of DEBUG
-SESSION_COOKIE_HTTPONLY = True
-CSRF_COOKIE_HTTPONLY = True
-SESSION_COOKIE_SAMESITE = 'Lax'
-CSRF_COOKIE_SAMESITE = 'Lax'
-
-# Additional security headers
-SECURE_CONTENT_TYPE_NOSNIFF = True
-SECURE_BROWSER_XSS_FILTER = True
-SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
 
 # =============================================================================
 # END SECURITY CONFIGURATIONS
