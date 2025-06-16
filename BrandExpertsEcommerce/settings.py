@@ -26,12 +26,17 @@ SECRET_KEY = config('SECRET_KEY', default='django-insecure-t7*2el()8a*qrz%!p#quy
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=True, cast=bool)
 
+USE_X_FORWARDED_HOST = True
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+
 ALLOWED_HOSTS = [
     'dash.brandexperts.ae',
     'www.brandexperts.ae',
     'brandexperts.ae',
     'api.brandexperts.ae',
     'designer.brandexperts.ae',
+    '.brandexperts.ae',
 ]
 
 # Add localhost only for development
@@ -71,9 +76,10 @@ INSTALLED_APPS = [
 
 # SECURITY ENHANCED MIDDLEWARE
 MIDDLEWARE = [
+    'BrandExpertsEcommerce.middleware.FixCloudflareHostMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
-    'csp.middleware.CSPMiddleware',  # Added CSP middleware
+    'csp.middleware.CSPMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
