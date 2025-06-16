@@ -25,3 +25,5 @@ staticfiles/
 media/backups/
 __pycache__/
 *.pyc
+logs/django.log
+logs/
