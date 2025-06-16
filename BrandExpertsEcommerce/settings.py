@@ -248,7 +248,7 @@ SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
 
 # HTTPS Security (Production)
 if not DEBUG:
-    SECURE_SSL_REDIRECT = True  # Redirect HTTP to HTTPS
+    SECURE_SSL_REDIRECT = False  # Redirect HTTP to HTTPS
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 SESSION_COOKIE_SECURE = not DEBUG  # Only send cookies over HTTPS in production
