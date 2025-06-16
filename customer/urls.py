@@ -2,7 +2,7 @@ from django.urls import path
 from .import views
 from rest_framework_simplejwt.views import TokenRefreshView
 urlpatterns = [
-
+    path('csp-report/', views.csp_report,name='csp-report'),
     path('',views.home,name='home'),
     path('auth/initiate/', views.AuthInitiateView.as_view(), name='auth-initiate'),
     path('auth/login-with-otp/', views.OTPLoginAPIView.as_view(), name='login-with-otp'),
@@ -58,7 +58,7 @@ urlpatterns = [
 
     # Test
 
-    path("process-text/", views.process_text, name="process_text"),
+    # path("process-text/", views.process_text, name="process_text"),
     #
     # path('process-image/', views.process_image, name='process_image'),
 

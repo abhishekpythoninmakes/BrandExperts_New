@@ -11,7 +11,7 @@ from django.conf import settings
 from django.core.cache import cache
 from django.core.mail import send_mail
 from django.db import IntegrityError
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render, get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import api_view, permission_classes
@@ -3564,552 +3564,552 @@ def reset_password(request):
 
 # Test
 
-
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
-import random
-import re
-import requests
-from urllib.parse import quote
-import os
-
-from PIL import Image
-from django.conf import settings
-
-# Gemini AI API Key (replace with your actual key)
-GEMINI_API_KEY = settings.GEMINI_API_KEY
-import threading
-from twilio.rest import Client
-from twilio.base.exceptions import TwilioRestException
-# Twilio Configuration
-TWILIO_ACCOUNT_SID = settings.TWILIO_ACCOUNT_SID
-TWILIO_AUTH_TOKEN = settings.TWILIO_AUTH_TOKEN
-TWILIO_WHATSAPP_NUMBER = settings.TWILIO_WHATSAPP_NUMBER # Twilio sandbox number
-EMERGENCY_CONTACT = settings.EMERGENCY_CONTACT
-CONTENT_SID = settings.CONTENT_SID
-
-import random
-
-
-
-
-
-def handle_creator_questions(text):
-    """Handle questions about the bot's creator/developer"""
-    creator_keywords = [
-        'creator', 'developer', 'made you', 'created you',
-        'who are you', 'your maker', 'your parent', 'your boss','who is your','you are'
-    ]
-
-    responses = [
-        "I am an AI assistant designed to empower individuals through advanced deep learning technologies. My development was guided by Revathy.",
-        "Crafted with precision and innovation, I am an AI assistant built to assist and enhance experiences. My creator, Revathy, envisioned me to make a difference.",
-        "Born from deep learning and innovation, I exist to assist and inspire. Revathy, my developer, has shaped me to bring AI-driven solutions to the world.",
-        "I am the product of AI ingenuity, designed to make the world more accessible and intelligent. My development was led by Revathy with a vision for innovation.",
-        "An AI assistant at your service, blending deep learning with human-centered design. Revathy is the mind behind my creation, guiding me to serve you better.",
-        "I am the bridge between artificial intelligence and human needs, built to assist and empower. Revathy, my creator, designed me with purpose and precision.",
-        "Created with the latest advancements in AI, I strive to assist and inspire. My developer, Revathy, brought me to life with a vision for intelligent assistance."
-    ]
-
-    if any(keyword in text.lower() for keyword in creator_keywords):
-        return random.choice(responses)
-
-    return None
-
-
-
-import logging
-
-logger = logging.getLogger(__name__)
-# Modified emergency handling section
-def send_emergency_alert_async(lat, lng):
-    """Send emergency email alert with location details"""
-
-    def async_task():
-        try:
-            # Convert and validate coordinates
-            lat_float = float(lat)
-            lng_float = float(lng)
-
-            # Prepare email context
-            map_link = f"https://maps.google.com/?q={lat_float:.6f},{lng_float:.6f}"
-            context = {
-                'latitude': f"{lat_float:.6f}",
-                'longitude': f"{lng_float:.6f}",
-                'map_link': map_link,
-                'support_email': 'ray_ai@gmail.com'  # Hardcoded or use settings
-            }
-
-            # Render HTML email template
-            html_content = render_to_string('emails/emergency_alert.html', context)
-            text_content = strip_tags(html_content)
-
-            # Create and send email
-            email = EmailMultiAlternatives(
-                subject="🚨 EMERGENCY ALERT - Immediate Response Required",
-                body=text_content,
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                to=['abhishekar3690@gmail.com','revathysravi21@gmail.com'],
-                headers={'Priority': 'Urgent', 'Importance': 'high'}
-            )
-            email.attach_alternative(html_content, "text/html")
-            email.send()
-
-            print(f"Emergency email alert sent for coordinates {lat_float},{lng_float}")
-
-        except ValueError as e:
-            print(f"Invalid coordinates format: {lat},{lng} - {str(e)}")
-        except Exception as e:
-            print(f"Failed to send emergency alert: {str(e)}")
-
-    # Start async thread
-    threading.Thread(target=async_task, daemon=True).start()
-
-
-import time
-
-
-
-def extract_text_with_ocrspace(image_file):
-    API_KEY = 'K82218497288957'  # Your API key here
-    API_URL = 'https://api.ocr.space/parse/image'
-
-    try:
-        # Read image file content
-        image_bytes = image_file.read()
-
-        response = requests.post(
-            API_URL,
-            files={'image': (image_file.name, image_bytes)},
-            data={
-                'apikey': API_KEY,
-                'language': 'eng',
-                'isOverlayRequired': False,
-                'OCREngine': 2  # Better accuracy engine
-            }
-        )
-
-        response.raise_for_status()
-        result = response.json()
-
-        if result.get('IsErroredOnProcessing', False):
-            error_message = result.get('ErrorMessage', 'Unknown OCR error')
-            return None, error_message
-
-        parsed_results = result.get('ParsedResults', [])
-        if not parsed_results:
-            return None, 'No text found in image'
-
-        extracted_text = ' '.join([res.get('ParsedText', '') for res in parsed_results]).strip()
-        extracted_text = extracted_text.replace('\n', '   ')  # 3 spaces for slight pause
-        return extracted_text, None
-
-    except Exception as e:
-        return None, str(e)
-
-def get_address_from_coords(lat, lng):
-    try:
-        url = f"https://nominatim.openstreetmap.org/reverse?format=json&lat={lat}&lon={lng}"
-        headers = {'User-Agent': 'YourAppName/1.0 (contact@yourapp.com)'}
-        response = requests.get(url, headers=headers).json()
-        address = response.get('address', {})
-        parts = [address.get(key, '') for key in ['road', 'city', 'town', 'village', 'state', 'country']]
-        return ", ".join([part for part in parts if part])
-    except Exception as e:
-        print(f"Error fetching address: {e}")
-        return None
-
-
-
-
-
-def get_nearby_places(lat, lng, query):
-    try:
-        # Map query to OpenStreetMap amenity tags
-        place_mapping = {
-            "restaurant": "restaurant",
-            "hospital": "hospital",
-            "park": "park",
-            "hotel": "hotel",
-            "bus_station": "bus_station",
-            "cinema": "cinema",
-            "mall":"mall",
-            "police": "police",
-            "fire_station": "fire_station",
-            "pharmacy": "pharmacy",
-            "parking": "parking",
-            "school": "school",
-            "university": "university",
-            "library": "library",
-            "museum": "museum",
-            "zoo": "zoo",
-            "gym": "gym",
-            "bank": "bank",
-            "atm": "atm",
-            "post_office": "post_office",
-            "supermarket": "supermarket",
-            "bakery": "bakery",
-            "cafe": "cafe",
-            "bar": "bar",
-            "pub": "pub",
-            "nightclub": "nightclub",
-            "airport": "airport",
-            "railway_station": "railway_station",
-            "train_station": "train_station",
-            "train": "train",
-            "automobile": "automobile",
-            "auto stand": "auto stand",
-            "medical college": "medical college",
-            "medical store": "medical store",
-
-        }
-
-        # Get the correct OpenStreetMap tag
-        tag_type = place_mapping.get(query, "amenity")
-        tag_value = query
-
-        overpass_query = f"""
-                [out:json];
-                node(around:1000,{lat},{lng})["{tag_type}"="{tag_value}"];
-                out;
-                """
-        url = "https://overpass-api.de/api/interpreter"
-        response = requests.post(url, data=overpass_query)
-        response.raise_for_status()
-        places = response.json().get('elements', [])
-
-        results = []
-        if places:
-            for place in places:
-                name = place['tags'].get('name', 'Unnamed place')
-                address = place['tags'].get('addr:street', '')
-                results.append(f"{name} on {address}" if address else name)
-        else:
-            address = get_address_from_coords(lat, lng)
-            prompt = f"Find {query} near {address or 'this location'}. List 5 names only, separated by commas."
-            gemini_response = ask_gemini_ai(prompt, f"{lat},{lng}")
-            # Parse Gemini response into a list
-            results = [place.strip() for place in gemini_response.split(',') if place.strip()]
-
-        return results[:5]  # Always return a list
-    except Exception as e:
-        print(f"Error fetching nearby places: {e}")
-        address = get_address_from_coords(lat, lng)
-        prompt = f"Find {query} near {address or 'this location'}. List 5 names only, separated by commas."
-        gemini_response = ask_gemini_ai(prompt, f"{lat},{lng}")
-        return [place.strip() for place in gemini_response.split(',') if place.strip()]
-
-def get_wikipedia_summary(query):
-    try:
-        # Clean up the query (remove typos, special characters, etc.)
-        query = re.sub(r'[^\w\s]', '', query)  # Remove special characters
-        query = query.strip()  # Remove leading/trailing spaces
-
-        # Fetch Wikipedia summary
-        url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{quote(query)}"
-        response = requests.get(url).json()
-        return response.get('extract', 'No information found')
-    except:
-        return "Could not fetch information at this time"
-
-
-def get_youtube_link(query):
-    try:
-        # YouTube Data API endpoint
-        url = "https://www.googleapis.com/youtube/v3/search"
-        params = {
-            'part': 'snippet',
-            'q': query,
-            'type': 'video',
-            'maxResults': 1,
-            'key': settings.YOUTUBE_API_KEY  # Replace with your API key
-        }
-
-        # Make the request
-        response = requests.get(url, params=params)
-        response.raise_for_status()
-
-        # Extract the video link
-        items = response.json().get('items', [])
-        if items:
-            video_id = items[0]['id']['videoId']
-            return f"https://www.youtube.com/watch?v={video_id}"
-        return None
-    except Exception as e:
-        print(f"Error fetching YouTube link: {e}")
-        return None
-
-
-def ask_gemini_ai(query, location=None):
-    try:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_API_KEY}"
-        headers = {"Content-Type": "application/json"}
-
-        # Build the prompt
-        prompt = f"{query} tell me in maximun 8 scentences"
-        if location and any(word in query for word in ["near me", "nearby", "close to me","where am i"]):
-            prompt += f"\n\nContext: User's current location is {location}."
-
-        payload = {
-            "contents": [{
-                "parts": [{"text": prompt}]
-            }]
-        }
-
-        response = requests.post(url, headers=headers, json=payload)
-        response.raise_for_status()
-
-        result = response.json()
-        if "candidates" in result and result["candidates"]:
-            full_response = result["candidates"][0]["content"]["parts"][0]["text"]
-
-            # Step 1: Remove markdown formatting (e.g., ##, **, etc.)
-            cleaned_response = re.sub(r'#+\s*', '', full_response)  # Remove headers
-            cleaned_response = re.sub(r'\*\*', '', cleaned_response)  # Remove bold
-            cleaned_response = re.sub(r'\*', '', cleaned_response)  # Remove italics
-
-            # Step 2: Replace newlines with spaces
-            cleaned_response = cleaned_response.replace('\n', ' ')
-
-            # Step 3: Split into sentences and truncate to 4 sentences
-            sentences = re.split(r'(?<=[.!?])\s+', cleaned_response)  # Split by punctuation
-            truncated_response = ' '.join(sentences[:8])  # Join first 4 sentences
-            if len(sentences) > 8:
-                truncated_response += '.'  # Add a period if the response was truncated
-
-            return truncated_response
-        return "No information found."
-    except Exception as e:
-        print(f"Error fetching Gemini AI response: {e}")
-        return "Could not fetch information at this time."
-
-
-def contains_word(text, words):
-    return any(re.search(rf'\b{word}\b', text, re.IGNORECASE) for word in words)
-
-
-# Main API View
-
-@api_view(["POST"])
-def process_text(request):
-    data = {
-        "response": "",
-        "camera": False,
-        "emergency": False,
-        "longitude": request.data.get("longitude"),
-        "latitude": request.data.get("latitude"),
-        "map_link": "",
-        "response_urls": [] , # New field for YouTube or Wikipedia URLs
-        "app_exit": False
-    }
-    text = request.data.get("text", "").lower().strip()
-
-    # 1. Exit command handling
-    exit_pattern = r'\b(exit|close|bye|shutdown|quit|stop|goodbye)\b|(close|terminate)\s+(app|application)'
-    if re.search(exit_pattern, text, re.IGNORECASE):
-        data['response'] = "Okay, closing the app. Goodbye!"
-        data['app_exit'] = True
-        return Response(data)
-
-    # 2. Handle creator/developer questions
-    creator_response = handle_creator_questions(text)
-    if creator_response:
-        data['response'] = creator_response
-        return Response(data)
-
-    # 3. Handle summarization requests
-    summarize_keywords = ['summarize', 'summarise', 'summary', 'brief']
-    if any(keyword in text.lower() for keyword in summarize_keywords):
-        # Fetch the latest TestModel instance
-        test_model = TestModel.objects.first()
-        if test_model and test_model.response:
-            # Use Gemini to summarize
-            prompt = f"Please summarize the following text: {test_model.response}"
-            summary = ask_gemini_ai(prompt, None)  # Pass None or location if needed
-            data['response'] = summary
-        else:
-            data['response'] = "No text available to summarize. Please extract text from an image first."
-        return Response(data)
-
-    # Check for image upload
-    if 'image' in request.FILES:
-        try:
-            print("Image found..!")
-            image_file = request.FILES['image']
-            print(f"Received file: {image_file.name}, Size: {image_file.size} bytes")
-
-            # Validate file size (max 5MB)
-            if image_file.size > 5 * 1024 * 1024:
-                data['response'] = "Image too large (max 5MB)"
-                return Response(data, status=status.HTTP_400_BAD_REQUEST)
-
-            # Extract text using OCR.space
-            extracted_text, error = extract_text_with_ocrspace(image_file)
-            print(f"OCR Response - Text: {extracted_text}, Error: {error}")
-
-            if error:
-                data['response'] = f"OCR Error: {error}"
-                return Response(data, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-            if extracted_text:
-                test_model_instance = TestModel.objects.first()
-                if test_model_instance:
-                    test_model_instance.response = extracted_text
-                    test_model_instance.save()
-                else:
-                    TestModel.objects.create(response=extracted_text)
-                data['response'] = extracted_text
-            else:
-                data['response'] = "No text detected. Please ensure clear image with visible text."
-
-            return Response(data, status=status.HTTP_200_OK)
-
-        except Exception as e:
-            print(f"Image processing error: {str(e)}")
-            data['response'] = f"Processing Error: {str(e)}"
-            return Response(data, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-
-    # Camera detection
-    camera_words = ['camera', 'open camera', 'scan', 'scanner']
-    data['camera'] = contains_word(text, camera_words)
-
-    # Emergency detection
-    emergency_words = ['emergency', 'help', 'rescue', 'urgent', 'accident', 'danger', 'fire', 'police', 'ambulance',
-                       'robbery']
-    data['emergency'] = contains_word(text, emergency_words)
-
-    # 4. Emergency handling (async)
-    if data['emergency']:
-        lat = data['latitude']
-        lng = data['longitude']
-        map_link = f"https://www.openstreetmap.org/?mlat={lat}&mlon={lng}&zoom=16" if lat else ""
-
-        # Start async WhatsApp send
-        if lat and lng:
-            send_emergency_alert_async(lat, lng)
-            data['response'] = f"Emergency response sent. An emergency message with your current location has been texted to the authorities, and the dialer will now open to initiate a call."
-        else:
-            data['response'] = "Emergency detected! But location missing - enable location services."
-
-        data['map_link'] = map_link
-        return Response(data)
-
-    # Generate map link (only for location-related responses)
-    if data['latitude'] and data['longitude']:
-        data['map_link'] = f"https://www.openstreetmap.org/?mlat={data['latitude']}&mlon={data['longitude']}&zoom=16"
-
-    # Handle greetings
-    greeting_words = ['hi', 'hello', 'hey', 'hola', 'namaste','hai']
-    if contains_word(text, greeting_words):
-        data['response'] = random.choice([
-            "Hello! How can I assist you today?",
-            "Welcome! What would you like to do?",
-            "Glad to have you here! Need any help?"
-        ])
-        return Response(data)
-
-    # 3. Location-based priority handling
-    def handle_location_requests():
-        # A. Current location request
-        if re.search(r'\b(current location|where am i)\b', text):
-            if data['latitude'] and data['longitude']:
-                address = get_address_from_coords(data['latitude'], data['longitude'])
-                data[
-                    'response'] = f"Your approximate location: {address}" if address else "Location found but address unavailable"
-            else:
-                data['response'] = "Location coordinates not provided"
-            return True
-
-        # B. Nearby places lookup
-        place_mapping = {
-            'bus_station': {'keywords': ['bus stop', 'bus stand', 'bus station'],
-                            'query': 'public transit stop'},
-            'restaurant': {'keywords': ['restaurant', 'dine', 'eat']},
-            'hospital': {'keywords': ['hospital', 'clinic']},
-            'park': {'keywords': ['park', 'garden']},
-            'hotel': {'keywords': ['hotel', 'lodging']},
-            'cinema': {'keywords': ['theater', 'theatre', 'cinema']}
-        }
-
-        for place_type, config in place_mapping.items():
-            if contains_word(text, config['keywords']):
-                if not (data['latitude'] and data['longitude']):
-                    data['response'] = "Location access required to find nearby places."
-                    return True
-
-                places = get_nearby_places(
-                    data['latitude'],
-                    data['longitude'],
-                    config.get('query', place_type)
-                )
-
-                if places:
-                    data['response'] = f"Nearby {place_type.replace('_', ' ')}s: {', '.join(places[:3])}"
-                else:
-                    address = get_address_from_coords(data['latitude'], data['longitude'])
-                    prompt = f"Are there any {config.get('query', place_type)}s near {address or 'this location'}?"
-                    data['response'] = ask_gemini_ai(prompt, f"{data['latitude']},{data['longitude']}")
-                return True
-        return False
-
-    if handle_location_requests():
-        return Response(data)
-
-    # 4. Enhanced location-aware Gemini integration
-    location_triggers = r'\b(near( me)?|closest|close by|around|nearby|in my area)\b'
-    if re.search(location_triggers, text, re.IGNORECASE):
-        if data['latitude'] and data['longitude']:
-            address = get_address_from_coords(data['latitude'], data['longitude'])
-            prompt = f"{text} near {address}" if address else f"{text} at coordinates {data['latitude']}, {data['longitude']}"
-            data['response'] = ask_gemini_ai(prompt, f"{data['latitude']},{data['longitude']}")
-        else:
-            data['response'] = "Please enable location services for this feature."
-        return Response(data)
-
-    # 5. Core functionality handlers
-    handlers = [
-        {
-            'condition': lambda: contains_word(text, ['camera', 'scan']),
-            'response': "Camera access requested. When ready, point your camera at the subject.",
-            'field': 'camera'
-        },
-        {
-            'condition': lambda: contains_word(text, ['emergency', 'help']),
-            'response': "Emergency detected! Contact local authorities. Map link provided.",
-            'field': 'emergency'
-        },
-        {
-            'condition': lambda: 'play' in text,
-            'action': lambda: (get_youtube_link(text.replace('play', '').strip())),
-            'response': "Here's a YouTube link:",
-            'url_field': True
-        }
-    ]
-
-    for handler in handlers:
-        if handler['condition']():
-            if 'action' in handler:
-                result = handler['action']()
-                if result:
-                    data['response_urls'].append(result)
-            data['response'] = handler.get('response', '')
-            if 'field' in handler:
-                data[handler['field']] = True
-            return Response(data)
-
-    # 6. Knowledge base fallback
-    wikipedia_summary = get_wikipedia_summary(text)
-    if "No information found" not in wikipedia_summary:
-        data['response'] = wikipedia_summary
-        data['response_urls'].append(f"https://en.wikipedia.org/wiki/{quote(text)}")
-    else:
-        data['response'] = ask_gemini_ai(text,
-                                         f"{data['latitude']},{data['longitude']}" if data['latitude'] else None
-                                         )
-
-    return Response(data)
+#
+# from rest_framework.decorators import api_view
+# from rest_framework.response import Response
+# import random
+# import re
+# import requests
+# from urllib.parse import quote
+# import os
+#
+# from PIL import Image
+# from django.conf import settings
+#
+# # Gemini AI API Key (replace with your actual key)
+# GEMINI_API_KEY = settings.GEMINI_API_KEY
+# import threading
+# from twilio.rest import Client
+# from twilio.base.exceptions import TwilioRestException
+# # Twilio Configuration
+# TWILIO_ACCOUNT_SID = settings.TWILIO_ACCOUNT_SID
+# TWILIO_AUTH_TOKEN = settings.TWILIO_AUTH_TOKEN
+# TWILIO_WHATSAPP_NUMBER = settings.TWILIO_WHATSAPP_NUMBER # Twilio sandbox number
+# EMERGENCY_CONTACT = settings.EMERGENCY_CONTACT
+# CONTENT_SID = settings.CONTENT_SID
+#
+# import random
+#
+#
+#
+#
+#
+# def handle_creator_questions(text):
+#     """Handle questions about the bot's creator/developer"""
+#     creator_keywords = [
+#         'creator', 'developer', 'made you', 'created you',
+#         'who are you', 'your maker', 'your parent', 'your boss','who is your','you are'
+#     ]
+#
+#     responses = [
+#         "I am an AI assistant designed to empower individuals through advanced deep learning technologies. My development was guided by Revathy.",
+#         "Crafted with precision and innovation, I am an AI assistant built to assist and enhance experiences. My creator, Revathy, envisioned me to make a difference.",
+#         "Born from deep learning and innovation, I exist to assist and inspire. Revathy, my developer, has shaped me to bring AI-driven solutions to the world.",
+#         "I am the product of AI ingenuity, designed to make the world more accessible and intelligent. My development was led by Revathy with a vision for innovation.",
+#         "An AI assistant at your service, blending deep learning with human-centered design. Revathy is the mind behind my creation, guiding me to serve you better.",
+#         "I am the bridge between artificial intelligence and human needs, built to assist and empower. Revathy, my creator, designed me with purpose and precision.",
+#         "Created with the latest advancements in AI, I strive to assist and inspire. My developer, Revathy, brought me to life with a vision for intelligent assistance."
+#     ]
+#
+#     if any(keyword in text.lower() for keyword in creator_keywords):
+#         return random.choice(responses)
+#
+#     return None
+#
+#
+#
+# import logging
+#
+# logger = logging.getLogger(__name__)
+# # Modified emergency handling section
+# def send_emergency_alert_async(lat, lng):
+#     """Send emergency email alert with location details"""
+#
+#     def async_task():
+#         try:
+#             # Convert and validate coordinates
+#             lat_float = float(lat)
+#             lng_float = float(lng)
+#
+#             # Prepare email context
+#             map_link = f"https://maps.google.com/?q={lat_float:.6f},{lng_float:.6f}"
+#             context = {
+#                 'latitude': f"{lat_float:.6f}",
+#                 'longitude': f"{lng_float:.6f}",
+#                 'map_link': map_link,
+#                 'support_email': 'ray_ai@gmail.com'  # Hardcoded or use settings
+#             }
+#
+#             # Render HTML email template
+#             html_content = render_to_string('emails/emergency_alert.html', context)
+#             text_content = strip_tags(html_content)
+#
+#             # Create and send email
+#             email = EmailMultiAlternatives(
+#                 subject="🚨 EMERGENCY ALERT - Immediate Response Required",
+#                 body=text_content,
+#                 from_email=settings.DEFAULT_FROM_EMAIL,
+#                 to=['abhishekar3690@gmail.com','revathysravi21@gmail.com'],
+#                 headers={'Priority': 'Urgent', 'Importance': 'high'}
+#             )
+#             email.attach_alternative(html_content, "text/html")
+#             email.send()
+#
+#             print(f"Emergency email alert sent for coordinates {lat_float},{lng_float}")
+#
+#         except ValueError as e:
+#             print(f"Invalid coordinates format: {lat},{lng} - {str(e)}")
+#         except Exception as e:
+#             print(f"Failed to send emergency alert: {str(e)}")
+#
+#     # Start async thread
+#     threading.Thread(target=async_task, daemon=True).start()
+#
+#
+# import time
+#
+#
+#
+# def extract_text_with_ocrspace(image_file):
+#     API_KEY = 'K82218497288957'  # Your API key here
+#     API_URL = 'https://api.ocr.space/parse/image'
+#
+#     try:
+#         # Read image file content
+#         image_bytes = image_file.read()
+#
+#         response = requests.post(
+#             API_URL,
+#             files={'image': (image_file.name, image_bytes)},
+#             data={
+#                 'apikey': API_KEY,
+#                 'language': 'eng',
+#                 'isOverlayRequired': False,
+#                 'OCREngine': 2  # Better accuracy engine
+#             }
+#         )
+#
+#         response.raise_for_status()
+#         result = response.json()
+#
+#         if result.get('IsErroredOnProcessing', False):
+#             error_message = result.get('ErrorMessage', 'Unknown OCR error')
+#             return None, error_message
+#
+#         parsed_results = result.get('ParsedResults', [])
+#         if not parsed_results:
+#             return None, 'No text found in image'
+#
+#         extracted_text = ' '.join([res.get('ParsedText', '') for res in parsed_results]).strip()
+#         extracted_text = extracted_text.replace('\n', '   ')  # 3 spaces for slight pause
+#         return extracted_text, None
+#
+#     except Exception as e:
+#         return None, str(e)
+#
+# def get_address_from_coords(lat, lng):
+#     try:
+#         url = f"https://nominatim.openstreetmap.org/reverse?format=json&lat={lat}&lon={lng}"
+#         headers = {'User-Agent': 'YourAppName/1.0 (contact@yourapp.com)'}
+#         response = requests.get(url, headers=headers).json()
+#         address = response.get('address', {})
+#         parts = [address.get(key, '') for key in ['road', 'city', 'town', 'village', 'state', 'country']]
+#         return ", ".join([part for part in parts if part])
+#     except Exception as e:
+#         print(f"Error fetching address: {e}")
+#         return None
+#
+#
+#
+#
+#
+# def get_nearby_places(lat, lng, query):
+#     try:
+#         # Map query to OpenStreetMap amenity tags
+#         place_mapping = {
+#             "restaurant": "restaurant",
+#             "hospital": "hospital",
+#             "park": "park",
+#             "hotel": "hotel",
+#             "bus_station": "bus_station",
+#             "cinema": "cinema",
+#             "mall":"mall",
+#             "police": "police",
+#             "fire_station": "fire_station",
+#             "pharmacy": "pharmacy",
+#             "parking": "parking",
+#             "school": "school",
+#             "university": "university",
+#             "library": "library",
+#             "museum": "museum",
+#             "zoo": "zoo",
+#             "gym": "gym",
+#             "bank": "bank",
+#             "atm": "atm",
+#             "post_office": "post_office",
+#             "supermarket": "supermarket",
+#             "bakery": "bakery",
+#             "cafe": "cafe",
+#             "bar": "bar",
+#             "pub": "pub",
+#             "nightclub": "nightclub",
+#             "airport": "airport",
+#             "railway_station": "railway_station",
+#             "train_station": "train_station",
+#             "train": "train",
+#             "automobile": "automobile",
+#             "auto stand": "auto stand",
+#             "medical college": "medical college",
+#             "medical store": "medical store",
+#
+#         }
+#
+#         # Get the correct OpenStreetMap tag
+#         tag_type = place_mapping.get(query, "amenity")
+#         tag_value = query
+#
+#         overpass_query = f"""
+#                 [out:json];
+#                 node(around:1000,{lat},{lng})["{tag_type}"="{tag_value}"];
+#                 out;
+#                 """
+#         url = "https://overpass-api.de/api/interpreter"
+#         response = requests.post(url, data=overpass_query)
+#         response.raise_for_status()
+#         places = response.json().get('elements', [])
+#
+#         results = []
+#         if places:
+#             for place in places:
+#                 name = place['tags'].get('name', 'Unnamed place')
+#                 address = place['tags'].get('addr:street', '')
+#                 results.append(f"{name} on {address}" if address else name)
+#         else:
+#             address = get_address_from_coords(lat, lng)
+#             prompt = f"Find {query} near {address or 'this location'}. List 5 names only, separated by commas."
+#             gemini_response = ask_gemini_ai(prompt, f"{lat},{lng}")
+#             # Parse Gemini response into a list
+#             results = [place.strip() for place in gemini_response.split(',') if place.strip()]
+#
+#         return results[:5]  # Always return a list
+#     except Exception as e:
+#         print(f"Error fetching nearby places: {e}")
+#         address = get_address_from_coords(lat, lng)
+#         prompt = f"Find {query} near {address or 'this location'}. List 5 names only, separated by commas."
+#         gemini_response = ask_gemini_ai(prompt, f"{lat},{lng}")
+#         return [place.strip() for place in gemini_response.split(',') if place.strip()]
+#
+# def get_wikipedia_summary(query):
+#     try:
+#         # Clean up the query (remove typos, special characters, etc.)
+#         query = re.sub(r'[^\w\s]', '', query)  # Remove special characters
+#         query = query.strip()  # Remove leading/trailing spaces
+#
+#         # Fetch Wikipedia summary
+#         url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{quote(query)}"
+#         response = requests.get(url).json()
+#         return response.get('extract', 'No information found')
+#     except:
+#         return "Could not fetch information at this time"
+#
+#
+# def get_youtube_link(query):
+#     try:
+#         # YouTube Data API endpoint
+#         url = "https://www.googleapis.com/youtube/v3/search"
+#         params = {
+#             'part': 'snippet',
+#             'q': query,
+#             'type': 'video',
+#             'maxResults': 1,
+#             'key': settings.YOUTUBE_API_KEY  # Replace with your API key
+#         }
+#
+#         # Make the request
+#         response = requests.get(url, params=params)
+#         response.raise_for_status()
+#
+#         # Extract the video link
+#         items = response.json().get('items', [])
+#         if items:
+#             video_id = items[0]['id']['videoId']
+#             return f"https://www.youtube.com/watch?v={video_id}"
+#         return None
+#     except Exception as e:
+#         print(f"Error fetching YouTube link: {e}")
+#         return None
+#
+#
+# def ask_gemini_ai(query, location=None):
+#     try:
+#         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_API_KEY}"
+#         headers = {"Content-Type": "application/json"}
+#
+#         # Build the prompt
+#         prompt = f"{query} tell me in maximun 8 scentences"
+#         if location and any(word in query for word in ["near me", "nearby", "close to me","where am i"]):
+#             prompt += f"\n\nContext: User's current location is {location}."
+#
+#         payload = {
+#             "contents": [{
+#                 "parts": [{"text": prompt}]
+#             }]
+#         }
+#
+#         response = requests.post(url, headers=headers, json=payload)
+#         response.raise_for_status()
+#
+#         result = response.json()
+#         if "candidates" in result and result["candidates"]:
+#             full_response = result["candidates"][0]["content"]["parts"][0]["text"]
+#
+#             # Step 1: Remove markdown formatting (e.g., ##, **, etc.)
+#             cleaned_response = re.sub(r'#+\s*', '', full_response)  # Remove headers
+#             cleaned_response = re.sub(r'\*\*', '', cleaned_response)  # Remove bold
+#             cleaned_response = re.sub(r'\*', '', cleaned_response)  # Remove italics
+#
+#             # Step 2: Replace newlines with spaces
+#             cleaned_response = cleaned_response.replace('\n', ' ')
+#
+#             # Step 3: Split into sentences and truncate to 4 sentences
+#             sentences = re.split(r'(?<=[.!?])\s+', cleaned_response)  # Split by punctuation
+#             truncated_response = ' '.join(sentences[:8])  # Join first 4 sentences
+#             if len(sentences) > 8:
+#                 truncated_response += '.'  # Add a period if the response was truncated
+#
+#             return truncated_response
+#         return "No information found."
+#     except Exception as e:
+#         print(f"Error fetching Gemini AI response: {e}")
+#         return "Could not fetch information at this time."
+#
+#
+# def contains_word(text, words):
+#     return any(re.search(rf'\b{word}\b', text, re.IGNORECASE) for word in words)
+#
+#
+# # Main API View
+#
+# @api_view(["POST"])
+# def process_text(request):
+#     data = {
+#         "response": "",
+#         "camera": False,
+#         "emergency": False,
+#         "longitude": request.data.get("longitude"),
+#         "latitude": request.data.get("latitude"),
+#         "map_link": "",
+#         "response_urls": [] , # New field for YouTube or Wikipedia URLs
+#         "app_exit": False
+#     }
+#     text = request.data.get("text", "").lower().strip()
+#
+#     # 1. Exit command handling
+#     exit_pattern = r'\b(exit|close|bye|shutdown|quit|stop|goodbye)\b|(close|terminate)\s+(app|application)'
+#     if re.search(exit_pattern, text, re.IGNORECASE):
+#         data['response'] = "Okay, closing the app. Goodbye!"
+#         data['app_exit'] = True
+#         return Response(data)
+#
+#     # 2. Handle creator/developer questions
+#     creator_response = handle_creator_questions(text)
+#     if creator_response:
+#         data['response'] = creator_response
+#         return Response(data)
+#
+#     # 3. Handle summarization requests
+#     summarize_keywords = ['summarize', 'summarise', 'summary', 'brief']
+#     if any(keyword in text.lower() for keyword in summarize_keywords):
+#         # Fetch the latest TestModel instance
+#         test_model = TestModel.objects.first()
+#         if test_model and test_model.response:
+#             # Use Gemini to summarize
+#             prompt = f"Please summarize the following text: {test_model.response}"
+#             summary = ask_gemini_ai(prompt, None)  # Pass None or location if needed
+#             data['response'] = summary
+#         else:
+#             data['response'] = "No text available to summarize. Please extract text from an image first."
+#         return Response(data)
+#
+#     # Check for image upload
+#     if 'image' in request.FILES:
+#         try:
+#             print("Image found..!")
+#             image_file = request.FILES['image']
+#             print(f"Received file: {image_file.name}, Size: {image_file.size} bytes")
+#
+#             # Validate file size (max 5MB)
+#             if image_file.size > 5 * 1024 * 1024:
+#                 data['response'] = "Image too large (max 5MB)"
+#                 return Response(data, status=status.HTTP_400_BAD_REQUEST)
+#
+#             # Extract text using OCR.space
+#             extracted_text, error = extract_text_with_ocrspace(image_file)
+#             print(f"OCR Response - Text: {extracted_text}, Error: {error}")
+#
+#             if error:
+#                 data['response'] = f"OCR Error: {error}"
+#                 return Response(data, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+#
+#             if extracted_text:
+#                 test_model_instance = TestModel.objects.first()
+#                 if test_model_instance:
+#                     test_model_instance.response = extracted_text
+#                     test_model_instance.save()
+#                 else:
+#                     TestModel.objects.create(response=extracted_text)
+#                 data['response'] = extracted_text
+#             else:
+#                 data['response'] = "No text detected. Please ensure clear image with visible text."
+#
+#             return Response(data, status=status.HTTP_200_OK)
+#
+#         except Exception as e:
+#             print(f"Image processing error: {str(e)}")
+#             data['response'] = f"Processing Error: {str(e)}"
+#             return Response(data, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+#
+#
+#
+#     # Camera detection
+#     camera_words = ['camera', 'open camera', 'scan', 'scanner']
+#     data['camera'] = contains_word(text, camera_words)
+#
+#     # Emergency detection
+#     emergency_words = ['emergency', 'help', 'rescue', 'urgent', 'accident', 'danger', 'fire', 'police', 'ambulance',
+#                        'robbery']
+#     data['emergency'] = contains_word(text, emergency_words)
+#
+#     # 4. Emergency handling (async)
+#     if data['emergency']:
+#         lat = data['latitude']
+#         lng = data['longitude']
+#         map_link = f"https://www.openstreetmap.org/?mlat={lat}&mlon={lng}&zoom=16" if lat else ""
+#
+#         # Start async WhatsApp send
+#         if lat and lng:
+#             send_emergency_alert_async(lat, lng)
+#             data['response'] = f"Emergency response sent. An emergency message with your current location has been texted to the authorities, and the dialer will now open to initiate a call."
+#         else:
+#             data['response'] = "Emergency detected! But location missing - enable location services."
+#
+#         data['map_link'] = map_link
+#         return Response(data)
+#
+#     # Generate map link (only for location-related responses)
+#     if data['latitude'] and data['longitude']:
+#         data['map_link'] = f"https://www.openstreetmap.org/?mlat={data['latitude']}&mlon={data['longitude']}&zoom=16"
+#
+#     # Handle greetings
+#     greeting_words = ['hi', 'hello', 'hey', 'hola', 'namaste','hai']
+#     if contains_word(text, greeting_words):
+#         data['response'] = random.choice([
+#             "Hello! How can I assist you today?",
+#             "Welcome! What would you like to do?",
+#             "Glad to have you here! Need any help?"
+#         ])
+#         return Response(data)
+#
+#     # 3. Location-based priority handling
+#     def handle_location_requests():
+#         # A. Current location request
+#         if re.search(r'\b(current location|where am i)\b', text):
+#             if data['latitude'] and data['longitude']:
+#                 address = get_address_from_coords(data['latitude'], data['longitude'])
+#                 data[
+#                     'response'] = f"Your approximate location: {address}" if address else "Location found but address unavailable"
+#             else:
+#                 data['response'] = "Location coordinates not provided"
+#             return True
+#
+#         # B. Nearby places lookup
+#         place_mapping = {
+#             'bus_station': {'keywords': ['bus stop', 'bus stand', 'bus station'],
+#                             'query': 'public transit stop'},
+#             'restaurant': {'keywords': ['restaurant', 'dine', 'eat']},
+#             'hospital': {'keywords': ['hospital', 'clinic']},
+#             'park': {'keywords': ['park', 'garden']},
+#             'hotel': {'keywords': ['hotel', 'lodging']},
+#             'cinema': {'keywords': ['theater', 'theatre', 'cinema']}
+#         }
+#
+#         for place_type, config in place_mapping.items():
+#             if contains_word(text, config['keywords']):
+#                 if not (data['latitude'] and data['longitude']):
+#                     data['response'] = "Location access required to find nearby places."
+#                     return True
+#
+#                 places = get_nearby_places(
+#                     data['latitude'],
+#                     data['longitude'],
+#                     config.get('query', place_type)
+#                 )
+#
+#                 if places:
+#                     data['response'] = f"Nearby {place_type.replace('_', ' ')}s: {', '.join(places[:3])}"
+#                 else:
+#                     address = get_address_from_coords(data['latitude'], data['longitude'])
+#                     prompt = f"Are there any {config.get('query', place_type)}s near {address or 'this location'}?"
+#                     data['response'] = ask_gemini_ai(prompt, f"{data['latitude']},{data['longitude']}")
+#                 return True
+#         return False
+#
+#     if handle_location_requests():
+#         return Response(data)
+#
+#     # 4. Enhanced location-aware Gemini integration
+#     location_triggers = r'\b(near( me)?|closest|close by|around|nearby|in my area)\b'
+#     if re.search(location_triggers, text, re.IGNORECASE):
+#         if data['latitude'] and data['longitude']:
+#             address = get_address_from_coords(data['latitude'], data['longitude'])
+#             prompt = f"{text} near {address}" if address else f"{text} at coordinates {data['latitude']}, {data['longitude']}"
+#             data['response'] = ask_gemini_ai(prompt, f"{data['latitude']},{data['longitude']}")
+#         else:
+#             data['response'] = "Please enable location services for this feature."
+#         return Response(data)
+#
+#     # 5. Core functionality handlers
+#     handlers = [
+#         {
+#             'condition': lambda: contains_word(text, ['camera', 'scan']),
+#             'response': "Camera access requested. When ready, point your camera at the subject.",
+#             'field': 'camera'
+#         },
+#         {
+#             'condition': lambda: contains_word(text, ['emergency', 'help']),
+#             'response': "Emergency detected! Contact local authorities. Map link provided.",
+#             'field': 'emergency'
+#         },
+#         {
+#             'condition': lambda: 'play' in text,
+#             'action': lambda: (get_youtube_link(text.replace('play', '').strip())),
+#             'response': "Here's a YouTube link:",
+#             'url_field': True
+#         }
+#     ]
+#
+#     for handler in handlers:
+#         if handler['condition']():
+#             if 'action' in handler:
+#                 result = handler['action']()
+#                 if result:
+#                     data['response_urls'].append(result)
+#             data['response'] = handler.get('response', '')
+#             if 'field' in handler:
+#                 data[handler['field']] = True
+#             return Response(data)
+#
+#     # 6. Knowledge base fallback
+#     wikipedia_summary = get_wikipedia_summary(text)
+#     if "No information found" not in wikipedia_summary:
+#         data['response'] = wikipedia_summary
+#         data['response_urls'].append(f"https://en.wikipedia.org/wiki/{quote(text)}")
+#     else:
+#         data['response'] = ask_gemini_ai(text,
+#                                          f"{data['latitude']},{data['longitude']}" if data['latitude'] else None
+#                                          )
+#
+#     return Response(data)
 
 #
 # from django.views.decorators.http import require_GET
@@ -4197,3 +4197,20 @@ def process_text(request):
 #             })
 #
 #     return JsonResponse({"results": results})
+
+from django.views.decorators.http import require_POST
+
+import logging
+logger = logging.getLogger(__name__)
+
+@csrf_exempt
+@require_POST
+def csp_report(request):
+    """Handle CSP violation reports"""
+    try:
+        report = json.loads(request.body.decode('utf-8'))
+        logger.warning(f"CSP Violation: {report}")
+    except Exception as e:
+        logger.error(f"Error processing CSP report: {e}")
+
+    return HttpResponse(status=204)
