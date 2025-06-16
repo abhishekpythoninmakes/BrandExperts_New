@@ -125,50 +125,51 @@ AUTH_USER_MODEL = 'products_app.CustomUser'
 # SECURITY CONFIGURATIONS - ADDRESSING ALL VULNERABILITIES
 # =============================================================================
 
-# 1. CONTENT SECURITY POLICY (CSP) CONFIGURATION - Compatible with django-csp 3.8
+# 1. CONTENT SECURITY POLICY (CSP) CONFIGURATION - NEW FORMAT
 # Addresses: Content Security Policy (CSP) header not implemented
+# Using the exact format suggested by the error message
 
-# Use the old format that works with django-csp 3.8
-CSP_DEFAULT_SRC = ["'self'"]
-CSP_SCRIPT_SRC = [
-    "'self'",
-    "'unsafe-inline'",  # Only if absolutely necessary for inline scripts
-    "'unsafe-eval'",    # Only if absolutely necessary for eval()
-    "https://www.google-analytics.com",
-    "https://www.googletagmanager.com",
-    "https://cdnjs.cloudflare.com",
-    "https://cdn.jsdelivr.net",
-]
-CSP_STYLE_SRC = [
-    "'self'",
-    "'unsafe-inline'",  # Often needed for CSS frameworks
-    "https://fonts.googleapis.com",
-    "https://cdnjs.cloudflare.com",
-    "https://cdn.jsdelivr.net",
-]
-CSP_IMG_SRC = [
-    "'self'",
-    "data:",
-    "https:",
-    "https://www.google-analytics.com",
-]
-CSP_FONT_SRC = [
-    "'self'",
-    "https://fonts.gstatic.com",
-    "https://cdnjs.cloudflare.com",
-]
-CSP_CONNECT_SRC = [
-    "'self'",
-    "https://www.google-analytics.com",
-    "https://api.brandexperts.ae",
-]
-CSP_FRAME_SRC = ["'none'"]  # Prevent framing
-CSP_OBJECT_SRC = ["'none'"]  # Prevent object/embed tags
-CSP_BASE_URI = ["'self'"]
-CSP_FORM_ACTION = ["'self'"]
-
-# Enable nonce for scripts and styles (this works with django-csp 3.8)
-CSP_INCLUDE_NONCE_IN = ['script-src', 'style-src']
+CONTENT_SECURITY_POLICY = {
+    'DIRECTIVES': {
+        'default-src': ["'self'"],
+        'script-src': [
+            "'self'",
+            "'unsafe-inline'",
+            "'unsafe-eval'",
+            'https://www.google-analytics.com',
+            'https://www.googletagmanager.com',
+            'https://cdnjs.cloudflare.com',
+            'https://cdn.jsdelivr.net',
+        ],
+        'style-src': [
+            "'self'",
+            "'unsafe-inline'",
+            'https://fonts.googleapis.com',
+            'https://cdnjs.cloudflare.com',
+            'https://cdn.jsdelivr.net',
+        ],
+        'img-src': [
+            "'self'",
+            'data:',
+            'https:',
+            'https://www.google-analytics.com',
+        ],
+        'font-src': [
+            "'self'",
+            'https://fonts.gstatic.com',
+            'https://cdnjs.cloudflare.com',
+        ],
+        'connect-src': [
+            "'self'",
+            'https://www.google-analytics.com',
+            'https://api.brandexperts.ae',
+        ],
+        'frame-src': ["'none'"],
+        'object-src': ["'none'"],
+        'base-uri': ["'self'"],
+        'form-action': ["'self'"],
+    }
+}
 
 # 2. CLICKJACKING PROTECTION
 # Addresses: Clickjacking vulnerabilities
