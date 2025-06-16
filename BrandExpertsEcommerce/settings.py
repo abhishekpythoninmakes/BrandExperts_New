@@ -125,10 +125,7 @@ AUTH_USER_MODEL = 'products_app.CustomUser'
 # SECURITY CONFIGURATIONS - ADDRESSING ALL VULNERABILITIES
 # =============================================================================
 
-# 1. CONTENT SECURITY POLICY (CSP) CONFIGURATION - NEW FORMAT
-# Addresses: Content Security Policy (CSP) header not implemented
-# Using the exact format suggested by the error message
-
+# 1. CONTENT SECURITY POLICY (CSP) CONFIGURATION
 CONTENT_SECURITY_POLICY = {
     'DIRECTIVES': {
         'default-src': ["'self'"],
@@ -172,11 +169,9 @@ CONTENT_SECURITY_POLICY = {
 }
 
 # 2. CLICKJACKING PROTECTION
-# Addresses: Clickjacking vulnerabilities
-X_FRAME_OPTIONS = 'DENY'  # Completely prevent framing
+X_FRAME_OPTIONS = 'DENY'
 
 # 3. SECURE CORS CONFIGURATION
-# Addresses: Cross origin Resource Sharing Implemented With Public Access
 CORS_ALLOWED_ORIGINS = [
     "https://brandexperts.ae",
     "https://www.brandexperts.ae",
@@ -194,9 +189,7 @@ if DEBUG:
         "http://65.2.66.156",
     ])
 
-# Remove CORS_ALLOW_ALL - this was a security risk
-CORS_ALLOW_ALL_ORIGINS = False  # Explicitly set to False
-
+CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOW_CREDENTIALS = True
 
 CORS_ALLOWED_HEADERS = [
@@ -238,30 +231,26 @@ if DEBUG:
         "http://65.2.66.156",
     ])
 
+# 5. HTTPS AND SECURITY SETTINGS - FIXED VERSION
 if not DEBUG:
-    # Trust the proxy headers
+    # Trust the proxy headers from Cloudflare/Nginx
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
-    # Only redirect if we're sure we're not already on HTTPS
-    # TEMPORARY FIX FOR CLOUDFLARE REDIRECT LOOP
+    # DISABLE SSL redirect to prevent Cloudflare loop
     SECURE_SSL_REDIRECT = False
+
+    # HSTS settings - disabled temporarily for Cloudflare compatibility
     SECURE_HSTS_SECONDS = 0
-
-    # Keep these for security but disable redirects
-    SESSION_COOKIE_SECURE = True if not DEBUG else False
-    CSRF_COOKIE_SECURE = True if not DEBUG else False
-
-    # Additional security settings
-    SECURE_HSTS_SECONDS = 31536000  # 1 year
     SECURE_HSTS_INCLUDE_SUBDOMAINS = False
     SECURE_HSTS_PRELOAD = False
 
-    # Cookie security
-    SESSION_COOKIE_SECURE = False
-
+    # Cookie security - keep secure but not requiring HTTPS redirect
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
 else:
     # Development settings
     SECURE_SSL_REDIRECT = False
+    SECURE_HSTS_SECONDS = 0
     SESSION_COOKIE_SECURE = False
     CSRF_COOKIE_SECURE = False
 
@@ -288,7 +277,7 @@ AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
         'OPTIONS': {
-            'min_length': 8,  # Increased minimum length
+            'min_length': 8,
         }
     },
     {
@@ -525,3 +514,8 @@ CELERY_BEAT_SCHEDULE = {
         'schedule': crontab(minute=0, hour=2, day_of_week='sunday'),
     },
 }
+
+# Debug print for troubleshooting
+print(f"DEBUG: {DEBUG}")
+print(f"ALLOWED_HOSTS: {ALLOWED_HOSTS}")
+print(f"SECURE_SSL_REDIRECT: {globals().get('SECURE_SSL_REDIRECT', 'Not set')}")
