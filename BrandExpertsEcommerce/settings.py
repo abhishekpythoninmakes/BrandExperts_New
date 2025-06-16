@@ -238,35 +238,37 @@ if DEBUG:
         "http://65.2.66.156",
     ])
 
-# 5. COMPREHENSIVE SECURITY HEADERS
-# Addresses: X-Content-Type-Options header not implemented
-SECURE_CONTENT_TYPE_NOSNIFF = True  # Prevent MIME sniffing
-
-# Additional security headers
-SECURE_BROWSER_XSS_FILTER = True  # Enable XSS filtering
-SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
-
-# HTTPS Security (Production)
 if not DEBUG:
-    SECURE_SSL_REDIRECT = True  # Redirect HTTP to HTTPS
+    # Trust the proxy headers
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
-SESSION_COOKIE_SECURE = not DEBUG  # Only send cookies over HTTPS in production
-CSRF_COOKIE_SECURE = not DEBUG  # Only send CSRF cookies over HTTPS in production
-SESSION_COOKIE_HTTPONLY = True  # Prevent JavaScript access to session cookies
-CSRF_COOKIE_HTTPONLY = True  # Prevent JavaScript access to CSRF cookies
+    # Only redirect if we're sure we're not already on HTTPS
+    SECURE_SSL_REDIRECT = True
 
-# HSTS (HTTP Strict Transport Security)
-if not DEBUG:
+    # Additional security settings
     SECURE_HSTS_SECONDS = 31536000  # 1 year
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
 
-# Session Security
-SESSION_COOKIE_AGE = 3600  # 1 hour session timeout
-SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+    # Cookie security
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+else:
+    # Development settings
+    SECURE_SSL_REDIRECT = False
+    SESSION_COOKIE_SECURE = False
+    CSRF_COOKIE_SECURE = False
+
+# Always secure regardless of DEBUG
+SESSION_COOKIE_HTTPONLY = True
+CSRF_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'
 CSRF_COOKIE_SAMESITE = 'Lax'
+
+# Additional security headers
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
 
 # =============================================================================
 # END SECURITY CONFIGURATIONS
