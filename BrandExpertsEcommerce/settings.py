@@ -24,7 +24,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = config('SECRET_KEY', default='django-insecure-t7*2el()8a*qrz%!p#quy8m-%6rlgb(7m@#xk*!(tk+m95#dk9')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config('DEBUG', default=False, cast=bool)
+DEBUG = config('DEBUG', default=True, cast=bool)
 
 ALLOWED_HOSTS = [
     'dash.brandexperts.ae',
@@ -125,8 +125,10 @@ AUTH_USER_MODEL = 'products_app.CustomUser'
 # SECURITY CONFIGURATIONS - ADDRESSING ALL VULNERABILITIES
 # =============================================================================
 
-# 1. CONTENT SECURITY POLICY (CSP) CONFIGURATION
+# 1. CONTENT SECURITY POLICY (CSP) CONFIGURATION - Compatible with django-csp 3.8
 # Addresses: Content Security Policy (CSP) header not implemented
+
+# Use the old format that works with django-csp 3.8
 CSP_DEFAULT_SRC = ["'self'"]
 CSP_SCRIPT_SRC = [
     "'self'",
@@ -137,7 +139,6 @@ CSP_SCRIPT_SRC = [
     "https://cdnjs.cloudflare.com",
     "https://cdn.jsdelivr.net",
 ]
-
 CSP_STYLE_SRC = [
     "'self'",
     "'unsafe-inline'",  # Often needed for CSS frameworks
@@ -161,13 +162,14 @@ CSP_CONNECT_SRC = [
     "https://www.google-analytics.com",
     "https://api.brandexperts.ae",
 ]
-
 CSP_FRAME_SRC = ["'none'"]  # Prevent framing
 CSP_OBJECT_SRC = ["'none'"]  # Prevent object/embed tags
 CSP_BASE_URI = ["'self'"]
 CSP_FORM_ACTION = ["'self'"]
 
+# Enable nonce for scripts and styles (this works with django-csp 3.8)
 CSP_INCLUDE_NONCE_IN = ['script-src', 'style-src']
+
 # 2. CLICKJACKING PROTECTION
 # Addresses: Clickjacking vulnerabilities
 X_FRAME_OPTIONS = 'DENY'  # Completely prevent framing
@@ -350,8 +352,8 @@ EMAIL_HOST = 'email-smtp.ap-south-1.amazonaws.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_USE_SSL = False
-EMAIL_HOST_USER = config('EMAIL_HOST_USER')
-EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
+EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='AKIA3C6FL5S2HPHYRYNN')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='BJ+TcRmykGY8TWMTkFrt9nG3c3NW1HTL2iRtXpTRKpx6')
 DEFAULT_FROM_EMAIL = 'hello@brandexperts.ae'
 
 # CKEditor Configuration
@@ -390,20 +392,20 @@ CKEDITOR_CONFIGS = {
 CKEDITOR_UPLOAD_PATH = "uploads/"
 
 # API Keys and External Services
-STRIPE_SECRET_KEY = config('STRIPE_SECRET_KEY')
-GEMINI_API_KEY = config('GEMINI_API_KEY')
-YOUTUBE_API_KEY = config('YOUTUBE_API_KEY')
+STRIPE_SECRET_KEY = config('STRIPE_SECRET_KEY', default='')
+GEMINI_API_KEY = config('GEMINI_API_KEY', default='')
+YOUTUBE_API_KEY = config('YOUTUBE_API_KEY', default='')
 
 # Twilio Configuration
-TWILIO_ACCOUNT_SID = config('TWILIO_ACCOUNT_SID')
-TWILIO_AUTH_TOKEN = config('TWILIO_AUTH_TOKEN')
-CONTENT_SID = config('CONTENT_SID')
-TWILIO_WHATSAPP_NUMBER = config('TWILIO_WHATSAPP_NUMBER')
-EMERGENCY_CONTACT = config('EMERGENCY_CONTACT')
+TWILIO_ACCOUNT_SID = config('TWILIO_ACCOUNT_SID', default='')
+TWILIO_AUTH_TOKEN = config('TWILIO_AUTH_TOKEN', default='')
+CONTENT_SID = config('CONTENT_SID', default='')
+TWILIO_WHATSAPP_NUMBER = config('TWILIO_WHATSAPP_NUMBER', default='')
+EMERGENCY_CONTACT = config('EMERGENCY_CONTACT', default='')
 
 # WhatsApp Configuration
-WHATSAPP_PHONE_NUMBER_ID = config('WHATSAPP_PHONE_NUMBER_ID')
-WHATSAPP_PERMANENT_TOKEN = config('WHATSAPP_PERMANENT_TOKEN')
+WHATSAPP_PHONE_NUMBER_ID = config('WHATSAPP_PHONE_NUMBER_ID', default='')
+WHATSAPP_PERMANENT_TOKEN = config('WHATSAPP_PERMANENT_TOKEN', default='')
 
 # Jazzmin Admin Configuration
 JAZZMIN_SETTINGS = {
@@ -453,7 +455,7 @@ JAZZMIN_SETTINGS = {
 }
 
 # Celery Configuration
-CELERY_BROKER_URL = config('CELERY_BROKER_URL')
+CELERY_BROKER_URL = config('CELERY_BROKER_URL', default='')
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_BACKEND = 'django-db'
@@ -463,12 +465,10 @@ CELERY_TIMEZONE = 'UTC'
 CELERY_ENABLE_UTC = True
 CELERY_TASK_EAGER_PROPAGATES = True
 
-
-
-
 # Create logs directory if it doesn't exist
 LOGS_DIR = os.path.join(BASE_DIR, 'logs')
 os.makedirs(LOGS_DIR, exist_ok=True)
+
 # Logging Configuration
 LOGGING = {
     'version': 1,
@@ -486,7 +486,7 @@ LOGGING = {
         },
         'file': {
             'class': 'logging.FileHandler',
-            'filename': os.path.join(BASE_DIR, 'logs', 'django.log'),
+            'filename': os.path.join(LOGS_DIR, 'django.log'),
             'formatter': 'verbose',
         },
     },
