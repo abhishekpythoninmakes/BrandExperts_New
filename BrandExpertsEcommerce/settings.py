@@ -26,9 +26,9 @@ SECRET_KEY = config('SECRET_KEY', default='django-insecure-t7*2el()8a*qrz%!p#quy
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=True, cast=bool)
 
+# Cloudflare compatibility settings
 USE_X_FORWARDED_HOST = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-
 
 ALLOWED_HOSTS = [
     'dash.brandexperts.ae',
@@ -177,9 +177,10 @@ CONTENT_SECURITY_POLICY = {
 # 2. CLICKJACKING PROTECTION
 X_FRAME_OPTIONS = 'DENY'
 
-# 3. SECURE CORS CONFIGURATION
-# API-specific CORS settings
+# 3. CORS CONFIGURATION - FIXED (NO DUPLICATES)
 CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOW_CREDENTIALS = True
+
 CORS_ALLOWED_ORIGINS = [
     "https://brandexperts.ae",
     "https://www.brandexperts.ae",
@@ -195,21 +196,6 @@ if DEBUG:
         "http://localhost:3000",
         "http://65.2.66.156",
     ])
-
-# Add development origins only in DEBUG mode
-CSRF_TRUSTED_ORIGINS = [
-    "https://brandexperts.ae",
-    "https://api.brandexperts.ae",
-    "https://dash.brandexperts.ae",
-    "https://www.brandexperts.ae",
-    "https://be-editor-one.vercel.app",
-    "https://designer.brandexperts.ae",
-]
-
-
-
-CORS_ALLOW_ALL_ORIGINS = False
-CORS_ALLOW_CREDENTIALS = True
 
 CORS_ALLOWED_HEADERS = [
     'accept',
@@ -232,23 +218,30 @@ CORS_ALLOW_METHODS = [
     'PUT',
 ]
 
+# 4. CSRF PROTECTION - FIXED (NO DUPLICATES)
+CSRF_TRUSTED_ORIGINS = [
+    "https://brandexperts.ae",
+    "https://api.brandexperts.ae",
+    "https://dash.brandexperts.ae",
+    "https://www.brandexperts.ae",
+    "https://be-editor-one.vercel.app",
+    "https://designer.brandexperts.ae",
+]
 
+if DEBUG:
+    CSRF_TRUSTED_ORIGINS.extend([
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "http://localhost:3000",
+        "http://65.2.66.156",
+    ])
 
-
-# Additional security headers
-SECURE_CONTENT_TYPE_NOSNIFF = True
-SECURE_BROWSER_XSS_FILTER = True
-SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
-
-# 5. HTTPS AND SECURITY SETTINGS - FIXED VERSION
+# 5. HTTPS AND SECURITY SETTINGS - API COMPATIBLE
 if not DEBUG:
-    # Trust the proxy headers
-    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-
     # DISABLE SSL redirect to prevent API redirect loops
     SECURE_SSL_REDIRECT = False
 
-    # HSTS settings - keep disabled for now
+    # HSTS settings - disabled for Cloudflare compatibility
     SECURE_HSTS_SECONDS = 0
     SECURE_HSTS_INCLUDE_SUBDOMAINS = False
     SECURE_HSTS_PRELOAD = False
@@ -268,48 +261,10 @@ CSRF_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'
 CSRF_COOKIE_SAMESITE = 'Lax'
 
-
-
 # Additional security headers
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
-
-# API-specific CORS settings
-CORS_ALLOW_ALL_ORIGINS = False
-CORS_ALLOWED_ORIGINS = [
-    "https://brandexperts.ae",
-    "https://www.brandexperts.ae",
-    "https://dash.brandexperts.ae",
-    "https://designer.brandexperts.ae",
-    "https://be-editor-one.vercel.app",
-]
-
-if DEBUG:
-    CORS_ALLOWED_ORIGINS.extend([
-        "http://localhost:5173",
-        "http://localhost:5174",
-        "http://localhost:3000",
-        "http://65.2.66.156",
-    ])
-
-# Ensure API endpoints don't require CSRF tokens for GET requests
-CSRF_TRUSTED_ORIGINS = [
-    "https://brandexperts.ae",
-    "https://api.brandexperts.ae",
-    "https://dash.brandexperts.ae",
-    "https://www.brandexperts.ae",
-    "https://be-editor-one.vercel.app",
-    "https://designer.brandexperts.ae",
-]
-
-if DEBUG:
-    CSRF_TRUSTED_ORIGINS.extend([
-        "http://localhost:5173",
-        "http://localhost:5174",
-        "http://localhost:3000",
-        "http://65.2.66.156",
-    ])
 
 # =============================================================================
 # END SECURITY CONFIGURATIONS
@@ -359,21 +314,21 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# REST Framework Configuration
+# REST Framework Configuration - FIXED FOR PUBLIC API ENDPOINTS
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAuthenticated',
+        'rest_framework.permissions.AllowAny',  # Changed from IsAuthenticated to AllowAny
     ],
     'DEFAULT_THROTTLE_CLASSES': [
         'rest_framework.throttling.AnonRateThrottle',
         'rest_framework.throttling.UserRateThrottle'
     ],
     'DEFAULT_THROTTLE_RATES': {
-        'anon': '100/hour',
-        'user': '1000/hour'
+        'anon': '1000/hour',  # Increased from 100 to 1000
+        'user': '2000/hour'  # Increased from 1000 to 2000
     }
 }
 
