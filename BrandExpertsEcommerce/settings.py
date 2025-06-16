@@ -127,48 +127,47 @@ AUTH_USER_MODEL = 'products_app.CustomUser'
 
 # 1. CONTENT SECURITY POLICY (CSP) CONFIGURATION
 # Addresses: Content Security Policy (CSP) header not implemented
-CSP_DEFAULT_SRC = ("'self'",)
-CSP_SCRIPT_SRC = (
+CSP_DEFAULT_SRC = ["'self'"]
+CSP_SCRIPT_SRC = [
     "'self'",
     "'unsafe-inline'",  # Only if absolutely necessary for inline scripts
-    "'unsafe-eval'",  # Only if absolutely necessary for eval()
+    "'unsafe-eval'",    # Only if absolutely necessary for eval()
     "https://www.google-analytics.com",
     "https://www.googletagmanager.com",
     "https://cdnjs.cloudflare.com",
     "https://cdn.jsdelivr.net",
-)
-CSP_STYLE_SRC = (
+]
+
+CSP_STYLE_SRC = [
     "'self'",
     "'unsafe-inline'",  # Often needed for CSS frameworks
     "https://fonts.googleapis.com",
     "https://cdnjs.cloudflare.com",
     "https://cdn.jsdelivr.net",
-)
-CSP_IMG_SRC = (
+]
+CSP_IMG_SRC = [
     "'self'",
     "data:",
     "https:",
     "https://www.google-analytics.com",
-)
-CSP_FONT_SRC = (
+]
+CSP_FONT_SRC = [
     "'self'",
     "https://fonts.gstatic.com",
     "https://cdnjs.cloudflare.com",
-)
-CSP_CONNECT_SRC = (
+]
+CSP_CONNECT_SRC = [
     "'self'",
     "https://www.google-analytics.com",
     "https://api.brandexperts.ae",
-)
-CSP_FRAME_SRC = ("'none'",)  # Prevent framing
-CSP_OBJECT_SRC = ("'none'",)  # Prevent object/embed tags
-CSP_BASE_URI = ("'self'",)
-CSP_FORM_ACTION = ("'self'",)
+]
 
-# CSP Reporting (optional but recommended)
-# CSP_REPORT_URI = '/csp-report/'
+CSP_FRAME_SRC = ["'none'"]  # Prevent framing
+CSP_OBJECT_SRC = ["'none'"]  # Prevent object/embed tags
+CSP_BASE_URI = ["'self'"]
+CSP_FORM_ACTION = ["'self'"]
+
 CSP_INCLUDE_NONCE_IN = ['script-src', 'style-src']
-
 # 2. CLICKJACKING PROTECTION
 # Addresses: Clickjacking vulnerabilities
 X_FRAME_OPTIONS = 'DENY'  # Completely prevent framing
