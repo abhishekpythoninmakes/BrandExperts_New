@@ -243,7 +243,13 @@ if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
     # Only redirect if we're sure we're not already on HTTPS
+    # TEMPORARY FIX FOR CLOUDFLARE REDIRECT LOOP
     SECURE_SSL_REDIRECT = False
+    SECURE_HSTS_SECONDS = 0
+
+    # Keep these for security but disable redirects
+    SESSION_COOKIE_SECURE = True if not DEBUG else False
+    CSRF_COOKIE_SECURE = True if not DEBUG else False
 
     # Additional security settings
     SECURE_HSTS_SECONDS = 31536000  # 1 year
@@ -252,7 +258,7 @@ if not DEBUG:
 
     # Cookie security
     SESSION_COOKIE_SECURE = False
-    CSRF_COOKIE_SECURE = False
+
 else:
     # Development settings
     SECURE_SSL_REDIRECT = False
