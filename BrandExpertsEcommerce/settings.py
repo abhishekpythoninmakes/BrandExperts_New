@@ -105,10 +105,10 @@ WSGI_APPLICATION = 'BrandExpertsEcommerce.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': config('DB_NAME', default='MYBE'),
-        'USER': config('DB_USER', default='admin'),
-        'PASSWORD': config('DB_PASSWORD', default='database1brandexperts'),
-        'HOST': config('DB_HOST', default='databasebe.cz6qg420mik4.ap-south-1.rds.amazonaws.com'),
+        'NAME': config('DB_NAME'),
+        'USER': config('DB_USER'),
+        'PASSWORD': config('DB_PASSWORD'),
+        'HOST': config('DB_HOST'),
         'PORT': config('DB_PORT', default=3306, cast=int),
         'OPTIONS': {
             'charset': 'utf8mb4',
@@ -339,9 +339,9 @@ EMAIL_HOST = 'email-smtp.ap-south-1.amazonaws.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_USE_SSL = False
-EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='AKIA3C6FL5S2HPHYRYNN')
-EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='BJ+TcRmykGY8TWMTkFrt9nG3c3NW1HTL2iRtXpTRKpx6')
-DEFAULT_FROM_EMAIL = 'hello@brandexperts.ae'
+EMAIL_HOST_USER = config('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
+DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL')
 
 # CKEditor Configuration
 CKEDITOR_CONFIGS = {
