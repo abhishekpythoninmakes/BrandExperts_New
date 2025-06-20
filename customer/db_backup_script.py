@@ -5,10 +5,7 @@ import gzip
 import shutil
 
 # Database connection details
-DB_HOST = 'databasebe.cz6qg420mik4.ap-south-1.rds.amazonaws.com'
-DB_USER = 'admin'
-DB_PASSWORD = 'database1brandexperts'
-DB_NAME = 'MYBE'
+
 
 # Path to mysqldump.exe (update if needed)
 MYSQLDUMP_PATH = r'D:\tools\mysql_dump\mysql-8.0.42-winx64\bin\mysqldump.exe'
