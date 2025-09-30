@@ -651,6 +651,12 @@ class OTPLoginAPIView(APIView):
             try:
                 user = CustomUser.objects.get(email=identifier)
                 customer = Customer.objects.filter(user=user).first()
+
+                # Check if customer exists
+                if not customer:
+                    return Response({"error": "Customer profile not found for this email"},
+                                    status=status.HTTP_404_NOT_FOUND)
+
             except CustomUser.DoesNotExist:
                 return Response({"error": "Email not registered"},
                                 status=status.HTTP_404_NOT_FOUND)
@@ -667,13 +673,15 @@ class OTPLoginAPIView(APIView):
                     customer = Customer.objects.filter(mobile=local_number).first()
                     if customer:
                         country_code = customer.country_code or "+971"  # Default to UAE
+                        user = customer.user
                     else:
                         return Response({"error": "Mobile number not registered"},
                                         status=status.HTTP_404_NOT_FOUND)
 
                 if not customer:
                     customer = Customer.objects.get(mobile=local_number, country_code=country_code)
-                user = customer.user
+                    user = customer.user
+
             except ValueError:
                 return Response({"error": "Invalid mobile number format"},
                                 status=status.HTTP_400_BAD_REQUEST)
@@ -681,7 +689,7 @@ class OTPLoginAPIView(APIView):
                 return Response({"error": "Mobile number not registered"},
                                 status=status.HTTP_404_NOT_FOUND)
 
-        # Check verification status
+        # Check verification status - now customer is guaranteed to exist
         if identifier_type == 'email' and not customer.verified_email:
             return Response({"error": "Email not verified"},
                             status=status.HTTP_403_FORBIDDEN)
@@ -745,6 +753,7 @@ class OTPLoginAPIView(APIView):
         message = f'Your OTP code is: {otp}'
         send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [email])
         print("Sended email otp")
+
     def send_whatsapp_otp(self, mobile, otp):
         url = f"https://graph.facebook.com/v19.0/{settings.WHATSAPP_PHONE_NUMBER_ID}/messages"
         headers = {
