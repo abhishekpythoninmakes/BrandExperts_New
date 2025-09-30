@@ -36,7 +36,12 @@ class Migration(migrations.Migration):
                 ('product', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to='products_app.product')),
             ],
             options={
-                'constraints': [models.CheckConstraint(condition=models.Q(('customer__isnull', False), ('anonymous_uuid__isnull', False), _connector='OR'), name='customer_or_anon_uuid_required')],
+                'constraints': [
+    models.CheckConstraint(
+        check=models.Q(customer__isnull=False) | models.Q(anonymous_uuid__isnull=False),
+        name='customer_or_anon_uuid_required'
+    )
+],
             },
         ),
     ]

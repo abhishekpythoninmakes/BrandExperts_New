@@ -29,6 +29,7 @@ ALLOWED_HOSTS = [
     'api.brandexperts.ae',
     'designer.brandexperts.ae',
     '.brandexperts.ae',
+    '127.0.0.1',
 ]
 
 # Add localhost only for development

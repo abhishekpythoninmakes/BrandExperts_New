@@ -4,6 +4,7 @@ import tempfile
 import time
 from decimal import Decimal, InvalidOperation
 
+import requests
 from django.db.models import Q
 
 from pep_app .tasks import link_contact_and_update_status
