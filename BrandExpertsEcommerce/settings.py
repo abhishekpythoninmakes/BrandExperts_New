@@ -395,6 +395,8 @@ EMERGENCY_CONTACT = config('EMERGENCY_CONTACT', default='')
 WHATSAPP_PHONE_NUMBER_ID = config('WHATSAPP_PHONE_NUMBER_ID', default='')
 WHATSAPP_PERMANENT_TOKEN = config('WHATSAPP_PERMANENT_TOKEN', default='')
 
+WHATSAPP_WEBHOOK_URL = config('WHATSAPP_WEBHOOK_URL')
+
 # Jazzmin Admin Configuration
 JAZZMIN_SETTINGS = {
     "site_title": "BrandExperts Admin",

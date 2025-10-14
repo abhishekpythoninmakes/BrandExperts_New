@@ -179,28 +179,66 @@ class AuthInitiateView(APIView):
         message = f'Your OTP code is: {otp}'
         send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [email])
 
+    # def send_whatsapp_otp(self, mobile, otp):
+    #     url = f"https://graph.facebook.com/v19.0/{settings.WHATSAPP_PHONE_NUMBER_ID}/messages"
+    #     headers = {
+    #         "Authorization": f"Bearer {settings.WHATSAPP_PERMANENT_TOKEN}",
+    #         "Content-Type": "application/json"
+    #     }
+    #     data = {
+    #         "messaging_product": "whatsapp",
+    #         "to": mobile,
+    #         "type": "template",
+    #         "template": {
+    #             "name": "be_auth",
+    #             "language": {"code": "en"},
+    #             "components": [
+    #                 {"type": "body", "parameters": [{"type": "text", "text": otp}]},
+    #                 {"type": "button", "sub_type": "url", "index": 0,
+    #                  "parameters": [{"type": "text", "text": otp}]}
+    #             ]
+    #         }
+    #     }
+    #     requests.post(url, headers=headers, json=data)
     def send_whatsapp_otp(self, mobile, otp):
-        url = f"https://graph.facebook.com/v19.0/{settings.WHATSAPP_PHONE_NUMBER_ID}/messages"
+        """
+        Send WhatsApp OTP using webhook
+        """
+        webhook_url = settings.WHATSAPP_WEBHOOK_URL
+
+        # Prepare the payload in the required format
+        payload = {
+            "mode": "raw",
+            "raw": json.dumps({
+                "phone": mobile,
+                "template_name": "wb_auth",
+                "1": str(otp)  # Ensure OTP is string
+            })
+        }
+
         headers = {
-            "Authorization": f"Bearer {settings.WHATSAPP_PERMANENT_TOKEN}",
             "Content-Type": "application/json"
         }
-        data = {
-            "messaging_product": "whatsapp",
-            "to": mobile,
-            "type": "template",
-            "template": {
-                "name": "be_auth",
-                "language": {"code": "en"},
-                "components": [
-                    {"type": "body", "parameters": [{"type": "text", "text": otp}]},
-                    {"type": "button", "sub_type": "url", "index": 0,
-                     "parameters": [{"type": "text", "text": otp}]}
-                ]
-            }
-        }
-        requests.post(url, headers=headers, json=data)
 
+        try:
+            response = requests.post(
+                webhook_url,
+                headers=headers,
+                json=payload,
+                timeout=30  # 30 seconds timeout
+            )
+
+            # Optional: Log the response for debugging
+            if response.status_code == 200:
+                print(f"OTP sent successfully to {mobile}")
+            else:
+                print(f"Failed to send OTP. Status: {response.status_code}, Response: {response.text}")
+
+            return response.status_code == 200
+
+        except requests.exceptions.RequestException as e:
+            print(f"Error sending WhatsApp OTP: {str(e)}")
+            return False
 
 
 # OTP REGISTER VIEW
@@ -387,33 +425,72 @@ class OTPUpdateView(APIView):
         message = f'Your new OTP code is: {otp}'
         send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [email])
 
+    # def send_whatsapp_otp(self, mobile, otp):
+    #     url = f"https://graph.facebook.com/v19.0/{settings.WHATSAPP_PHONE_NUMBER_ID}/messages"
+    #     headers = {
+    #         "Authorization": f"Bearer {settings.WHATSAPP_PERMANENT_TOKEN}",
+    #         "Content-Type": "application/json"
+    #     }
+    #     data = {
+    #         "messaging_product": "whatsapp",
+    #         "to": mobile,
+    #         "type": "template",
+    #         "template": {
+    #             "name": "be_auth",
+    #             "language": {"code": "en"},
+    #             "components": [
+    #                 {"type": "body", "parameters": [{"type": "text", "text": otp}]},
+    #                 {"type": "button", "sub_type": "url", "index": 0,
+    #                  "parameters": [{"type": "text", "text": otp}]}
+    #             ]
+    #         }
+    #     }
+    #     try:
+    #         response = requests.post(url, headers=headers, json=data)
+    #         response.raise_for_status()
+    #     except requests.exceptions.RequestException as e:
+    #         print(f"Failed to send WhatsApp OTP: {str(e)}")
+    #         if hasattr(e, 'response') and e.response:
+    #             print(f"Response content: {e.response.text}")
     def send_whatsapp_otp(self, mobile, otp):
-        url = f"https://graph.facebook.com/v19.0/{settings.WHATSAPP_PHONE_NUMBER_ID}/messages"
+        """
+        Send WhatsApp OTP using webhook
+        """
+        webhook_url = settings.WHATSAPP_WEBHOOK_URL
+
+        # Prepare the payload in the required format
+        payload = {
+            "mode": "raw",
+            "raw": json.dumps({
+                "phone": mobile,
+                "template_name": "wb_auth",
+                "1": str(otp)  # Ensure OTP is string
+            })
+        }
+
         headers = {
-            "Authorization": f"Bearer {settings.WHATSAPP_PERMANENT_TOKEN}",
             "Content-Type": "application/json"
         }
-        data = {
-            "messaging_product": "whatsapp",
-            "to": mobile,
-            "type": "template",
-            "template": {
-                "name": "be_auth",
-                "language": {"code": "en"},
-                "components": [
-                    {"type": "body", "parameters": [{"type": "text", "text": otp}]},
-                    {"type": "button", "sub_type": "url", "index": 0,
-                     "parameters": [{"type": "text", "text": otp}]}
-                ]
-            }
-        }
+
         try:
-            response = requests.post(url, headers=headers, json=data)
-            response.raise_for_status()
+            response = requests.post(
+                webhook_url,
+                headers=headers,
+                json=payload,
+                timeout=30  # 30 seconds timeout
+            )
+
+            # Optional: Log the response for debugging
+            if response.status_code == 200:
+                print(f"OTP sent successfully to {mobile}")
+            else:
+                print(f"Failed to send OTP. Status: {response.status_code}, Response: {response.text}")
+
+            return response.status_code == 200
+
         except requests.exceptions.RequestException as e:
-            print(f"Failed to send WhatsApp OTP: {str(e)}")
-            if hasattr(e, 'response') and e.response:
-                print(f"Response content: {e.response.text}")
+            print(f"Error sending WhatsApp OTP: {str(e)}")
+            return False
 
 
 
@@ -754,33 +831,73 @@ class OTPLoginAPIView(APIView):
         send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [email])
         print("Sended email otp")
 
+    # def send_whatsapp_otp(self, mobile, otp):
+    #     url = f"https://graph.facebook.com/v19.0/{settings.WHATSAPP_PHONE_NUMBER_ID}/messages"
+    #     headers = {
+    #         "Authorization": f"Bearer {settings.WHATSAPP_PERMANENT_TOKEN}",
+    #         "Content-Type": "application/json"
+    #     }
+    #     data = {
+    #         "messaging_product": "whatsapp",
+    #         "to": mobile,
+    #         "type": "template",
+    #         "template": {
+    #             "name": "be_auth",
+    #             "language": {"code": "en"},
+    #             "components": [
+    #                 {"type": "body", "parameters": [{"type": "text", "text": otp}]},
+    #                 {"type": "button", "sub_type": "url", "index": 0,
+    #                  "parameters": [{"type": "text", "text": otp}]}
+    #             ]
+    #         }
+    #     }
+    #     try:
+    #         response = requests.post(url, headers=headers, json=data)
+    #         response.raise_for_status()  # Raise exception for HTTP errors
+    #     except requests.exceptions.RequestException as e:
+    #         print(f"Failed to send WhatsApp OTP: {str(e)}")
+    #         if hasattr(e, 'response') and e.response:
+    #             print(f"Response content: {e.response.text}")
+
     def send_whatsapp_otp(self, mobile, otp):
-        url = f"https://graph.facebook.com/v19.0/{settings.WHATSAPP_PHONE_NUMBER_ID}/messages"
+        """
+        Send WhatsApp OTP using webhook
+        """
+        webhook_url = settings.WHATSAPP_WEBHOOK_URL
+
+        # Prepare the payload in the required format
+        payload = {
+            "mode": "raw",
+            "raw": json.dumps({
+                "phone": mobile,
+                "template_name": "wb_auth",
+                "1": str(otp)  # Ensure OTP is string
+            })
+        }
+
         headers = {
-            "Authorization": f"Bearer {settings.WHATSAPP_PERMANENT_TOKEN}",
             "Content-Type": "application/json"
         }
-        data = {
-            "messaging_product": "whatsapp",
-            "to": mobile,
-            "type": "template",
-            "template": {
-                "name": "be_auth",
-                "language": {"code": "en"},
-                "components": [
-                    {"type": "body", "parameters": [{"type": "text", "text": otp}]},
-                    {"type": "button", "sub_type": "url", "index": 0,
-                     "parameters": [{"type": "text", "text": otp}]}
-                ]
-            }
-        }
+
         try:
-            response = requests.post(url, headers=headers, json=data)
-            response.raise_for_status()  # Raise exception for HTTP errors
+            response = requests.post(
+                webhook_url,
+                headers=headers,
+                json=payload,
+                timeout=30  # 30 seconds timeout
+            )
+
+            # Optional: Log the response for debugging
+            if response.status_code == 200:
+                print(f"OTP sent successfully to {mobile}")
+            else:
+                print(f"Failed to send OTP. Status: {response.status_code}, Response: {response.text}")
+
+            return response.status_code == 200
+
         except requests.exceptions.RequestException as e:
-            print(f"Failed to send WhatsApp OTP: {str(e)}")
-            if hasattr(e, 'response') and e.response:
-                print(f"Response content: {e.response.text}")
+            print(f"Error sending WhatsApp OTP: {str(e)}")
+            return False
 
 
 # OTP VERIFICATION VIEW
@@ -978,27 +1095,67 @@ class ResendOTPView(APIView):
         message = f'Your new OTP is: {otp}'
         send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [email])
 
+    # def send_whatsapp_otp(self, mobile, otp):
+    #     url = f"https://graph.facebook.com/v19.0/{settings.WHATSAPP_PHONE_NUMBER_ID}/messages"
+    #     headers = {
+    #         "Authorization": f"Bearer {settings.WHATSAPP_PERMANENT_TOKEN}",
+    #         "Content-Type": "application/json"
+    #     }
+    #     data = {
+    #         "messaging_product": "whatsapp",
+    #         "to": mobile,
+    #         "type": "template",
+    #         "template": {
+    #             "name": "be_auth",
+    #             "language": {"code": "en"},
+    #             "components": [
+    #                 {"type": "body", "parameters": [{"type": "text", "text": otp}]},
+    #                 {"type": "button", "sub_type": "url", "index": 0,
+    #                  "parameters": [{"type": "text", "text": otp}]}
+    #             ]
+    #         }
+    #     }
+    #     requests.post(url, headers=headers, json=data)
+
     def send_whatsapp_otp(self, mobile, otp):
-        url = f"https://graph.facebook.com/v19.0/{settings.WHATSAPP_PHONE_NUMBER_ID}/messages"
+        """
+        Send WhatsApp OTP using webhook
+        """
+        webhook_url = settings.WHATSAPP_WEBHOOK_URL
+
+        # Prepare the payload in the required format
+        payload = {
+            "mode": "raw",
+            "raw": json.dumps({
+                "phone": mobile,
+                "template_name": "wb_auth",
+                "1": str(otp)  # Ensure OTP is string
+            })
+        }
+
         headers = {
-            "Authorization": f"Bearer {settings.WHATSAPP_PERMANENT_TOKEN}",
             "Content-Type": "application/json"
         }
-        data = {
-            "messaging_product": "whatsapp",
-            "to": mobile,
-            "type": "template",
-            "template": {
-                "name": "be_auth",
-                "language": {"code": "en"},
-                "components": [
-                    {"type": "body", "parameters": [{"type": "text", "text": otp}]},
-                    {"type": "button", "sub_type": "url", "index": 0,
-                     "parameters": [{"type": "text", "text": otp}]}
-                ]
-            }
-        }
-        requests.post(url, headers=headers, json=data)
+
+        try:
+            response = requests.post(
+                webhook_url,
+                headers=headers,
+                json=payload,
+                timeout=30  # 30 seconds timeout
+            )
+
+            # Optional: Log the response for debugging
+            if response.status_code == 200:
+                print(f"OTP sent successfully to {mobile}")
+            else:
+                print(f"Failed to send OTP. Status: {response.status_code}, Response: {response.text}")
+
+            return response.status_code == 200
+
+        except requests.exceptions.RequestException as e:
+            print(f"Error sending WhatsApp OTP: {str(e)}")
+            return False
 
 
 class VerifyOTPView(APIView):
@@ -1056,6 +1213,31 @@ class VerifyOTPView(APIView):
                 "status_code": status.HTTP_400_BAD_REQUEST
             }, status=status.HTTP_400_BAD_REQUEST)
 
+
+import requests
+from django.http import JsonResponse
+
+def send_whatsapp_message(request):
+    # Your Pabbly webhook URL
+    webhook_url = "https://connect.pabbly.com/workflow/sendwebhookdata/xxxxxxx"  # replace with yours
+
+    # Message data (must match what your Pabbly workflow expects)
+    payload = {
+        "phone": "+917356176925",  # recipient WhatsApp number (with country code)
+        "message": "Hello! This is a test message from Django 🚀"
+    }
+
+    try:
+        # Send POST request to Pabbly webhook
+        response = requests.post(webhook_url, json=payload)
+
+        if response.status_code == 200:
+            return JsonResponse({"status": "success", "message": "WhatsApp message sent successfully!"})
+        else:
+            return JsonResponse({"status": "error", "message": f"Pabbly responded with {response.status_code}", "details": response.text})
+
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": str(e)})
 
 
 
