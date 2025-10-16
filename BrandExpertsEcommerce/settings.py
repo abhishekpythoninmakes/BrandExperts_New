@@ -180,6 +180,7 @@ CORS_ALLOWED_ORIGINS = [
     "https://dash.brandexperts.ae",
     "https://designer.brandexperts.ae",
     "https://be-editor-one.vercel.app",
+    "http://localhost:5173",
 ]
 
 if DEBUG:
@@ -219,6 +220,7 @@ CSRF_TRUSTED_ORIGINS = [
     "https://www.brandexperts.ae",
     "https://be-editor-one.vercel.app",
     "https://designer.brandexperts.ae",
+    "http://localhost:5173",
 ]
 
 if DEBUG:
