@@ -225,7 +225,7 @@ CSRF_TRUSTED_ORIGINS = [
     "https://be-editor-one.vercel.app",
     "https://designer.brandexperts.ae",
     "http://localhost:5173",
-    "http://65.0.105.83",
+    "http://65.0.105.83",  # YOUR IP WITH HTTP
 ]
 
 if DEBUG:
@@ -245,16 +245,17 @@ SECURE_HSTS_INCLUDE_SUBDOMAINS = False
 SECURE_HSTS_PRELOAD = False
 
 # Cookie security - only in production
-if not DEBUG:
-    SESSION_COOKIE_SECURE = True
-    CSRF_COOKIE_SECURE = True
-else:
-    SESSION_COOKIE_SECURE = False
-    CSRF_COOKIE_SECURE = False
+# if not DEBUG:
+#     SESSION_COOKIE_SECURE = True
+#     CSRF_COOKIE_SECURE = True
+# else:
+#     SESSION_COOKIE_SECURE = False
+#     CSRF_COOKIE_SECURE = False
 
-# Always secure regardless of DEBUG
+CSRF_COOKIE_SECURE = False    # MUST BE FALSE FOR HTTP
+SESSION_COOKIE_SECURE = False
 SESSION_COOKIE_HTTPONLY = True
-CSRF_COOKIE_HTTPONLY = True
+CSRF_COOKIE_HTTPONLY = False  # Set to False so JavaScript can read CSRF token
 SESSION_COOKIE_SAMESITE = 'Lax'
 CSRF_COOKIE_SAMESITE = 'Lax'
 
@@ -262,6 +263,18 @@ CSRF_COOKIE_SAMESITE = 'Lax'
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
+
+
+# Always secure regardless of DEBUG
+# SESSION_COOKIE_HTTPONLY = True
+# CSRF_COOKIE_HTTPONLY = True
+# SESSION_COOKIE_SAMESITE = 'Lax'
+# CSRF_COOKIE_SAMESITE = 'Lax'
+
+# # Additional security headers
+# SECURE_CONTENT_TYPE_NOSNIFF = True
+# SECURE_BROWSER_XSS_FILTER = True
+# SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
 
 # =============================================================================
 # END SECURITY CONFIGURATIONS
