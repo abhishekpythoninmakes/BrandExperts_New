@@ -39,6 +39,7 @@ if DEBUG:
         'localhost',
         '127.0.0.1',
         '65.2.66.156',
+        '65.0.105.83',
     ])
 
 # Application definition
@@ -182,7 +183,7 @@ CORS_ALLOWED_ORIGINS = [
     "https://designer.brandexperts.ae",
     "https://be-editor-one.vercel.app",
     "http://localhost:5173",
-    "http://65.0.105.83"
+    "http://65.0.105.83",
 ]
 
 if DEBUG:
@@ -191,7 +192,7 @@ if DEBUG:
         "http://localhost:5174",
         "http://localhost:3000",
         "http://65.2.66.156",
-        "http://65.0.105.83"
+        "http://65.0.105.83",
     ])
 
 CORS_ALLOWED_HEADERS = [
@@ -224,7 +225,7 @@ CSRF_TRUSTED_ORIGINS = [
     "https://be-editor-one.vercel.app",
     "https://designer.brandexperts.ae",
     "http://localhost:5173",
-    "http://65.0.105.83"
+    "http://65.0.105.83",
 ]
 
 if DEBUG:
@@ -233,7 +234,7 @@ if DEBUG:
         "http://localhost:5174",
         "http://localhost:3000",
         "http://65.2.66.156",
-        "http://65.0.105.83"
+        "http://65.0.105.83",
     ])
 
 # 5. HTTPS AND SECURITY SETTINGS - COMPLETELY DISABLE REDIRECTS
