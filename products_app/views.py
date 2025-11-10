@@ -1,5 +1,4 @@
 from decimal import Decimal
-
 from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import render, get_object_or_404

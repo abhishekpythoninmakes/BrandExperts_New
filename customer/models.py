@@ -8,7 +8,7 @@ import string
 # Create your models here.
 customer_status = (('lead','LEAD'),('client','CLIENT'),('data','Data'))
 
-# Customer Registratio
+# Customer Registration
 
 class Customer(models.Model):
     user = models.OneToOneField(CustomUser,on_delete=models.CASCADE,null=True,blank=True)

@@ -30,6 +30,7 @@ ALLOWED_HOSTS = [
     'designer.brandexperts.ae',
     '.brandexperts.ae',
     '127.0.0.1',
+    '65.0.105.83'
 ]
 
 # Add localhost only for development
@@ -509,7 +510,7 @@ CELERY_BEAT_SCHEDULE = {
     },
 }
 
-# Debug print for troubleshooting
-print(f"DEBUG: {DEBUG}")
-print(f"ALLOWED_HOSTS: {ALLOWED_HOSTS}")
-print(f"SECURE_SSL_REDIRECT: {SECURE_SSL_REDIRECT}")
+# # Debug print for troubleshooting
+# print(f"DEBUG: {DEBUG}")
+# print(f"ALLOWED_HOSTS: {ALLOWED_HOSTS}")
+# print(f"SECURE_SSL_REDIRECT: {SECURE_SSL_REDIRECT}")
