@@ -177,6 +177,8 @@ class Product(models.Model):
     allow_direct_add_to_cart = models.BooleanField(
         default=False,null=True,blank=True,help_text="Allow Direct Add to Cart (Without Customization)")
 
+    stock = models.PositiveIntegerField(null=True,blank=True)
+
     disable_customization = models.BooleanField(default=False,null=True,blank=True,help_text="Disable Customization")
 
     def __str__(self):

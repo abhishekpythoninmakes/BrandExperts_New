@@ -43,6 +43,7 @@ class ProductSerializer(serializers.ModelSerializer):
             "min_height",
             "standard_sizes",
             "price",
+            "stock",
             "allow_direct_add_to_cart",
             "disable_customization",
             "amazon_url",
@@ -85,6 +86,7 @@ class DetailedProductSerializer(serializers.ModelSerializer):
             "min_width",
             "min_height",
             "size",
+            "stock",
             "amazon_url",
             "standard_sizes",
             "price",
@@ -335,4 +337,35 @@ class ProductBasicDetailSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'name', 'size', 'max_width', 'max_height',
             'price','fixed_price', 'image1'
+        ]
+
+
+# Category Serializer with Parent Categories
+
+from rest_framework import serializers
+from .models import ParentCategory, Category
+
+
+class NewParentCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ParentCategory
+        fields = '__all__'
+
+
+class NewCategorySerializer(serializers.ModelSerializer):
+    parent_categories_details = ParentCategorySerializer(
+        source='parent_categories',
+        many=True,
+        read_only=True
+    )
+
+    class Meta:
+        model = Category
+        fields = [
+            'id',
+            'parent_categories',
+            'parent_categories_details',
+            'category_name',
+            'description',
+            'category_image'
         ]

@@ -8,7 +8,7 @@ from rest_framework import status
 from rest_framework.exceptions import NotFound
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.views import APIView
 
 from .serializers import *
@@ -754,3 +754,198 @@ class UpdateProductDimensionsView(APIView):
         )
 
         return Response({"message": "All product dimensions updated to 5.00"}, status=status.HTTP_200_OK)
+
+
+# New Product APIS
+
+from .serializers import NewParentCategorySerializer, NewCategorySerializer
+
+
+# Parent Category CRUD Operations
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def parent_category_list_create(request):
+    """
+    List all parent categories or create a new parent category
+    """
+    if request.method == 'GET':
+        parent_categories = ParentCategory.objects.all()
+        serializer = NewParentCategorySerializer(parent_categories, many=True)
+        return Response({
+            "status": "success",
+            "data": serializer.data
+        })
+
+    elif request.method == 'POST':
+        # Only admin users can create parent categories
+        if not request.user.is_admin:
+            return Response({
+                "status": "error",
+                "message": "Permission denied. Only admin users can create parent categories."
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = NewParentCategorySerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                "status": "success",
+                "message": "Parent category created successfully",
+                "data": serializer.data
+            }, status=status.HTTP_201_CREATED)
+        return Response({
+            "status": "error",
+            "message": "Validation failed",
+            "errors": serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET', 'PUT', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def parent_category_detail(request, pk):
+    """
+    Retrieve, update or delete a parent category instance
+    """
+    try:
+        parent_category = ParentCategory.objects.get(pk=pk)
+    except ParentCategory.DoesNotExist:
+        return Response({
+            "status": "error",
+            "message": "Parent category not found"
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'GET':
+        serializer = NewParentCategorySerializer(parent_category)
+        return Response({
+            "status": "success",
+            "data": serializer.data
+        })
+
+    elif request.method == 'PUT':
+        if not request.user.is_admin:
+            return Response({
+                "status": "error",
+                "message": "Permission denied. Only admin users can update parent categories."
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = NewParentCategorySerializer(parent_category, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                "status": "success",
+                "message": "Parent category updated successfully",
+                "data": serializer.data
+            })
+        return Response({
+            "status": "error",
+            "message": "Validation failed",
+            "errors": serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    elif request.method == 'DELETE':
+        if not request.user.is_admin:
+            return Response({
+                "status": "error",
+                "message": "Permission denied. Only admin users can delete parent categories."
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        parent_category.delete()
+        return Response({
+            "status": "success",
+            "message": "Parent category deleted successfully"
+        }, status=status.HTTP_204_NO_CONTENT)
+
+
+# Category CRUD Operations
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def category_list_create(request):
+    """
+    List all categories or create a new category
+    """
+    if request.method == 'GET':
+        categories = Category.objects.all()
+        serializer = NewCategorySerializer(categories, many=True)
+        return Response({
+            "status": "success",
+            "data": serializer.data
+        })
+
+    elif request.method == 'POST':
+        # Only admin users can create categories
+        if not request.user.is_admin:
+            return Response({
+                "status": "error",
+                "message": "Permission denied. Only admin users can create categories."
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = NewCategorySerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                "status": "success",
+                "message": "Category created successfully",
+                "data": serializer.data
+            }, status=status.HTTP_201_CREATED)
+        return Response({
+            "status": "error",
+            "message": "Validation failed",
+            "errors": serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET', 'PUT', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def category_detail(request, pk):
+    """
+    Retrieve, update or delete a category instance
+    """
+    try:
+        category = Category.objects.get(pk=pk)
+    except Category.DoesNotExist:
+        return Response({
+            "status": "error",
+            "message": "Category not found"
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'GET':
+        serializer = NewCategorySerializer(category)
+        return Response({
+            "status": "success",
+            "data": serializer.data
+        })
+
+    elif request.method == 'PUT':
+        if not request.user.is_admin:
+            return Response({
+                "status": "error",
+                "message": "Permission denied. Only admin users can update categories."
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = NewCategorySerializer(category, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                "status": "success",
+                "message": "Category updated successfully",
+                "data": serializer.data
+            })
+        return Response({
+            "status": "error",
+            "message": "Validation failed",
+            "errors": serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    elif request.method == 'DELETE':
+        if not request.user.is_admin:
+            return Response({
+                "status": "error",
+                "message": "Permission denied. Only admin users can delete categories."
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        category.delete()
+        return Response({
+            "status": "success",
+            "message": "Category deleted successfully"
+        }, status=status.HTTP_204_NO_CONTENT)

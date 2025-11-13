@@ -202,6 +202,7 @@ class ProductAdmin(admin.ModelAdmin):
         'name',
         'image1_preview',
         'price',
+        'stock',
         'fixed_price',
         'status',
         'get_categories',
