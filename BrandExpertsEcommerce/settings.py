@@ -31,7 +31,7 @@ ALLOWED_HOSTS = [
     '.brandexperts.ae',
     '127.0.0.1',
     '65.0.105.83',
-    '1d76ce72c6b3.ngrok-free.app',
+    '22c47b613429.ngrok-free.app ',
 ]
 
 # Add localhost only for development

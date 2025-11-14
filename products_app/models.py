@@ -218,6 +218,9 @@ class Product(models.Model):
 
     disable_customization = models.BooleanField(default=False,null=True,blank=True,help_text="Disable Customization")
 
+    created_at = models.DateTimeField(auto_now_add=True,null=True,blank=True)
+    updated_at = models.DateTimeField(auto_now=True,null=True,blank=True)
+
     def __str__(self):
         return self.name if self.name else "Unnamed Product"
 
