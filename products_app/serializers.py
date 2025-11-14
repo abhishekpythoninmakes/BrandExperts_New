@@ -578,3 +578,88 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             }
             for d in distances
         ]
+
+
+# inventory_serializers.py or add to your existing serializers.py
+
+from rest_framework import serializers
+from products_app.models import InventoryStock, Product
+from customer.models import Order, CartItem
+
+
+# Add these to your existing serializers.py - CORRECTED VERSION:
+
+class InventoryStockSerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source='product.name', read_only=True)
+    product_id = serializers.IntegerField(source='product.id', read_only=True)
+    product_image = serializers.SerializerMethodField()
+    stock_status = serializers.CharField(read_only=True)
+    is_low_stock = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = InventoryStock
+        fields = [
+            'id', 'product_id', 'product_name', 'product_image',
+            'current_stock', 'low_stock_threshold', 'stock_status',
+            'is_low_stock', 'total_restocked', 'total_sold',
+            'last_restocked', 'created_at'
+        ]
+
+    def get_product_image(self, obj):
+        return obj.product.image1 if obj.product.image1 else None
+
+
+class ProductStockSerializer(serializers.ModelSerializer):
+    inventory_stock = InventoryStockSerializer(read_only=True)
+    categories = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Product
+        fields = [
+            'id', 'name', 'description', 'price', 'fixed_price',
+            'image1', 'image2', 'image3', 'image4',
+            'inventory_stock', 'categories'
+        ]
+
+    def get_categories(self, obj):
+        return [
+            {
+                'id': category.id,
+                'name': category.category_name
+            }
+            for category in obj.categories.all()
+        ]
+
+
+class RestockSerializer(serializers.Serializer):
+    product_id = serializers.IntegerField()
+    quantity = serializers.IntegerField(min_value=1)
+    notes = serializers.CharField(required=False, allow_blank=True)
+
+
+class LowStockAlertSerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source='product.name', read_only=True)
+    product_id = serializers.IntegerField(source='product.id', read_only=True)
+    alert_message = serializers.SerializerMethodField()
+    urgency_level = serializers.SerializerMethodField()
+
+    class Meta:
+        model = InventoryStock
+        fields = [
+            'id', 'product_id', 'product_name', 'current_stock',
+            'low_stock_threshold', 'alert_message', 'urgency_level'
+        ]
+
+    def get_alert_message(self, obj):
+        if obj.current_stock == 0:
+            return f"🛑 {obj.product.name} is OUT OF STOCK! Urgent restocking required."
+        elif obj.is_low_stock:
+            return f"⚠️ {obj.product.name} is running low. Only {obj.current_stock} left."
+        return f"✅ {obj.product.name} stock is sufficient."
+
+    def get_urgency_level(self, obj):
+        if obj.current_stock == 0:
+            return 'critical'
+        elif obj.is_low_stock:
+            return 'high'
+        return 'normal'

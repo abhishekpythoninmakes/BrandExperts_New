@@ -84,9 +84,16 @@ urlpatterns = [
 
     # Category URLs
     path('categories/', views.category_list_create, name='category-list-create'),
-    path('categories/<int:pk>/', views.category_detail, name='category-detail'),
+    path('new/categories/<int:pk>/', views.category_detail, name='category-detail'),
 
     path('new/products/', views.product_list_create, name='product-list-create'),
     path('new/products/<int:pk>/', views.product_detail, name='product-detail'),
     path('new/products/status-options/', views.product_status_options, name='product-status-options'),
+
+    # Inventory Management URLs
+    path('inventory/stock/', views.inventory_stock_list, name='inventory-stock-list'),
+    path('inventory/restore-stock/', views.restore_product_stock, name='restore-product-stock'),
+    path('inventory/low-stock-alerts/', views.low_stock_alerts, name='low-stock-alerts'),
+    path('inventory/dashboard/', views.inventory_dashboard, name='inventory-dashboard'),
+
 ]

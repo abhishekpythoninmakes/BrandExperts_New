@@ -900,7 +900,7 @@ def category_detail(request, pk):
         })
 
     elif request.method == 'PUT':
-        if not request.user.is_admin:
+        if not request.user.isauthenticated:
             return Response({
                 "status": "error",
                 "message": "Permission denied. Only admin users can update categories."
@@ -921,7 +921,7 @@ def category_detail(request, pk):
         }, status=status.HTTP_400_BAD_REQUEST)
 
     elif request.method == 'DELETE':
-        if not request.user.is_admin:
+        if not request.user.isauthenticated:
             return Response({
                 "status": "error",
                 "message": "Permission denied. Only admin users can delete categories."
@@ -1104,4 +1104,235 @@ def product_status_options(request):
     return Response({
         "status": "success",
         "data": data
+    })
+
+
+
+#################### Inventory Management APIs ####################
+
+# inventory_views.py or add to your existing views.py
+
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from django.db.models import Q, F
+from products_app.models import InventoryStock, Product
+
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def inventory_stock_list(request):
+    """
+    List all products with their stock information
+    Supports pagination, filtering, and ordering by lowest stock
+    """
+    # Get all inventory stocks
+    inventory_stocks = InventoryStock.objects.select_related('product').all()
+
+    # Apply filters
+    stock_status = request.GET.get('stock_status')
+    low_stock_only = request.GET.get('low_stock_only')
+    search = request.GET.get('search')
+
+    if stock_status:
+        if stock_status == 'low_stock':
+            inventory_stocks = inventory_stocks.filter(current_stock__lte=F('low_stock_threshold'))
+        elif stock_status == 'out_of_stock':
+            inventory_stocks = inventory_stocks.filter(current_stock=0)
+        elif stock_status == 'in_stock':
+            inventory_stocks = inventory_stocks.filter(current_stock__gt=0)
+
+    if low_stock_only and low_stock_only.lower() == 'true':
+        inventory_stocks = inventory_stocks.filter(current_stock__lte=F('low_stock_threshold'))
+
+    if search:
+        inventory_stocks = inventory_stocks.filter(
+            Q(product__name__icontains=search) |
+            Q(product__description__icontains=search)
+        )
+
+    # Order by lowest stock first (critical items first)
+    ordering = request.GET.get('ordering', 'current_stock')
+    if ordering == 'current_stock':
+        inventory_stocks = inventory_stocks.order_by('current_stock', 'product__name')
+    elif ordering == 'product_name':
+        inventory_stocks = inventory_stocks.order_by('product__name')
+    elif ordering == 'last_restocked':
+        inventory_stocks = inventory_stocks.order_by('-last_restocked')
+
+    # Pagination
+    page_size = int(request.GET.get('page_size', 20))
+    page_number = int(request.GET.get('page', 1))
+
+    paginator = Paginator(inventory_stocks, page_size)
+
+    try:
+        page_obj = paginator.page(page_number)
+    except PageNotAnInteger:
+        page_obj = paginator.page(1)
+    except EmptyPage:
+        page_obj = paginator.page(paginator.num_pages)
+
+    serializer = InventoryStockSerializer(page_obj, many=True)
+
+    return Response({
+        "status": "success",
+        "data": serializer.data,
+        "pagination": {
+            "current_page": page_obj.number,
+            "total_pages": paginator.num_pages,
+            "total_items": paginator.count,
+            "page_size": page_size,
+            "has_next": page_obj.has_next(),
+            "has_previous": page_obj.has_previous(),
+        },
+        "filters_applied": {
+            "stock_status": stock_status,
+            "low_stock_only": low_stock_only,
+            "search": search,
+            "ordering": ordering
+        }
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def restore_product_stock(request):
+    """
+    Restore/Add stock to a product
+    """
+    serializer = RestockSerializer(data=request.data)
+
+    if serializer.is_valid():
+        product_id = serializer.validated_data['product_id']
+        quantity = serializer.validated_data['quantity']
+        notes = serializer.validated_data.get('notes', '')
+
+        try:
+            product = Product.objects.get(id=product_id)
+
+            # Get or create inventory stock
+            inventory_stock, created = InventoryStock.objects.get_or_create(
+                product=product,
+                defaults={'current_stock': quantity}
+            )
+
+            if not created:
+                # Restore stock
+                inventory_stock.restore_stock(quantity)
+
+            # Update product stock as well
+            product.stock = inventory_stock.current_stock
+            product.save()
+
+            return Response({
+                "status": "success",
+                "message": f"Stock restored successfully for {product.name}",
+                "data": {
+                    "product_id": product.id,
+                    "product_name": product.name,
+                    "quantity_added": quantity,
+                    "new_stock_level": inventory_stock.current_stock,
+                    "notes": notes
+                }
+            })
+
+        except Product.DoesNotExist:
+            return Response({
+                "status": "error",
+                "message": "Product not found"
+            }, status=status.HTTP_404_NOT_FOUND)
+
+    return Response({
+        "status": "error",
+        "message": "Validation failed",
+        "errors": serializer.errors
+    }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def low_stock_alerts(request):
+    """
+    Get all low stock and out of stock products with alert messages
+    """
+    # Get low stock items (stock <= threshold)
+    low_stock_items = InventoryStock.objects.filter(
+        current_stock__lte=F('low_stock_threshold')
+    ).select_related('product').order_by('current_stock')
+
+    # Apply severity filter if provided
+    severity = request.GET.get('severity')
+    if severity == 'critical':
+        low_stock_items = low_stock_items.filter(current_stock=0)
+    elif severity == 'high':
+        low_stock_items = low_stock_items.filter(
+            current_stock__gt=0,
+            current_stock__lte=F('low_stock_threshold')
+        )
+
+    serializer = LowStockAlertSerializer(low_stock_items, many=True)
+
+    # Summary statistics
+    critical_count = low_stock_items.filter(current_stock=0).count()
+    warning_count = low_stock_items.filter(
+        current_stock__gt=0,
+        current_stock__lte=F('low_stock_threshold')
+    ).count()
+
+    return Response({
+        "status": "success",
+        "alerts_count": low_stock_items.count(),
+        "summary": {
+            "critical_alerts": critical_count,
+            "warning_alerts": warning_count,
+            "total_alerts": critical_count + warning_count
+        },
+        "data": serializer.data
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def inventory_dashboard(request):
+    """
+    Get inventory dashboard with summary statistics
+    """
+    total_products = Product.objects.count()
+    total_inventory_items = InventoryStock.objects.count()
+
+    # Stock status counts
+    out_of_stock = InventoryStock.objects.filter(current_stock=0).count()
+    low_stock = InventoryStock.objects.filter(
+        current_stock__gt=0,
+        current_stock__lte=F('low_stock_threshold')
+    ).count()
+    in_stock = InventoryStock.objects.filter(current_stock__gt=F('low_stock_threshold')).count()
+
+    # Recent restocks
+    recent_restocks = InventoryStock.objects.filter(
+        total_restocked__gt=0
+    ).order_by('-last_restocked')[:5]
+
+    # Top selling products
+    top_selling = InventoryStock.objects.filter(
+        total_sold__gt=0
+    ).order_by('-total_sold')[:5]
+
+    return Response({
+        "status": "success",
+        "dashboard": {
+            "total_products": total_products,
+            "total_inventory_items": total_inventory_items,
+            "stock_status": {
+                "out_of_stock": out_of_stock,
+                "low_stock": low_stock,
+                "in_stock": in_stock
+            },
+            "recent_restocks": InventoryStockSerializer(recent_restocks, many=True).data,
+            "top_selling": InventoryStockSerializer(top_selling, many=True).data
+        }
     })

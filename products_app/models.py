@@ -271,6 +271,58 @@ class Product(models.Model):
                     price_percentage=global_distance.price_percentage,
                     price_decimal=global_distance.price_decimal
                 )
+                from django.db.models.signals import post_save, post_migrate
+                from django.dispatch import receiver
+                from django.db import transaction
+                @receiver(post_save, sender=Product)
+                def create_inventory_stock(sender, instance, created, **kwargs):
+                    """
+                    Automatically create InventoryStock when a new Product is created
+                    """
+                    if created:
+                        InventoryStock.objects.get_or_create(
+                            product=instance,
+                            defaults={
+                                'current_stock': instance.stock if instance.stock else 0,
+                                'low_stock_threshold': 10
+                            }
+                        )
+
+                @receiver(post_save, sender=Product)
+                def update_inventory_stock(sender, instance, **kwargs):
+                    """
+                    Update InventoryStock when Product stock is updated
+                    """
+                    if hasattr(instance, 'inventory_stock'):
+                        # Only update if there's a difference to avoid infinite loops
+                        if instance.inventory_stock.current_stock != (instance.stock or 0):
+                            instance.inventory_stock.current_stock = instance.stock or 0
+                            instance.inventory_stock.save()
+
+                @receiver(post_migrate)
+                def create_inventory_stock_for_existing_products(sender, **kwargs):
+                    """
+                    Create InventoryStock records for existing products after migrations
+                    """
+                    from products_app.models import Product, InventoryStock
+
+                    # Only run for the products_app
+                    if sender.name == 'products_app':
+                        with transaction.atomic():
+                            # Get products that don't have inventory_stock
+                            products_without_inventory = Product.objects.filter(
+                                inventory_stock__isnull=True
+                            )
+
+                            for product in products_without_inventory:
+                                InventoryStock.objects.get_or_create(
+                                    product=product,
+                                    defaults={
+                                        'current_stock': product.stock if product.stock else 0,
+                                        'low_stock_threshold': 1
+                                    }
+                                )
+                            print(f"Created InventoryStock for {products_without_inventory.count()} existing products")
 
 
 class Standard_sizes(models.Model):
@@ -486,3 +538,63 @@ class site_visit(models.Model):
 
     def __str__(self):
         return f'{self.amount}'
+
+
+
+# Inventory Stock Management
+
+class InventoryStock(models.Model):
+    """
+    Inventory stock management for products
+    """
+    product = models.OneToOneField(
+        Product,
+        on_delete=models.CASCADE,
+        related_name='inventory_stock'
+    )
+    current_stock = models.PositiveIntegerField(default=0)
+    low_stock_threshold = models.PositiveIntegerField(default=10)
+    last_restocked = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    # Track stock movements
+    total_restocked = models.PositiveIntegerField(default=0)
+    total_sold = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        verbose_name_plural = "Inventory Stocks"
+        ordering = ['current_stock']  # Default order by lowest stock first
+
+    def __str__(self):
+        return f"{self.product.name} - Stock: {self.current_stock}"
+
+    @property
+    def is_low_stock(self):
+        """Check if stock is below threshold"""
+        return self.current_stock <= self.low_stock_threshold
+
+    @property
+    def stock_status(self):
+        """Get stock status"""
+        if self.current_stock == 0:
+            return 'out_of_stock'
+        elif self.is_low_stock:
+            return 'low_stock'
+        else:
+            return 'in_stock'
+
+    def reduce_stock(self, quantity):
+        """Reduce stock by given quantity"""
+        if self.current_stock >= quantity:
+            self.current_stock -= quantity
+            self.total_sold += quantity
+            self.save()
+            return True
+        return False
+
+    def restore_stock(self, quantity):
+        """Restore/Add stock by given quantity"""
+        self.current_stock += quantity
+        self.total_restocked += quantity
+        self.save()
+        return True

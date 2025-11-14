@@ -193,6 +193,34 @@ class CartItem(models.Model):
     distance_object_id = models.PositiveIntegerField(null=True, blank=True)
     distance = GenericForeignKey('distance_content_type', 'distance_object_id')
     is_smart = models.BooleanField(default=False, null=True, blank=True)
+
+    def save(self, *args, **kwargs):
+        """Override save to handle stock reduction when status changes to ordered"""
+        is_new = self._state.adding
+
+        if not is_new:
+            # Get the original object from database
+            try:
+                old_obj = CartItem.objects.get(pk=self.pk)
+                # If status changed to 'ordered', reduce stock
+                if (old_obj.status != 'ordered' and self.status == 'ordered' and
+                        self.product and self.quantity):
+                    self.reduce_product_stock()
+            except CartItem.DoesNotExist:
+                pass
+
+        super().save(*args, **kwargs)
+
+    def reduce_product_stock(self):
+        """Reduce product stock when item is ordered"""
+        try:
+            if hasattr(self.product, 'inventory_stock'):
+                inventory_stock = self.product.inventory_stock
+                return inventory_stock.reduce_stock(self.quantity)
+        except Exception as e:
+            print(f"Error reducing stock: {e}")
+        return False
+
     def __str__(self):
         return self.product.name
 
