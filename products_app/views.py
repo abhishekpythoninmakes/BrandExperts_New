@@ -848,7 +848,7 @@ def category_list_create(request):
     List all categories or create a new category
     """
     if request.method == 'GET':
-        categories = Category.objects.all()
+        categories = Category.objects.all().order_by('-id')
         serializer = NewCategorySerializer(categories, many=True)
         return Response({
             "status": "success",
