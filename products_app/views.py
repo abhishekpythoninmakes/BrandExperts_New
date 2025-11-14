@@ -924,7 +924,7 @@ def category_detail(request, pk):
         if not request.user.isauthenticated:
             return Response({
                 "status": "error",
-                "message": "Permission denied. Only admin users can delete categories."
+                "message": "Permission  denied. Only admin users can delete categories."
             }, status=status.HTTP_403_FORBIDDEN)
 
         category.delete()
