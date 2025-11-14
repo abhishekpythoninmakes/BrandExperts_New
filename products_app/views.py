@@ -900,12 +900,8 @@ def category_detail(request, pk):
         })
 
     elif request.method == 'PUT':
-        if not request.user.isauthenticated:
-            return Response({
-                "status": "error",
-                "message": "Permission denied. Only admin users can update categories."
-            }, status=status.HTTP_403_FORBIDDEN)
-
+        # Removed admin permission check
+        print(f"DEBUG: Updating category with ID: {pk}")
         serializer = NewCategorySerializer(category, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
@@ -921,12 +917,8 @@ def category_detail(request, pk):
         }, status=status.HTTP_400_BAD_REQUEST)
 
     elif request.method == 'DELETE':
-        if not request.user.isauthenticated:
-            return Response({
-                "status": "error",
-                "message": "Permission  denied. Only admin users can delete categories."
-            }, status=status.HTTP_403_FORBIDDEN)
-
+        # Removed admin permission check
+        print(f"DEBUG: Deleting category with ID: {pk}")
         category.delete()
         return Response({
             "status": "success",
