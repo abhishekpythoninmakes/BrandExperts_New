@@ -178,3 +178,5 @@ class ContactListSerializer(serializers.ModelSerializer):
             return verification_data.get('status', 'Not Verified')
         except:
             return "Error"
+
+

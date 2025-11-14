@@ -17,4 +17,12 @@ urlpatterns = [
     path('partner/<int:partner_id>/completed-campaigns/', views.CompletedCampaignAnalyticsView.as_view(), name='completed_campaign_analytics'),
     path('partner-campaign-analytics/<int:partner_id>/', views.PartnerCampaignAnalyticsView.as_view(), name='partner-campaign-analytics'),
 
+    path('partners/', views.PartnerListView.as_view(), name='partner-list'),
+    path('partners/create/', views.PartnerCreateView.as_view(), name='partner-create'),
+    path('partners/<int:id>/', views.PartnerDetailView.as_view(), name='partner-detail'),
+    path('partners/<int:id>/update/', views.PartnerUpdateView.as_view(), name='partner-update'),
+    path('partners/<int:id>/delete/', views.PartnerDeleteView.as_view(), name='partner-delete'),
+    path('partners/<int:partner_id>/stats/', views.partner_stats, name='partner-stats'),
+    path('partners/<int:partner_id>/toggle-status/', views.toggle_partner_status, name='partner-toggle-status'),
+
 ]

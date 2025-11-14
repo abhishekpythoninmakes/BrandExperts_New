@@ -433,3 +433,160 @@ class PartnerCampaignAnalyticsView(APIView):
         serializer.is_valid(raise_exception=True)
 
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+from rest_framework import generics, status, permissions
+from rest_framework.response import Response
+from rest_framework.decorators import api_view, permission_classes
+from django.db.models import Count, Q
+from django.shortcuts import get_object_or_404
+from .models import Partners, Contact, EmailCampaign, EmailRecipient
+from .serializers import (
+    PartnerSerializer, PartnerCreateSerializer,
+    PartnerUpdateSerializer, PartnerDetailSerializer
+)
+
+
+class PartnerListView(generics.ListAPIView):
+    """
+    List all partners with optional filtering and search
+    """
+    serializer_class = PartnerDetailSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = Partners.objects.select_related('user').all()
+
+        # Search filter
+        search = self.request.query_params.get('search', None)
+        if search:
+            queryset = queryset.filter(
+                Q(user__username__icontains=search) |
+                Q(user__email__icontains=search) |
+                Q(user__first_name__icontains=search) |
+                Q(user__last_name__icontains=search) |
+                Q(mobile_number__icontains=search)
+            )
+
+        # Status filter
+        status = self.request.query_params.get('status', None)
+        if status == 'active':
+            queryset = queryset.filter(user__is_active=True)
+        elif status == 'inactive':
+            queryset = queryset.filter(user__is_active=False)
+
+        return queryset.order_by('-created_at')
+
+
+class PartnerCreateView(generics.CreateAPIView):
+    """
+    Create a new partner
+    """
+    serializer_class = PartnerCreateSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+
+class PartnerDetailView(generics.RetrieveAPIView):
+    """
+    Retrieve partner details
+    """
+    serializer_class = PartnerDetailSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    lookup_field = 'id'
+
+    def get_queryset(self):
+        return Partners.objects.select_related('user').all()
+
+
+class PartnerUpdateView(generics.UpdateAPIView):
+    """
+    Update partner details
+    """
+    serializer_class = PartnerUpdateSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    lookup_field = 'id'
+
+    def get_queryset(self):
+        return Partners.objects.select_related('user').all()
+
+
+class PartnerDeleteView(generics.DestroyAPIView):
+    """
+    Delete a partner (soft delete by deactivating user)
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    lookup_field = 'id'
+
+    def get_queryset(self):
+        return Partners.objects.select_related('user').all()
+
+    def perform_destroy(self, instance):
+        # Soft delete by deactivating the user
+        instance.user.is_active = False
+        instance.user.save()
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def partner_stats(request, partner_id):
+    """
+    Get detailed statistics for a specific partner
+    """
+    partner = get_object_or_404(Partners, id=partner_id)
+
+    # Contact statistics
+    contacts = Contact.objects.filter(partner=partner)
+    total_contacts = contacts.count()
+    contact_status_stats = contacts.values('status').annotate(count=Count('id'))
+
+    # Campaign statistics
+    campaigns = EmailCampaign.objects.filter(
+        contact_lists__contacts_new__partner=partner
+    ).distinct()
+    total_campaigns = campaigns.count()
+
+    # Email recipient statistics
+    recipients = EmailRecipient.objects.filter(contact__partner=partner)
+    recipient_status_stats = recipients.values('status').annotate(count=Count('id'))
+
+    # Calculate total earnings (based on commission and sent emails)
+    sent_emails = recipients.filter(status__in=['sent', 'opened', 'link']).count()
+    total_earnings = sent_emails * float(partner.commission)
+
+    data = {
+        'partner': PartnerDetailSerializer(partner).data,
+        'stats': {
+            'total_contacts': total_contacts,
+            'contact_status_distribution': list(contact_status_stats),
+            'total_campaigns': total_campaigns,
+            'email_stats': {
+                'total_sent': recipients.filter(status='sent').count(),
+                'total_opened': recipients.filter(status='opened').count(),
+                'total_clicked': recipients.filter(status='link').count(),
+                'total_unsubscribed': recipients.filter(status='unsubscribed').count(),
+                'total_failed': recipients.filter(status='failed').count(),
+            },
+            'recipient_status_distribution': list(recipient_status_stats),
+            'total_earnings': total_earnings,
+            'sent_emails': sent_emails,
+        }
+    }
+
+    return Response(data)
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def toggle_partner_status(request, partner_id):
+    """
+    Activate/Deactivate a partner
+    """
+    partner = get_object_or_404(Partners, id=partner_id)
+    partner.user.is_active = not partner.user.is_active
+    partner.user.save()
+
+    action = "activated" if partner.user.is_active else "deactivated"
+    return Response({
+        'message': f'Partner {action} successfully',
+        'is_active': partner.user.is_active
+    })

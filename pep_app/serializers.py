@@ -160,3 +160,108 @@ class CampaignAnalyticsSerializerNew(serializers.Serializer):
     total_link_clicked = serializers.IntegerField()
     valid_email_contacts = serializers.IntegerField()  # Added for valid email contacts
     invalid_email_contacts = serializers.IntegerField()  # Added for invalid email contacts
+
+
+from rest_framework import serializers
+from django.contrib.auth.hashers import make_password
+from products_app.models import CustomUser
+from .models import Partners
+
+
+class PartnerCreateSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(write_only=True)
+    email = serializers.EmailField(write_only=True)
+    password = serializers.CharField(write_only=True, style={'input_type': 'password'})
+    first_name = serializers.CharField(write_only=True, required=False)
+    last_name = serializers.CharField(write_only=True, required=False)
+
+    class Meta:
+        model = Partners
+        fields = [
+            'id', 'username', 'email', 'password', 'first_name', 'last_name',
+            'commission', 'mobile_number'
+        ]
+
+    def validate_username(self, value):
+        if CustomUser.objects.filter(username=value).exists():
+            raise serializers.ValidationError("Username already exists.")
+        return value
+
+    def validate_email(self, value):
+        if CustomUser.objects.filter(email=value).exists():
+            raise serializers.ValidationError("Email already exists.")
+        return value
+
+    def create(self, validated_data):
+        # Extract user data
+        username = validated_data.pop('username')
+        email = validated_data.pop('email')
+        password = validated_data.pop('password')
+        first_name = validated_data.pop('first_name', '')
+        last_name = validated_data.pop('last_name', '')
+
+        # Create user
+        user = CustomUser.objects.create(
+            username=username,
+            email=email,
+            first_name=first_name,
+            last_name=last_name,
+            password=make_password(password)
+        )
+
+        # Create partner
+        partner = Partners.objects.create(user=user, **validated_data)
+        return partner
+
+
+class PartnerUpdateSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(source='user.username', required=False)
+    email = serializers.EmailField(source='user.email', required=False)
+    first_name = serializers.CharField(source='user.first_name', required=False)
+    last_name = serializers.CharField(source='user.last_name', required=False)
+
+    class Meta:
+        model = Partners
+        fields = [
+            'id', 'username', 'email', 'first_name', 'last_name',
+            'commission', 'mobile_number', 'created_at'
+        ]
+
+    def update(self, instance, validated_data):
+        user_data = validated_data.pop('user', {})
+
+        # Update user fields if provided
+        if user_data:
+            user = instance.user
+            if 'username' in user_data:
+                user.username = user_data['username']
+            if 'email' in user_data:
+                user.email = user_data['email']
+            if 'first_name' in user_data:
+                user.first_name = user_data['first_name']
+            if 'last_name' in user_data:
+                user.last_name = user_data['last_name']
+            user.save()
+
+        # Update partner fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        return instance
+
+
+class PartnerDetailSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(source='user.username')
+    email = serializers.CharField(source='user.email')
+    first_name = serializers.CharField(source='user.first_name')
+    last_name = serializers.CharField(source='user.last_name')
+    is_active = serializers.BooleanField(source='user.is_active')
+    date_joined = serializers.DateTimeField(source='user.date_joined')
+
+    class Meta:
+        model = Partners
+        fields = [
+            'id', 'username', 'email', 'first_name', 'last_name', 'is_active',
+            'date_joined', 'commission', 'mobile_number', 'created_at'
+        ]
