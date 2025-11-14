@@ -778,13 +778,7 @@ def parent_category_list_create(request):
         })
 
     elif request.method == 'POST':
-        # Only admin users can create parent categories
-        if not request.user.is_admin:
-            return Response({
-                "status": "error",
-                "message": "Permission denied. Only admin users can create parent categories."
-            }, status=status.HTTP_403_FORBIDDEN)
-
+        # Removed admin permission check
         serializer = NewParentCategorySerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
@@ -798,7 +792,6 @@ def parent_category_list_create(request):
             "message": "Validation failed",
             "errors": serializer.errors
         }, status=status.HTTP_400_BAD_REQUEST)
-
 
 @api_view(['GET', 'PUT', 'DELETE'])
 @permission_classes([IsAuthenticated])
@@ -822,12 +815,7 @@ def parent_category_detail(request, pk):
         })
 
     elif request.method == 'PUT':
-        if not request.user.is_admin:
-            return Response({
-                "status": "error",
-                "message": "Permission denied. Only admin users can update parent categories."
-            }, status=status.HTTP_403_FORBIDDEN)
-
+        # Removed admin permission check
         serializer = NewParentCategorySerializer(parent_category, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
@@ -843,12 +831,7 @@ def parent_category_detail(request, pk):
         }, status=status.HTTP_400_BAD_REQUEST)
 
     elif request.method == 'DELETE':
-        if not request.user.is_admin:
-            return Response({
-                "status": "error",
-                "message": "Permission denied. Only admin users can delete parent categories."
-            }, status=status.HTTP_403_FORBIDDEN)
-
+        # Removed admin permission check
         parent_category.delete()
         return Response({
             "status": "success",
