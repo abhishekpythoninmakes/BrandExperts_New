@@ -770,7 +770,7 @@ def parent_category_list_create(request):
     List all parent categories or create a new parent category
     """
     if request.method == 'GET':
-        parent_categories = ParentCategory.objects.all()
+        parent_categories = ParentCategory.objects.all().order_by('-id')
         serializer = NewParentCategorySerializer(parent_categories, many=True)
         return Response({
             "status": "success",
@@ -952,6 +952,7 @@ def product_list_create(request):
         stock_filter = request.GET.get('stock')
         stock_ordering = request.GET.get('stock_ordering')
         search = request.GET.get('search')
+        tier_pricing = request.GET.get('tier_pricing')  # Filter by tier pricing
 
         if status_filter:
             products = products.filter(status_id=status_filter)
@@ -963,6 +964,12 @@ def product_list_create(request):
                 products = products.filter(stock=0)
             elif stock_filter == 'low_stock':
                 products = products.filter(stock__lte=10, stock__gt=0)
+
+        if tier_pricing:
+            if tier_pricing.lower() == 'true':
+                products = products.filter(is_tiered=True)
+            elif tier_pricing.lower() == 'false':
+                products = products.filter(is_tiered=False)
 
         if stock_ordering:
             if stock_ordering == 'high':
@@ -978,7 +985,7 @@ def product_list_create(request):
             )
 
         # Pagination
-        page_size = int(request.GET.get('page_size', 20))  # Default page size 20
+        page_size = int(request.GET.get('page_size', 20))
         page_number = int(request.GET.get('page', 1))
 
         paginator = Paginator(products, page_size)
@@ -1006,13 +1013,6 @@ def product_list_create(request):
         })
 
     elif request.method == 'POST':
-        # Only admin users can create products
-        if not request.user.is_admin:
-            return Response({
-                "status": "error",
-                "message": "Permission denied. Only admin users can create products."
-            }, status=status.HTTP_403_FORBIDDEN)
-
         serializer = ProductCreateUpdateSerializer(data=request.data)
         if serializer.is_valid():
             product = serializer.save()
@@ -1028,7 +1028,7 @@ def product_list_create(request):
         }, status=status.HTTP_400_BAD_REQUEST)
 
 
-@api_view(['GET', 'PUT', 'DELETE'])
+@api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
 @permission_classes([IsAuthenticated])
 def product_detail(request, pk):
     """
@@ -1049,14 +1049,9 @@ def product_detail(request, pk):
             "data": serializer.data
         })
 
-    elif request.method == 'PUT':
-        if not request.user.is_admin:
-            return Response({
-                "status": "error",
-                "message": "Permission denied. Only admin users can update products."
-            }, status=status.HTTP_403_FORBIDDEN)
-
-        serializer = ProductCreateUpdateSerializer(product, data=request.data, partial=True)
+    elif request.method in ['PUT', 'PATCH']:
+        partial = (request.method == 'PATCH')
+        serializer = ProductCreateUpdateSerializer(product, data=request.data, partial=partial)
         if serializer.is_valid():
             updated_product = serializer.save()
             return Response({
@@ -1071,12 +1066,6 @@ def product_detail(request, pk):
         }, status=status.HTTP_400_BAD_REQUEST)
 
     elif request.method == 'DELETE':
-        if not request.user.is_admin:
-            return Response({
-                "status": "error",
-                "message": "Permission denied. Only admin users can delete products."
-            }, status=status.HTTP_403_FORBIDDEN)
-
         product.delete()
         return Response({
             "status": "success",
@@ -1084,19 +1073,44 @@ def product_detail(request, pk):
         }, status=status.HTTP_204_NO_CONTENT)
 
 
-@api_view(['GET'])
+# Add this new view for tier pricing calculation
+@api_view(['POST'])
 @permission_classes([IsAuthenticated])
-def product_status_options(request):
+def calculate_tier_price(request):
     """
-    Get all available product status options
+    Calculate price for a product based on quantity using tier pricing
     """
-    status_options = Product_status.objects.all()
-    data = [{"id": status.id, "status": status.status} for status in status_options]
+    product_id = request.data.get('product_id')
+    quantity = request.data.get('quantity')
 
-    return Response({
-        "status": "success",
-        "data": data
-    })
+    if not product_id or not quantity:
+        return Response({
+            "status": "error",
+            "message": "product_id and quantity are required"
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        product = Product.objects.get(id=product_id)
+        unit_price = product.get_price_for_quantity(quantity)
+        total_price = unit_price * quantity
+
+        return Response({
+            "status": "success",
+            "data": {
+                "product_id": product.id,
+                "product_name": product.name,
+                "quantity": quantity,
+                "unit_price": str(unit_price),
+                "total_price": str(total_price),
+                "is_tiered": product.is_tiered
+            }
+        })
+
+    except Product.DoesNotExist:
+        return Response({
+            "status": "error",
+            "message": "Product not found"
+        }, status=status.HTTP_404_NOT_FOUND)
 
 
 

@@ -135,7 +135,40 @@ class GlobalDistance(models.Model):
         return f"{self.km} - {self.price_percentage}% / {self.price_decimal}"
 
 
+class ProductTier(models.Model):
+    """
+    Tier pricing for products
+    """
+    product = models.ForeignKey('Product', on_delete=models.CASCADE, related_name='tiers')
+    tier_level = models.PositiveIntegerField(choices=[(1, 'Tier 1'), (2, 'Tier 2'), (3, 'Tier 3')])
+    start_quantity = models.PositiveIntegerField(help_text="Starting quantity for this tier")
+    end_quantity = models.PositiveIntegerField(help_text="Ending quantity for this tier")
+    price = models.DecimalField(
+        max_digits=16,
+        decimal_places=6,
+        help_text="Price per unit for this quantity range"
+    )
 
+    class Meta:
+        ordering = ['tier_level']
+        unique_together = ['product', 'tier_level']
+
+    def __str__(self):
+        return f"{self.product.name} - Tier {self.tier_level}: {self.start_quantity}-{self.end_quantity} @ {self.price}"
+
+    def clean(self):
+        if self.start_quantity >= self.end_quantity:
+            raise ValidationError("Start quantity must be less than end quantity")
+
+        # Check for overlapping tiers
+        overlapping_tiers = ProductTier.objects.filter(
+            product=self.product,
+            tier_level__lt=self.tier_level,  # Only check lower tiers
+            end_quantity__gte=self.start_quantity
+        ).exclude(pk=self.pk)
+
+        if overlapping_tiers.exists():
+            raise ValidationError("Tier ranges cannot overlap with lower tiers")
 
 
 
@@ -174,6 +207,10 @@ class Product(models.Model):
     status = models.ForeignKey(Product_status, on_delete=models.CASCADE, null=True, blank=True)
     amazon_url = models.URLField(null=True, blank=True)
     # New Checkbox Field
+    is_tiered = models.BooleanField(
+        default=False,
+        help_text="Enable tier pricing for this product"
+    ,null=True,blank=True)
     allow_direct_add_to_cart = models.BooleanField(
         default=False,null=True,blank=True,help_text="Allow Direct Add to Cart (Without Customization)")
 
@@ -185,10 +222,34 @@ class Product(models.Model):
         return self.name if self.name else "Unnamed Product"
 
     def clean(self):
-        if self.min_width > self.max_width:
+        if self.min_width and self.max_width and self.min_width > self.max_width:
             raise ValidationError("Minimum width cannot be greater than maximum width.")
-        if self.min_height > self.max_height:
+        if self.min_height and self.max_height and self.min_height > self.max_height:
             raise ValidationError("Minimum height cannot be greater than maximum height.")
+
+        # Validate tier pricing
+        if self.is_tiered and not self.tiers.exists():
+            raise ValidationError("At least one tier must be provided when tier pricing is enabled")
+
+    def get_price_for_quantity(self, quantity):
+        """
+        Get the appropriate price for a given quantity based on tier pricing
+        """
+        if not self.is_tiered:
+            return self.price
+
+        # Find the appropriate tier for the quantity
+        tier = self.tiers.filter(
+            start_quantity__lte=quantity,
+            end_quantity__gte=quantity
+        ).first()
+
+        if tier:
+            return tier.price
+        else:
+            # If quantity exceeds all tiers, use the highest tier price
+            highest_tier = self.tiers.order_by('-tier_level').first()
+            return highest_tier.price if highest_tier else self.price
 
     def get_available_thicknesses(self):
         """Return product-specific thicknesses or global ones if none exist"""

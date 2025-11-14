@@ -88,7 +88,6 @@ urlpatterns = [
 
     path('new/products/', views.product_list_create, name='product-list-create'),
     path('new/products/<int:pk>/', views.product_detail, name='product-detail'),
-    path('new/products/status-options/', views.product_status_options, name='product-status-options'),
 
     # Inventory Management URLs
     path('inventory/stock/', views.inventory_stock_list, name='inventory-stock-list'),

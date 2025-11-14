@@ -372,12 +372,132 @@ class NewCategorySerializer(serializers.ModelSerializer):
 
 
 # Add these to your serializers.py
+# Add these serializers to your serializers.py
+
+class ProductTierSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProductTier
+        fields = ['id', 'tier_level', 'start_quantity', 'end_quantity', 'price']
+
+    def validate(self, data):
+        if data['start_quantity'] >= data['end_quantity']:
+            raise serializers.ValidationError("Start quantity must be less than end quantity")
+        return data
+
+
+class ProductCreateUpdateSerializer(serializers.ModelSerializer):
+    category_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        write_only=True,
+        required=False
+    )
+    tiers = ProductTierSerializer(many=True, required=False)
+
+    class Meta:
+        model = Product
+        fields = [
+            'id', 'name', 'alternate_names', 'description', 'product_overview',
+            'product_specifications', 'installation', 'image1', 'image2', 'image3', 'image4',
+            'min_width', 'min_height', 'max_width', 'max_height', 'size', 'price', 'fixed_price',
+            'status', 'amazon_url', 'allow_direct_add_to_cart', 'stock', 'disable_customization',
+            'is_tiered', 'category_ids', 'tiers'
+        ]
+        extra_kwargs = {
+            'name': {'required': True},
+            'description': {'required': False, 'allow_blank': True},
+            'price': {'required': False},
+        }
+
+    def validate(self, data):
+        is_tiered = data.get('is_tiered', False)
+        tiers_data = data.get('tiers', [])
+
+        if is_tiered and not tiers_data:
+            raise serializers.ValidationError({
+                'tiers': 'At least one tier must be provided when tier pricing is enabled'
+            })
+
+        if is_tiered and tiers_data:
+            # Validate tier ranges don't overlap
+            tier_levels = set()
+            for tier_data in tiers_data:
+                tier_level = tier_data.get('tier_level')
+                if tier_level in tier_levels:
+                    raise serializers.ValidationError({
+                        'tiers': f'Duplicate tier level {tier_level}'
+                    })
+                tier_levels.add(tier_level)
+
+            # Sort tiers by level and validate ranges
+            sorted_tiers = sorted(tiers_data, key=lambda x: x['tier_level'])
+            previous_end = 0
+
+            for tier_data in sorted_tiers:
+                start_quantity = tier_data['start_quantity']
+                end_quantity = tier_data['end_quantity']
+
+                if start_quantity <= previous_end:
+                    raise serializers.ValidationError({
+                        'tiers': f'Tier {tier_data["tier_level"]} start quantity must be greater than previous tier end quantity'
+                    })
+
+                previous_end = end_quantity
+
+        return data
+
+    def create(self, validated_data):
+        category_ids = validated_data.pop('category_ids', [])
+        tiers_data = validated_data.pop('tiers', [])
+
+        # Create product
+        product = Product.objects.create(**validated_data)
+
+        # Add categories
+        if category_ids:
+            categories = Category.objects.filter(id__in=category_ids)
+            product.categories.set(categories)
+
+        # Create tiers
+        for tier_data in tiers_data:
+            ProductTier.objects.create(product=product, **tier_data)
+
+        # Copy global options to the product
+        product.copy_global_options()
+
+        return product
+
+    def update(self, instance, validated_data):
+        category_ids = validated_data.pop('category_ids', None)
+        tiers_data = validated_data.pop('tiers', None)
+
+        # Update product fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        # Update categories if provided
+        if category_ids is not None:
+            categories = Category.objects.filter(id__in=category_ids)
+            instance.categories.set(categories)
+
+        # Update tiers if provided
+        if tiers_data is not None:
+            # Delete existing tiers
+            instance.tiers.all().delete()
+            # Create new tiers
+            for tier_data in tiers_data:
+                ProductTier.objects.create(product=instance, **tier_data)
+
+        return instance
+
 
 class ProductListSerializer(serializers.ModelSerializer):
     categories = serializers.SerializerMethodField()
     parent_categories = serializers.SerializerMethodField()
     status_name = serializers.CharField(source='status.status', read_only=True)
     stock_status = serializers.SerializerMethodField()
+    has_tier_pricing = serializers.BooleanField(source='is_tiered', read_only=True)
+    tier_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -386,7 +506,7 @@ class ProductListSerializer(serializers.ModelSerializer):
             'min_width', 'min_height', 'max_width', 'max_height', 'size',
             'image1', 'image2', 'image3', 'image4', 'categories', 'parent_categories',
             'status', 'status_name', 'allow_direct_add_to_cart', 'disable_customization',
-            'amazon_url', 'stock_status', 'created_at'
+            'amazon_url', 'stock_status', 'has_tier_pricing', 'tier_count', 'created_at'
         ]
 
     def get_categories(self, obj):
@@ -420,49 +540,8 @@ class ProductListSerializer(serializers.ModelSerializer):
         else:
             return 'in_stock'
 
-
-class ProductCreateUpdateSerializer(serializers.ModelSerializer):
-    category_ids = serializers.ListField(
-        child=serializers.IntegerField(),
-        write_only=True,
-        required=False
-    )
-
-    class Meta:
-        model = Product
-        fields = [
-            'id', 'name', 'alternate_names', 'description', 'product_overview',
-            'product_specifications', 'installation', 'image1', 'image2', 'image3', 'image4',
-            'min_width', 'min_height', 'max_width', 'max_height', 'size', 'price', 'fixed_price',
-            'status', 'amazon_url', 'allow_direct_add_to_cart', 'stock', 'disable_customization',
-            'category_ids'
-        ]
-
-    def create(self, validated_data):
-        category_ids = validated_data.pop('category_ids', [])
-        product = Product.objects.create(**validated_data)
-
-        if category_ids:
-            categories = Category.objects.filter(id__in=category_ids)
-            product.categories.set(categories)
-
-        # Copy global options to the product
-        product.copy_global_options()
-
-        return product
-
-    def update(self, instance, validated_data):
-        category_ids = validated_data.pop('category_ids', None)
-
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-        instance.save()
-
-        if category_ids is not None:
-            categories = Category.objects.filter(id__in=category_ids)
-            instance.categories.set(categories)
-
-        return instance
+    def get_tier_count(self, obj):
+        return obj.tiers.count()
 
 
 class ProductDetailSerializer(serializers.ModelSerializer):
@@ -470,6 +549,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     parent_categories = serializers.SerializerMethodField()
     status_name = serializers.CharField(source='status.status', read_only=True)
     standard_sizes = StandardSizesSerializer(many=True, read_only=True)
+    tiers = ProductTierSerializer(many=True, read_only=True)
 
     # Product options
     thickness_options = serializers.SerializerMethodField()
@@ -485,9 +565,10 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             'product_specifications', 'installation', 'image1', 'image2', 'image3', 'image4',
             'min_width', 'min_height', 'max_width', 'max_height', 'size', 'price', 'fixed_price',
             'status', 'status_name', 'amazon_url', 'allow_direct_add_to_cart', 'stock',
-            'disable_customization', 'categories', 'parent_categories', 'standard_sizes',
-            'thickness_options', 'turnaround_options', 'delivery_options',
-            'installation_options', 'distance_options', 'created_at', 'updated_at'
+            'disable_customization', 'is_tiered', 'categories', 'parent_categories',
+            'standard_sizes', 'tiers', 'thickness_options', 'turnaround_options',
+            'delivery_options', 'installation_options', 'distance_options',
+            'created_at', 'updated_at'
         ]
 
     def get_categories(self, obj):
