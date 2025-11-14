@@ -79,8 +79,8 @@ urlpatterns = [
     # QUERY
     # path('square-signs-report/', views.export_square_signs_products, name='square_signs_report'),
 
-    path('parent-categories/', views.parent_category_list_create, name='parent-category-list-create'),
-    path('parent-categories/<int:pk>/', views.parent_category_detail, name='parent-category-detail'),
+    path('new/parent-categories/', views.parent_category_list_create, name='parent-category-list-create'),
+    path('new/parent-categories/<int:pk>/', views.parent_category_detail, name='parent-category-detail'),
 
     # Category URLs
     path('categories/', views.category_list_create, name='category-list-create'),
