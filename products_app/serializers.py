@@ -369,3 +369,212 @@ class NewCategorySerializer(serializers.ModelSerializer):
             'description',
             'category_image'
         ]
+
+
+# Add these to your serializers.py
+
+class ProductListSerializer(serializers.ModelSerializer):
+    categories = serializers.SerializerMethodField()
+    parent_categories = serializers.SerializerMethodField()
+    status_name = serializers.CharField(source='status.status', read_only=True)
+    stock_status = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Product
+        fields = [
+            'id', 'name', 'description', 'price', 'fixed_price', 'stock',
+            'min_width', 'min_height', 'max_width', 'max_height', 'size',
+            'image1', 'image2', 'image3', 'image4', 'categories', 'parent_categories',
+            'status', 'status_name', 'allow_direct_add_to_cart', 'disable_customization',
+            'amazon_url', 'stock_status', 'created_at'
+        ]
+
+    def get_categories(self, obj):
+        return [
+            {
+                'id': category.id,
+                'name': category.category_name,
+                'image': category.category_image
+            }
+            for category in obj.categories.all()
+        ]
+
+    def get_parent_categories(self, obj):
+        parent_categories = []
+        for category in obj.categories.all():
+            for parent in category.parent_categories.all():
+                parent_categories.append({
+                    'id': parent.id,
+                    'name': parent.name,
+                    'image': parent.image
+                })
+        return parent_categories
+
+    def get_stock_status(self, obj):
+        if obj.stock is None:
+            return 'unknown'
+        elif obj.stock == 0:
+            return 'out_of_stock'
+        elif obj.stock <= 10:
+            return 'low_stock'
+        else:
+            return 'in_stock'
+
+
+class ProductCreateUpdateSerializer(serializers.ModelSerializer):
+    category_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        write_only=True,
+        required=False
+    )
+
+    class Meta:
+        model = Product
+        fields = [
+            'id', 'name', 'alternate_names', 'description', 'product_overview',
+            'product_specifications', 'installation', 'image1', 'image2', 'image3', 'image4',
+            'min_width', 'min_height', 'max_width', 'max_height', 'size', 'price', 'fixed_price',
+            'status', 'amazon_url', 'allow_direct_add_to_cart', 'stock', 'disable_customization',
+            'category_ids'
+        ]
+
+    def create(self, validated_data):
+        category_ids = validated_data.pop('category_ids', [])
+        product = Product.objects.create(**validated_data)
+
+        if category_ids:
+            categories = Category.objects.filter(id__in=category_ids)
+            product.categories.set(categories)
+
+        # Copy global options to the product
+        product.copy_global_options()
+
+        return product
+
+    def update(self, instance, validated_data):
+        category_ids = validated_data.pop('category_ids', None)
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        if category_ids is not None:
+            categories = Category.objects.filter(id__in=category_ids)
+            instance.categories.set(categories)
+
+        return instance
+
+
+class ProductDetailSerializer(serializers.ModelSerializer):
+    categories = serializers.SerializerMethodField()
+    parent_categories = serializers.SerializerMethodField()
+    status_name = serializers.CharField(source='status.status', read_only=True)
+    standard_sizes = StandardSizesSerializer(many=True, read_only=True)
+
+    # Product options
+    thickness_options = serializers.SerializerMethodField()
+    turnaround_options = serializers.SerializerMethodField()
+    delivery_options = serializers.SerializerMethodField()
+    installation_options = serializers.SerializerMethodField()
+    distance_options = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Product
+        fields = [
+            'id', 'name', 'alternate_names', 'description', 'product_overview',
+            'product_specifications', 'installation', 'image1', 'image2', 'image3', 'image4',
+            'min_width', 'min_height', 'max_width', 'max_height', 'size', 'price', 'fixed_price',
+            'status', 'status_name', 'amazon_url', 'allow_direct_add_to_cart', 'stock',
+            'disable_customization', 'categories', 'parent_categories', 'standard_sizes',
+            'thickness_options', 'turnaround_options', 'delivery_options',
+            'installation_options', 'distance_options', 'created_at', 'updated_at'
+        ]
+
+    def get_categories(self, obj):
+        return [
+            {
+                'id': category.id,
+                'name': category.category_name,
+                'description': category.description,
+                'image': category.category_image
+            }
+            for category in obj.categories.all()
+        ]
+
+    def get_parent_categories(self, obj):
+        parent_categories = []
+        for category in obj.categories.all():
+            for parent in category.parent_categories.all():
+                parent_categories.append({
+                    'id': parent.id,
+                    'name': parent.name,
+                    'description': parent.description,
+                    'image': parent.image
+                })
+        return parent_categories
+
+    def get_thickness_options(self, obj):
+        thicknesses = obj.get_available_thicknesses()
+        return [
+            {
+                "id": t.id,
+                "size": t.size,
+                "price_percentage": str(t.price_percentage) if t.price_percentage else None,
+                "price": str(t.price)
+            }
+            for t in thicknesses
+        ]
+
+    def get_turnaround_options(self, obj):
+        turnarounds = obj.get_available_turnaround_times()
+        return [
+            {
+                "id": t.id,
+                "name": t.name,
+                "description": t.description,
+                "price_percentage": str(t.price_percentage) if t.price_percentage else None,
+                "price_decimal": str(t.price_decimal) if t.price_decimal else None
+            }
+            for t in turnarounds
+        ]
+
+    def get_delivery_options(self, obj):
+        deliveries = obj.get_available_deliveries()
+        return [
+            {
+                "id": d.id,
+                "name": d.name,
+                "description": d.description,
+                "price_percentage": str(d.price_percentage) if d.price_percentage else None,
+                "price_decimal": str(d.price_decimal) if d.price_decimal else None
+            }
+            for d in deliveries
+        ]
+
+    def get_installation_options(self, obj):
+        installations = obj.get_available_installation_types()
+        return [
+            {
+                "id": i.id,
+                "name": i.name,
+                "days": i.days,
+                "description": i.description,
+                "price_percentage": str(i.price_percentage) if i.price_percentage else None,
+                "price_decimal": str(i.price_decimal) if i.price_decimal else None
+            }
+            for i in installations
+        ]
+
+    def get_distance_options(self, obj):
+        distances = obj.get_available_distances()
+        return [
+            {
+                "id": d.id,
+                "km": d.km,
+                "unit": d.unit,
+                "description": d.description,
+                "price_percentage": str(d.price_percentage) if d.price_percentage else None,
+                "price_decimal": str(d.price_decimal) if d.price_decimal else None
+            }
+            for d in distances
+        ]

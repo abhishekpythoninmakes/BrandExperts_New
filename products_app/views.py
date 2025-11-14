@@ -932,3 +932,176 @@ def category_detail(request, pk):
             "status": "success",
             "message": "Category deleted successfully"
         }, status=status.HTTP_204_NO_CONTENT)
+
+
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import filters
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from .models import Product, Product_status
+from .serializers import ProductListSerializer, ProductCreateUpdateSerializer, ProductDetailSerializer
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def product_list_create(request):
+    """
+    List all products with filtering, ordering and pagination or create a new product
+    """
+    if request.method == 'GET':
+        # Get all products ordered by latest first
+        products = Product.objects.all().order_by('-id')
+
+        # Apply filters
+        status_filter = request.GET.get('status')
+        stock_filter = request.GET.get('stock')
+        stock_ordering = request.GET.get('stock_ordering')
+        search = request.GET.get('search')
+
+        if status_filter:
+            products = products.filter(status_id=status_filter)
+
+        if stock_filter:
+            if stock_filter == 'in_stock':
+                products = products.filter(stock__gt=0)
+            elif stock_filter == 'out_of_stock':
+                products = products.filter(stock=0)
+            elif stock_filter == 'low_stock':
+                products = products.filter(stock__lte=10, stock__gt=0)
+
+        if stock_ordering:
+            if stock_ordering == 'high':
+                products = products.order_by('-stock', '-id')
+            elif stock_ordering == 'low':
+                products = products.order_by('stock', '-id')
+
+        if search:
+            products = products.filter(
+                models.Q(name__icontains=search) |
+                models.Q(description__icontains=search) |
+                models.Q(alternate_names__icontains=search)
+            )
+
+        # Pagination
+        page_size = int(request.GET.get('page_size', 20))  # Default page size 20
+        page_number = int(request.GET.get('page', 1))
+
+        paginator = Paginator(products, page_size)
+
+        try:
+            page_obj = paginator.page(page_number)
+        except PageNotAnInteger:
+            page_obj = paginator.page(1)
+        except EmptyPage:
+            page_obj = paginator.page(paginator.num_pages)
+
+        serializer = ProductListSerializer(page_obj, many=True)
+
+        return Response({
+            "status": "success",
+            "data": serializer.data,
+            "pagination": {
+                "current_page": page_obj.number,
+                "total_pages": paginator.num_pages,
+                "total_items": paginator.count,
+                "page_size": page_size,
+                "has_next": page_obj.has_next(),
+                "has_previous": page_obj.has_previous(),
+            }
+        })
+
+    elif request.method == 'POST':
+        # Only admin users can create products
+        if not request.user.is_admin:
+            return Response({
+                "status": "error",
+                "message": "Permission denied. Only admin users can create products."
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = ProductCreateUpdateSerializer(data=request.data)
+        if serializer.is_valid():
+            product = serializer.save()
+            return Response({
+                "status": "success",
+                "message": "Product created successfully",
+                "data": ProductDetailSerializer(product, context={'request': request}).data
+            }, status=status.HTTP_201_CREATED)
+        return Response({
+            "status": "error",
+            "message": "Validation failed",
+            "errors": serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET', 'PUT', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def product_detail(request, pk):
+    """
+    Retrieve, update or delete a product instance
+    """
+    try:
+        product = Product.objects.get(pk=pk)
+    except Product.DoesNotExist:
+        return Response({
+            "status": "error",
+            "message": "Product not found"
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'GET':
+        serializer = ProductDetailSerializer(product, context={'request': request})
+        return Response({
+            "status": "success",
+            "data": serializer.data
+        })
+
+    elif request.method == 'PUT':
+        if not request.user.is_admin:
+            return Response({
+                "status": "error",
+                "message": "Permission denied. Only admin users can update products."
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = ProductCreateUpdateSerializer(product, data=request.data, partial=True)
+        if serializer.is_valid():
+            updated_product = serializer.save()
+            return Response({
+                "status": "success",
+                "message": "Product updated successfully",
+                "data": ProductDetailSerializer(updated_product, context={'request': request}).data
+            })
+        return Response({
+            "status": "error",
+            "message": "Validation failed",
+            "errors": serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    elif request.method == 'DELETE':
+        if not request.user.is_admin:
+            return Response({
+                "status": "error",
+                "message": "Permission denied. Only admin users can delete products."
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        product.delete()
+        return Response({
+            "status": "success",
+            "message": "Product deleted successfully"
+        }, status=status.HTTP_204_NO_CONTENT)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def product_status_options(request):
+    """
+    Get all available product status options
+    """
+    status_options = Product_status.objects.all()
+    data = [{"id": status.id, "status": status.status} for status in status_options]
+
+    return Response({
+        "status": "success",
+        "data": data
+    })
