@@ -496,7 +496,7 @@ class ProductListSerializer(serializers.ModelSerializer):
     parent_categories = serializers.SerializerMethodField()
     status_name = serializers.CharField(source='status.status', read_only=True)
     stock_status = serializers.SerializerMethodField()
-    has_tier_pricing = serializers.BooleanField(source='is_tiered', read_only=True)
+    is_tiered = serializers.BooleanField(read_only=True)
     tier_count = serializers.SerializerMethodField()
 
     class Meta:
@@ -506,7 +506,7 @@ class ProductListSerializer(serializers.ModelSerializer):
             'min_width', 'min_height', 'max_width', 'max_height', 'size',
             'image1', 'image2', 'image3', 'image4', 'categories', 'parent_categories',
             'status', 'status_name', 'allow_direct_add_to_cart', 'disable_customization',
-            'amazon_url', 'stock_status', 'has_tier_pricing', 'tier_count', 'created_at'
+            'amazon_url', 'stock_status', 'is_tiered', 'tier_count', 'created_at'
         ]
 
     def get_categories(self, obj):

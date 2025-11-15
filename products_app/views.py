@@ -1342,3 +1342,300 @@ def inventory_dashboard(request):
             "top_selling": InventoryStockSerializer(top_selling, many=True).data
         }
     })
+
+
+from django.db.models import Q
+from rest_framework import status
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def product_filter_list(request):
+    """
+    Filter products by parent category, sub category with pagination and sorting
+    """
+    try:
+        # Get all products
+        products = Product.objects.all().select_related('status').prefetch_related(
+            'categories', 'categories__parent_categories'
+        )
+
+        # Apply filters
+        parent_category_id = request.GET.get('parent_category_id')
+        category_id = request.GET.get('category_id')
+        status_id = request.GET.get('status_id')
+        search = request.GET.get('search')
+        tier_pricing = request.GET.get('tier_pricing')
+        stock_status = request.GET.get('stock_status')
+        min_price = request.GET.get('min_price')
+        max_price = request.GET.get('max_price')
+
+        # Filter by parent category
+        if parent_category_id:
+            try:
+                parent_category = ParentCategory.objects.get(id=parent_category_id)
+                # Get categories that belong to this parent category
+                child_categories = parent_category.child_categories.all()
+                # Get products that have any of these categories
+                products = products.filter(categories__in=child_categories).distinct()
+            except ParentCategory.DoesNotExist:
+                return Response({
+                    "status": "error",
+                    "message": "Parent category not found"
+                }, status=status.HTTP_404_NOT_FOUND)
+
+        # Filter by category (sub category)
+        if category_id:
+            try:
+                category = Category.objects.get(id=category_id)
+                products = products.filter(categories=category)
+            except Category.DoesNotExist:
+                return Response({
+                    "status": "error",
+                    "message": "Category not found"
+                }, status=status.HTTP_404_NOT_FOUND)
+
+        # Filter by status
+        if status_id:
+            products = products.filter(status_id=status_id)
+
+        # Filter by tier pricing
+        if tier_pricing:
+            if tier_pricing.lower() == 'true':
+                products = products.filter(is_tiered=True)
+            elif tier_pricing.lower() == 'false':
+                products = products.filter(is_tiered=False)
+
+        # Filter by stock status
+        if stock_status:
+            if stock_status == 'in_stock':
+                products = products.filter(stock__gt=0)
+            elif stock_status == 'out_of_stock':
+                products = products.filter(stock=0)
+            elif stock_status == 'low_stock':
+                products = products.filter(stock__lte=10, stock__gt=0)
+
+        # Filter by price range
+        if min_price:
+            try:
+                min_price = float(min_price)
+                products = products.filter(
+                    Q(price__gte=min_price) | Q(fixed_price__gte=min_price)
+                )
+            except ValueError:
+                return Response({
+                    "status": "error",
+                    "message": "Invalid min_price value"
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+        if max_price:
+            try:
+                max_price = float(max_price)
+                products = products.filter(
+                    Q(price__lte=max_price) | Q(fixed_price__lte=max_price)
+                )
+            except ValueError:
+                return Response({
+                    "status": "error",
+                    "message": "Invalid max_price value"
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Search filter
+        if search:
+            products = products.filter(
+                Q(name__icontains=search) |
+                Q(description__icontains=search) |
+                Q(alternate_names__icontains=search) |
+                Q(categories__category_name__icontains=search)
+            ).distinct()
+
+        # Apply sorting
+        sort_by = request.GET.get('sort_by', '-created_at')  # Default: latest first
+        valid_sort_fields = [
+            'name', '-name', 'price', '-price', 'stock', '-stock',
+            'created_at', '-created_at', 'updated_at', '-updated_at'
+        ]
+
+        if sort_by in valid_sort_fields:
+            products = products.order_by(sort_by)
+        else:
+            products = products.order_by('-created_at')  # Default sorting
+
+        # Pagination
+        page_size = int(request.GET.get('page_size', 20))
+        page_number = int(request.GET.get('page', 1))
+
+        # Validate pagination parameters
+        if page_size < 1 or page_size > 100:
+            return Response({
+                "status": "error",
+                "message": "page_size must be between 1 and 100"
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        if page_number < 1:
+            return Response({
+                "status": "error",
+                "message": "page must be greater than 0"
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        paginator = Paginator(products, page_size)
+
+        try:
+            page_obj = paginator.page(page_number)
+        except PageNotAnInteger:
+            page_obj = paginator.page(1)
+        except EmptyPage:
+            page_obj = paginator.page(paginator.num_pages)
+
+        serializer = ProductListSerializer(page_obj, many=True)
+
+        # Get filter options for response
+        filter_options = {
+            "parent_categories": [
+                {
+                    "id": pc.id,
+                    "name": pc.name,
+                    "child_categories_count": pc.child_categories.count()
+                }
+                for pc in ParentCategory.objects.all()
+            ],
+            "categories": [
+                {
+                    "id": cat.id,
+                    "name": cat.category_name,
+                    "parent_categories": [
+                        {"id": pc.id, "name": pc.name}
+                        for pc in cat.parent_categories.all()
+                    ]
+                }
+                for cat in Category.objects.all()
+            ],
+            "status_options": [
+                {"id": status.id, "status": status.status}
+                for status in Product_status.objects.all()
+            ]
+        }
+
+        return Response({
+            "status": "success",
+            "data": serializer.data,
+            "pagination": {
+                "current_page": page_obj.number,
+                "total_pages": paginator.num_pages,
+                "total_items": paginator.count,
+                "page_size": page_size,
+                "has_next": page_obj.has_next(),
+                "has_previous": page_obj.has_previous(),
+            },
+            "filters_applied": {
+                "parent_category_id": parent_category_id,
+                "category_id": category_id,
+                "status_id": status_id,
+                "search": search,
+                "tier_pricing": tier_pricing,
+                "stock_status": stock_status,
+                "min_price": min_price,
+                "max_price": max_price,
+                "sort_by": sort_by
+            },
+            "available_filters": filter_options
+        })
+
+    except Exception as e:
+        return Response({
+            "status": "error",
+            "message": f"Server error: {str(e)}"
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def product_filter_options(request):
+    """
+    Get available filter options for products
+    """
+    try:
+        parent_categories = ParentCategory.objects.all()
+        categories = Category.objects.all()
+        status_options = Product_status.objects.all()
+
+        parent_categories_data = []
+        for pc in parent_categories:
+            parent_categories_data.append({
+                "id": pc.id,
+                "name": pc.name,
+                "image": pc.image,
+                "description": pc.description,
+                "child_categories_count": pc.child_categories.count(),
+                "products_count": Product.objects.filter(
+                    categories__in=pc.child_categories.all()
+                ).distinct().count()
+            })
+
+        categories_data = []
+        for cat in categories:
+            categories_data.append({
+                "id": cat.id,
+                "name": cat.category_name,
+                "image": cat.category_image,
+                "description": cat.description,
+                "parent_categories": [
+                    {
+                        "id": pc.id,
+                        "name": pc.name
+                    }
+                    for pc in cat.parent_categories.all()
+                ],
+                "products_count": cat.products.count()
+            })
+
+        return Response({
+            "status": "success",
+            "data": {
+                "parent_categories": parent_categories_data,
+                "categories": categories_data,
+                "status_options": [
+                    {
+                        "id": status.id,
+                        "status": status.status,
+                        "products_count": Product.objects.filter(status=status).count()
+                    }
+                    for status in status_options
+                ],
+                "stock_status_options": [
+                    {
+                        "value": "in_stock",
+                        "label": "In Stock",
+                        "count": Product.objects.filter(stock__gt=0).count()
+                    },
+                    {
+                        "value": "out_of_stock",
+                        "label": "Out of Stock",
+                        "count": Product.objects.filter(stock=0).count()
+                    },
+                    {
+                        "value": "low_stock",
+                        "label": "Low Stock",
+                        "count": Product.objects.filter(stock__lte=10, stock__gt=0).count()
+                    }
+                ],
+                "tier_pricing_options": [
+                    {
+                        "value": "true",
+                        "label": "With Tier Pricing",
+                        "count": Product.objects.filter(is_tiered=True).count()
+                    },
+                    {
+                        "value": "false",
+                        "label": "Without Tier Pricing",
+                        "count": Product.objects.filter(is_tiered=False).count()
+                    }
+                ]
+            }
+        })
+
+    except Exception as e:
+        return Response({
+            "status": "error",
+            "message": f"Server error: {str(e)}"
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

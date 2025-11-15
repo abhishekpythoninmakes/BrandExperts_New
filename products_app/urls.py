@@ -89,6 +89,9 @@ urlpatterns = [
     path('new/products/', views.product_list_create, name='product-list-create'),
     path('new/products/<int:pk>/', views.product_detail, name='product-detail'),
 
+    path('new/products/filter/', views.product_filter_list, name='product-filter-list'),
+    path('new/products/filter-options/', views.product_filter_options, name='product-filter-options'),
+
     # Inventory Management URLs
     path('inventory/stock/', views.inventory_stock_list, name='inventory-stock-list'),
     path('inventory/restore-stock/', views.restore_product_stock, name='restore-product-stock'),
