@@ -525,6 +525,22 @@ class PartnerDeleteView(generics.DestroyAPIView):
         instance.user.is_active = False
         instance.user.save()
 
+class PartnerHardDeleteView(generics.DestroyAPIView):
+    """
+    Permanently delete a partner and associated user (USE WITH CAUTION)
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    lookup_field = 'id'
+
+    def get_queryset(self):
+        return Partners.objects.select_related('user').all()
+
+    def perform_destroy(self, instance):
+        # Delete the user first, then the partner
+        user = instance.user
+        instance.delete()
+        user.delete()
+
 
 @api_view(['GET'])
 @permission_classes([permissions.IsAuthenticated])
