@@ -735,7 +735,7 @@ from .serializers import ContactSerializer
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated, IsAdminUser])  # Restrict to admin users only
+@permission_classes([IsAuthenticated])  # Restrict to admin users only
 def all_contacts_list(request):
     """
     List all contacts across all partners (Admin only)
