@@ -496,7 +496,8 @@ class ProductListSerializer(serializers.ModelSerializer):
     parent_categories = serializers.SerializerMethodField()
     status_name = serializers.CharField(source='status.status', read_only=True)
     stock_status = serializers.SerializerMethodField()
-    is_tiered = serializers.BooleanField(read_only=True)
+    is_tiered = serializers.BooleanField(read_only=True)  # Keep the original field name
+    tiers = serializers.SerializerMethodField()  # Add tiers field
     tier_count = serializers.SerializerMethodField()
 
     class Meta:
@@ -506,7 +507,7 @@ class ProductListSerializer(serializers.ModelSerializer):
             'min_width', 'min_height', 'max_width', 'max_height', 'size',
             'image1', 'image2', 'image3', 'image4', 'categories', 'parent_categories',
             'status', 'status_name', 'allow_direct_add_to_cart', 'disable_customization',
-            'amazon_url', 'stock_status', 'is_tiered', 'tier_count', 'created_at'
+            'amazon_url', 'stock_status', 'is_tiered', 'tiers', 'tier_count', 'created_at'
         ]
 
     def get_categories(self, obj):
@@ -540,8 +541,30 @@ class ProductListSerializer(serializers.ModelSerializer):
         else:
             return 'in_stock'
 
+    def get_tiers(self, obj):
+        """Get all tiers for the product"""
+        if hasattr(obj, 'tiers'):
+            # If tiers are prefetched, use them
+            tiers = obj.tiers.all()
+        else:
+            # Otherwise, query the database
+            tiers = obj.tiers.all()
+
+        return ProductTierSerializer(tiers, many=True).data
+
     def get_tier_count(self, obj):
         return obj.tiers.count()
+
+
+class ProductTierSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProductTier
+        fields = ['id', 'tier_level', 'start_quantity', 'end_quantity', 'price']
+
+    def validate(self, data):
+        if data['start_quantity'] >= data['end_quantity']:
+            raise serializers.ValidationError("Start quantity must be less than end quantity")
+        return data
 
 
 class ProductDetailSerializer(serializers.ModelSerializer):
