@@ -28,4 +28,7 @@ urlpatterns = [
     path('partners/<int:partner_id>/stats/', views.partner_stats, name='partner-stats'),
     path('partners/<int:partner_id>/toggle-status/', views.toggle_partner_status, name='partner-toggle-status'),
 
+    path('admin/contacts/', views.all_contacts_list, name='admin-contacts-list'),
+    path('admin/contacts/export/', views.all_contacts_export, name='admin-contacts-export'),
+
 ]

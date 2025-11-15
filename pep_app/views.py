@@ -721,3 +721,202 @@ def toggle_partner_status(request, partner_id):
         'message': f'Partner {action} successfully',
         'is_active': partner.user.is_active
     })
+
+
+
+# All contacts API View
+
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.response import Response
+from django.db.models import Q, Count
+from .models import Contact, Partners, Accounts
+from .serializers import ContactSerializer
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsAdminUser])  # Restrict to admin users only
+def all_contacts_list(request):
+    """
+    List all contacts across all partners (Admin only)
+    """
+    try:
+        # Get query parameters for filtering and pagination
+        search = request.GET.get('search', '')
+        status_filter = request.GET.get('status', '')
+        partner_filter = request.GET.get('partner', '')
+        email_deliverability_filter = request.GET.get('email_deliverability', '')
+        page = int(request.GET.get('page', 1))
+        page_size = int(request.GET.get('page_size', 50))
+
+        # Start with all contacts
+        contacts = Contact.objects.select_related('partner', 'partner__user').prefetch_related('account')
+
+        # Apply search filter
+        if search:
+            contacts = contacts.filter(
+                Q(name__icontains=search) |
+                Q(email__icontains=search) |
+                Q(mobile__icontains=search) |
+                Q(partner__user__username__icontains=search) |
+                Q(partner__user__email__icontains=search)
+            )
+
+        # Apply status filter
+        if status_filter:
+            contacts = contacts.filter(status=status_filter)
+
+        # Apply partner filter
+        if partner_filter:
+            contacts = contacts.filter(partner_id=partner_filter)
+
+        # Apply email deliverability filter
+        if email_deliverability_filter:
+            contacts = contacts.filter(email_deliverability__icontains=email_deliverability_filter)
+
+        # Get total count before pagination
+        total_count = contacts.count()
+
+        # Apply pagination
+        start_index = (page - 1) * page_size
+        end_index = start_index + page_size
+        paginated_contacts = contacts.order_by('-created_at')[start_index:end_index]
+
+        # Get statistics
+        status_counts = contacts.values('status').annotate(count=Count('id'))
+        partner_counts = contacts.values('partner__user__username').annotate(count=Count('id'))
+
+        # Prepare response data
+        data = {
+            'contacts': [
+                {
+                    'id': contact.id,
+                    'name': contact.name,
+                    'email': contact.email,
+                    'mobile': contact.mobile,
+                    'status': contact.status,
+                    'email_deliverability': contact.email_deliverability,
+                    'created_at': contact.created_at.isoformat(),
+                    'partner': {
+                        'id': contact.partner.id if contact.partner else None,
+                        'username': contact.partner.user.username if contact.partner and contact.partner.user else None,
+                        'email': contact.partner.user.email if contact.partner and contact.partner.user else None,
+                    } if contact.partner else None,
+                    'accounts': [
+                        {
+                            'id': account.id,
+                            'name': account.name,
+                            'status': account.status
+                        }
+                        for account in contact.account.all()
+                    ],
+                    'created_by': contact.created_by.username if contact.created_by else None
+                }
+                for contact in paginated_contacts
+            ],
+            'pagination': {
+                'page': page,
+                'page_size': page_size,
+                'total_count': total_count,
+                'total_pages': (total_count + page_size - 1) // page_size,
+                'has_next': end_index < total_count,
+                'has_previous': page > 1
+            },
+            'filters': {
+                'search': search,
+                'status': status_filter,
+                'partner': partner_filter,
+                'email_deliverability': email_deliverability_filter
+            },
+            'stats': {
+                'total_contacts': total_count,
+                'status_distribution': list(status_counts),
+                'partner_distribution': [
+                    {
+                        'partner_name': item['partner__user__username'],
+                        'count': item['count']
+                    }
+                    for item in partner_counts
+                ],
+                'email_deliverability_stats': {
+                    'valid': contacts.filter(email_deliverability="Email is valid and deliverable").count(),
+                    'invalid': contacts.filter(email_deliverability="Invalid email").count(),
+                    'unknown': contacts.filter(email_deliverability__isnull=True).count() +
+                               contacts.exclude(
+                                   email_deliverability__in=["Email is valid and deliverable", "Invalid email"]).count()
+                }
+            }
+        }
+
+        return Response(data)
+
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsAdminUser])
+def all_contacts_export(request):
+    """
+    Export all contacts data (Admin only) - Returns all records without pagination
+    """
+    try:
+        # Get query parameters for filtering
+        search = request.GET.get('search', '')
+        status_filter = request.GET.get('status', '')
+        partner_filter = request.GET.get('partner', '')
+
+        # Start with all contacts
+        contacts = Contact.objects.select_related('partner', 'partner__user').prefetch_related('account')
+
+        # Apply filters
+        if search:
+            contacts = contacts.filter(
+                Q(name__icontains=search) |
+                Q(email__icontains=search) |
+                Q(mobile__icontains=search)
+            )
+
+        if status_filter:
+            contacts = contacts.filter(status=status_filter)
+
+        if partner_filter:
+            contacts = contacts.filter(partner_id=partner_filter)
+
+        # Get all contacts (no pagination for export)
+        contacts = contacts.order_by('-created_at')
+
+        # Prepare export data
+        data = {
+            'export_info': {
+                'exported_at': timezone.now().isoformat(),
+                'total_records': contacts.count(),
+                'filters_applied': {
+                    'search': search,
+                    'status': status_filter,
+                    'partner': partner_filter
+                }
+            },
+            'contacts': [
+                {
+                    'id': contact.id,
+                    'name': contact.name,
+                    'email': contact.email,
+                    'mobile': contact.mobile,
+                    'status': contact.status,
+                    'email_deliverability': contact.email_deliverability,
+                    'partner_name': contact.partner.user.username if contact.partner and contact.partner.user else 'No Partner',
+                    'partner_email': contact.partner.user.email if contact.partner and contact.partner.user else 'No Partner',
+                    'accounts': [account.name for account in contact.account.all()],
+                    'additional_data': contact.additional_data,
+                    'created_at': contact.created_at.isoformat(),
+                    'created_by': contact.created_by.username if contact.created_by else 'System'
+                }
+                for contact in contacts
+            ]
+        }
+
+        return Response(data)
+
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)
