@@ -27,7 +27,7 @@ import logging
 from rest_framework import generics, status, viewsets
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.decorators import action
+from rest_framework.decorators import action, permission_classes, api_view
 
 
 def users_list(request):
@@ -226,6 +226,121 @@ def partner_contacts(request, partner_id):
         return JsonResponse(data)
     except Partners.DoesNotExist:
         return JsonResponse({'error': 'Partner not found'}, status=404)
+
+def partner_contacts_partner_id(request, partner_id):
+    """View to get all contacts for a specific partner"""
+    try:
+        partner = Partners.objects.get(id=partner_id)
+        contacts = Contact.objects.filter(partner=partner)
+
+        data = {
+            'partner': {
+                'id': partner.id,
+                'name': partner.user.username if partner.user else "Unknown",
+            },
+            'contacts': [
+                {
+                    'id': contact.id,
+                    'name': contact.name,
+                    'email': contact.email,
+                    'status': contact.status,
+                    'created_at': contact.created_at.isoformat(),
+                    'email_deliverability': contact.email_deliverability,
+                }
+                for contact in contacts
+            ],
+            'total': contacts.count()
+        }
+
+        return JsonResponse(data)
+    except Partners.DoesNotExist:
+        return JsonResponse({'error': 'Partner not found'}, status=404)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def partner_contacts_new(request):
+    """View to get all contacts for the logged-in partner"""
+    try:
+        # Get the partner associated with the logged-in user
+        partner = get_object_or_404(Partners, user=request.user)
+
+        # Get query parameters for filtering
+        search = request.GET.get('search', '')
+        status_filter = request.GET.get('status', '')
+        page = int(request.GET.get('page', 1))
+        page_size = int(request.GET.get('page_size', 20))
+
+        # Start with all contacts for this partner
+        contacts = Contact.objects.filter(partner=partner)
+
+        # Apply search filter
+        if search:
+            contacts = contacts.filter(
+                Q(name__icontains=search) |
+                Q(email__icontains=search) |
+                Q(mobile__icontains=search)
+            )
+
+        # Apply status filter
+        if status_filter:
+            contacts = contacts.filter(status=status_filter)
+
+        # Get total count before pagination
+        total_count = contacts.count()
+
+        # Apply pagination
+        start_index = (page - 1) * page_size
+        end_index = start_index + page_size
+        paginated_contacts = contacts.order_by('-created_at')[start_index:end_index]
+
+        # Prepare response data
+        data = {
+            'partner': {
+                'id': partner.id,
+                'name': partner.user.get_full_name() or partner.user.username,
+                'username': partner.user.username,
+                'email': partner.user.email,
+            },
+            'contacts': [
+                {
+                    'id': contact.id,
+                    'name': contact.name,
+                    'email': contact.email,
+                    'mobile': contact.mobile,
+                    'status': contact.status,
+                    'email_deliverability': contact.email_deliverability,
+                    'created_at': contact.created_at.isoformat(),
+                    'accounts': [account.name for account in contact.account.all()] if contact.account.exists() else []
+                }
+                for contact in paginated_contacts
+            ],
+            'pagination': {
+                'page': page,
+                'page_size': page_size,
+                'total_count': total_count,
+                'total_pages': (total_count + page_size - 1) // page_size,
+                'has_next': end_index < total_count,
+                'has_previous': page > 1
+            },
+            'stats': {
+                'total_contacts': total_count,
+                'status_counts': {
+                    'lead': contacts.filter(status='lead').count(),
+                    'client': contacts.filter(status='client').count(),
+                    'data': contacts.filter(status='data').count(),
+                    'prospect': contacts.filter(status='prospect').count(),
+                    'unsubscribed': contacts.filter(status='unsubscribed').count(),
+                }
+            }
+        }
+
+        return Response(data)
+
+    except Partners.DoesNotExist:
+        return Response({'error': 'Partner profile not found'}, status=404)
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)
 
 
 class CampaignAnalyticsView(View):
