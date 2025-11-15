@@ -337,3 +337,96 @@ class RequestedEmailUsersSerializer(serializers.ModelSerializer):
     class Meta:
         model = RequestedEmailUsers
         fields = ['name', 'email', 'mobile', 'company', 'status', 'type']
+
+
+
+# New Order Serializers
+
+from rest_framework import serializers
+from .models import Order, Customer, Customer_Address, Cart, CartItem
+from products_app.models import Product
+from products_app.serializers import ProductListSerializer
+
+
+class CustomerSerializer(serializers.ModelSerializer):
+    user_name = serializers.CharField(source='user.username', read_only=True)
+    user_email = serializers.CharField(source='user.email', read_only=True)
+    user_first_name = serializers.CharField(source='user.first_name', read_only=True)
+    user_last_name = serializers.CharField(source='user.last_name', read_only=True)
+
+    class Meta:
+        model = Customer
+        fields = ['id', 'user_name', 'user_email', 'user_first_name', 'user_last_name', 'mobile', 'status']
+
+
+
+
+
+
+
+    def get_items_count(self, obj):
+        return obj.items.count()
+
+    def get_total_amount(self, obj):
+        return sum(item.total_price for item in obj.items.all() if item.total_price)
+
+
+class OrderListSerializer(serializers.ModelSerializer):
+    customer_details = CustomerSerializer(source='customer', read_only=True)
+    address_details = CustomerAddressSerializer(source='address', read_only=True)
+    cart_details = CartSerializer(source='cart', read_only=True)
+    customer_name = serializers.SerializerMethodField()
+    customer_email = serializers.SerializerMethodField()
+    items_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Order
+        fields = [
+            'id', 'customer', 'customer_details', 'customer_name', 'customer_email',
+            'address', 'address_details', 'cart', 'cart_details', 'status',
+            'ordered_date', 'payment_method', 'payment_status', 'amount',
+            'delivered_date', 'transaction_id', 'site_visit', 'site_visit_fee',
+            'vat_percentage', 'vat_amount', 'items_count'
+        ]
+
+    def get_customer_name(self, obj):
+        if obj.customer and obj.customer.user:
+            return f"{obj.customer.user.first_name} {obj.customer.user.last_name}".strip()
+        return "Unknown Customer"
+
+    def get_customer_email(self, obj):
+        if obj.customer and obj.customer.user:
+            return obj.customer.user.email
+        return None
+
+    def get_items_count(self, obj):
+        if obj.cart:
+            return obj.cart.items.count()
+        return 0
+
+
+class OrderCreateUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Order
+        fields = [
+            'id', 'customer', 'address', 'cart', 'status', 'payment_method',
+            'payment_status', 'amount', 'delivered_date', 'transaction_id',
+            'site_visit', 'site_visit_fee', 'vat_percentage', 'vat_amount'
+        ]
+        extra_kwargs = {
+            'customer': {'required': True},
+            'address': {'required': True},
+            'amount': {'required': True},
+        }
+
+    def validate_status(self, value):
+        valid_statuses = [choice[0] for choice in Order.ORDER_STATUS_CHOICES]
+        if value not in valid_statuses:
+            raise serializers.ValidationError(f"Invalid status. Must be one of: {', '.join(valid_statuses)}")
+        return value
+
+    def validate_payment_method(self, value):
+        valid_methods = [choice[0] for choice in Order.PAYMENT_METHOD_CHOICES]
+        if value not in valid_methods:
+            raise serializers.ValidationError(f"Invalid payment method. Must be one of: {', '.join(valid_methods)}")
+        return value

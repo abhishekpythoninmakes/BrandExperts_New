@@ -4406,3 +4406,264 @@ def csp_report(request):
         logger.error(f"Error processing CSP report: {e}")
 
     return HttpResponse(status=204)
+
+# New Order Views
+
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from django.db.models import Q
+from .models import Order, Customer, Customer_Address, Cart
+from .serializers import OrderListSerializer, OrderCreateUpdateSerializer
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def order_list(request):
+    """
+    List all orders with filtering, pagination and sorting (default: latest first)
+    """
+    try:
+        # Get all orders with related data for performance
+        orders = Order.objects.all().select_related(
+            'customer', 'customer__user', 'address', 'cart'
+        ).prefetch_related('cart__items', 'cart__items__product').order_by('-ordered_date')
+
+        # Apply filters
+        status_filter = request.GET.get('status')
+        payment_method = request.GET.get('payment_method')
+        payment_status = request.GET.get('payment_status')
+        customer_id = request.GET.get('customer_id')
+        search = request.GET.get('search')
+        date_from = request.GET.get('date_from')
+        date_to = request.GET.get('date_to')
+
+        # Filter by status
+        if status_filter:
+            orders = orders.filter(status=status_filter)
+
+        # Filter by payment method
+        if payment_method:
+            orders = orders.filter(payment_method=payment_method)
+
+        # Filter by payment status
+        if payment_status:
+            orders = orders.filter(payment_status__icontains=payment_status)
+
+        # Filter by customer
+        if customer_id:
+            try:
+                customer = Customer.objects.get(id=customer_id)
+                orders = orders.filter(customer=customer)
+            except Customer.DoesNotExist:
+                return Response({
+                    "status": "error",
+                    "message": "Customer not found"
+                }, status=status.HTTP_404_NOT_FOUND)
+
+        # Filter by date range
+        if date_from:
+            orders = orders.filter(ordered_date__gte=date_from)
+        if date_to:
+            orders = orders.filter(ordered_date__lte=date_to)
+
+        # Search filter
+        if search:
+            orders = orders.filter(
+                Q(customer__user__username__icontains=search) |
+                Q(customer__user__email__icontains=search) |
+                Q(customer__user__first_name__icontains=search) |
+                Q(customer__user__last_name__icontains=search) |
+                Q(transaction_id__icontains=search) |
+                Q(address__company_name__icontains=search)
+            ).distinct()
+
+        # Apply sorting
+        sort_by = request.GET.get('sort_by', '-ordered_date')  # Default: latest first
+        valid_sort_fields = [
+            'ordered_date', '-ordered_date', 'amount', '-amount',
+            'delivered_date', '-delivered_date', 'status'
+        ]
+
+        if sort_by in valid_sort_fields:
+            orders = orders.order_by(sort_by)
+        else:
+            orders = orders.order_by('-ordered_date')  # Default sorting
+
+        # Pagination
+        page_size = int(request.GET.get('page_size', 20))
+        page_number = int(request.GET.get('page', 1))
+
+        # Validate pagination parameters
+        if page_size < 1 or page_size > 100:
+            return Response({
+                "status": "error",
+                "message": "page_size must be between 1 and 100"
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        if page_number < 1:
+            return Response({
+                "status": "error",
+                "message": "page must be greater than 0"
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        paginator = Paginator(orders, page_size)
+
+        try:
+            page_obj = paginator.page(page_number)
+        except PageNotAnInteger:
+            page_obj = paginator.page(1)
+        except EmptyPage:
+            page_obj = paginator.page(paginator.num_pages)
+
+        serializer = OrderListSerializer(page_obj, many=True)
+
+        # Get order statistics
+        total_orders = orders.count()
+        total_amount = sum(order.amount for order in orders if order.amount)
+
+        status_counts = {}
+        for status_choice in Order.ORDER_STATUS_CHOICES:
+            status_counts[status_choice[0]] = orders.filter(status=status_choice[0]).count()
+
+        return Response({
+            "status": "success",
+            "data": serializer.data,
+            "pagination": {
+                "current_page": page_obj.number,
+                "total_pages": paginator.num_pages,
+                "total_items": paginator.count,
+                "page_size": page_size,
+                "has_next": page_obj.has_next(),
+                "has_previous": page_obj.has_previous(),
+            },
+            "statistics": {
+                "total_orders": total_orders,
+                "total_amount": total_amount,
+                "status_counts": status_counts
+            },
+            "filters_applied": {
+                "status": status_filter,
+                "payment_method": payment_method,
+                "payment_status": payment_status,
+                "customer_id": customer_id,
+                "search": search,
+                "date_from": date_from,
+                "date_to": date_to,
+                "sort_by": sort_by
+            }
+        })
+
+    except Exception as e:
+        return Response({
+            "status": "error",
+            "message": f"Server error: {str(e)}"
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def order_detail(request, pk):
+    """
+    Retrieve, update or delete an order instance
+    """
+    try:
+        order = Order.objects.select_related(
+            'customer', 'customer__user', 'address', 'cart'
+        ).prefetch_related('cart__items', 'cart__items__product').get(pk=pk)
+    except Order.DoesNotExist:
+        return Response({
+            "status": "error",
+            "message": "Order not found"
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'GET':
+        serializer = OrderListSerializer(order)
+        return Response({
+            "status": "success",
+            "data": serializer.data
+        })
+
+    elif request.method in ['PUT', 'PATCH']:
+        partial = (request.method == 'PATCH')
+        serializer = OrderCreateUpdateSerializer(order, data=request.data, partial=partial)
+
+        if serializer.is_valid():
+            updated_order = serializer.save()
+            return Response({
+                "status": "success",
+                "message": "Order updated successfully",
+                "data": OrderListSerializer(updated_order).data
+            })
+
+        return Response({
+            "status": "error",
+            "message": "Validation failed",
+            "errors": serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    elif request.method == 'DELETE':
+        order.delete()
+        return Response({
+            "status": "success",
+            "message": "Order deleted successfully"
+        }, status=status.HTTP_204_NO_CONTENT)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def order_status_options(request):
+    """
+    Get all available order status options
+    """
+    status_options = [{"value": choice[0], "label": choice[1]} for choice in Order.ORDER_STATUS_CHOICES]
+    payment_methods = [{"value": choice[0], "label": choice[1]} for choice in Order.PAYMENT_METHOD_CHOICES]
+
+    return Response({
+        "status": "success",
+        "data": {
+            "order_statuses": status_options,
+            "payment_methods": payment_methods
+        }
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def update_order_status(request, pk):
+    """
+    Update only the status of an order
+    """
+    try:
+        order = Order.objects.get(pk=pk)
+    except Order.DoesNotExist:
+        return Response({
+            "status": "error",
+            "message": "Order not found"
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    new_status = request.data.get('status')
+    if not new_status:
+        return Response({
+            "status": "error",
+            "message": "Status is required"
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    # Validate status
+    valid_statuses = [choice[0] for choice in Order.ORDER_STATUS_CHOICES]
+    if new_status not in valid_statuses:
+        return Response({
+            "status": "error",
+            "message": f"Invalid status. Must be one of: {', '.join(valid_statuses)}"
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    order.status = new_status
+    order.save()
+
+    return Response({
+        "status": "success",
+        "message": f"Order status updated to {new_status}",
+        "data": OrderListSerializer(order).data
+    })

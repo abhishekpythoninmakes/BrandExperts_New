@@ -241,6 +241,13 @@ PAYMENT_METHOD_CHOICES = [
 
 
 class Order(models.Model):
+    ORDER_STATUS_CHOICES = [
+        ('ordered', 'Ordered'),
+        ('shipped', 'Shipped'),
+        ('arrived', 'Arrived'),
+        ('delivered', 'Delivered'),
+        ('cancelled', 'Cancelled'),
+    ]
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name="orders")
     address = models.ForeignKey(Customer_Address, on_delete=models.CASCADE, related_name="orders")
     cart = models.ForeignKey(Cart, on_delete=models.SET_NULL, null=True, blank=True, related_name="orders")
